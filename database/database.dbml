@@ -1,0 +1,369 @@
+Table utilisateur {
+  id_utilisateur integer [pk, increment]
+  id_service integer
+  id_poste integer
+  nom varchar
+  prenom varchar
+  email varchar
+  telephone varchar
+  mot_de_passe varchar
+  actif boolean
+  date_creation datetime
+  date_desactivation datetime
+  date_derniere_connexion datetime
+}
+
+Table token_auth {
+  id_token integer [pk, increment]
+  id_utilisateur integer
+  id_type_token integer
+  token varchar [unique]
+  date_creation datetime
+  date_expiration datetime
+  date_utilisation datetime
+}
+
+Table type_token {
+  id_type_token integer [pk, increment]
+  code varchar [unique]
+  libelle varchar
+  description text
+}
+
+Table service {
+  id_service integer [pk, increment]
+  id_departement integer
+  nom varchar
+  description text
+  actif boolean
+  date_creation datetime
+  date_desactivation datetime
+}
+
+Table departement {
+  id_departement integer [pk, increment]
+  nom varchar
+  description text
+}
+
+Table statut {
+  id_statut integer [pk, increment]
+  libelle varchar
+  code varchar
+  ordre integer
+  description text
+  actif boolean
+  date_desactivation datetime
+  date_creation datetime
+}
+
+Table poste {
+  id_poste integer [pk, increment]
+  libelle varchar
+  type_contrat varchar
+  categorie varchar
+  effectif_prevu integer
+  effectif_reel integer
+  actif boolean
+  date_creation datetime
+  date_desactivation datetime
+}
+
+Table permission {
+  id_permission integer [pk, increment]
+  code varchar
+  nom varchar
+  description text
+  ressource varchar
+  action varchar
+  actif boolean
+  date_desactivation datetime
+}
+
+Table poste_permission {
+  id_poste integer
+  id_permission integer
+
+  indexes {
+    (id_poste, id_permission) [pk]
+  }
+}
+
+Table activite {
+  id_activite integer [pk, increment]
+  id_service integer
+  id_type_activite integer
+  id_priorite integer
+  id_site integer
+  id_operation_pta integer
+  id_procedure integer
+  code varchar
+  libelle varchar
+  date_debut_prevue datetime
+  date_fin_prevue datetime
+  date_debut_reelle datetime
+  date_fin_reelle datetime
+  date_creation datetime
+}
+
+Table priorite {
+  id_priorite integer [pk, increment]
+  code varchar
+  libelle varchar
+  description text
+  actif boolean
+  date_desactivation datetime
+  date_creation datetime
+}
+
+Table type_activite {
+  id_type_activite integer [pk, increment]
+  libelle varchar
+  actif boolean
+  date_desactivation datetime
+  date_creation datetime
+}
+
+Table role {
+  id_role integer [pk, increment]
+  code varchar(50) [unique]
+  libelle varchar(100)
+  description text
+  actif boolean
+  date_creation datetime
+  date_desactivation datetime
+}
+
+Table operation_pta {
+  id_operation_pta integer [pk, increment]
+  code varchar
+  libelle varchar
+  description text
+  annee integer
+  date_creation datetime
+}
+
+Table site {
+  id_site integer [pk, increment]
+  code varchar
+  nom varchar
+  latitude decimal
+  longitude decimal
+  actif boolean
+  date_desactivation datetime
+  date_creation datetime
+}
+
+Table ressource {
+  id_ressource integer [pk, increment]
+  id_activite integer
+  designation varchar
+  type_ressource varchar
+  quantite integer
+  cout decimal
+}
+
+Table indicateur {
+  id_indicateur integer [pk, increment]
+  type_indicateur varchar
+  details text
+  libelle varchar
+  code_hopex varchar
+  indicateur_hopex varchar
+  objectifs text
+  methode_determination text
+  frequence_verification varchar
+  frequence_aggregation varchar
+  seuil_min decimal
+  seuil_max decimal
+  unite varchar
+  commentaire text
+  date_creation datetime
+}
+
+Table valeur_indicateur {
+  id_valeur_indicateur integer [pk, increment]
+  id_indicateur integer
+  periode_debut datetime
+  periode_fin datetime
+  valeur decimal
+  commentaire text
+  date_saisie datetime
+}
+
+Table activite_utilisateur {
+  id_activite_utilisateur integer [pk, increment]
+  id_activite integer
+  id_utilisateur integer
+  id_role integer
+  date_affectation datetime
+  date_desaffectation datetime
+}
+
+Table historique_activite {
+  id_historique_activite integer [pk, increment]
+  id_activite integer
+  id_statut integer
+  id_utilisateur integer
+  date_debut datetime
+  date_fin datetime
+  commentaire text
+}
+
+Table procedure {
+  id_procedure integer [pk, increment]
+  code varchar [unique]
+  libelle varchar
+  description text
+  actif boolean
+  date_creation datetime
+  date_desactivation datetime
+}
+
+Table etape_validation {
+  id_etape_validation integer [pk, increment]
+  id_procedure integer
+  libelle varchar
+  description text
+  niveau integer
+  id_poste integer
+  obligatoire boolean
+  actif boolean
+  date_creation datetime
+  date_desactivation datetime
+}
+
+Table decision_validation {
+  id_decision integer [pk, increment]
+  code varchar
+  libelle varchar
+  description text
+  actif boolean
+  date_creation datetime
+  date_desactivation datetime
+}
+
+Table validation_activite {
+  id_validation integer [pk, increment]
+  id_activite integer
+  id_etape_validation integer
+  id_utilisateur_demandeur integer
+  id_utilisateur_validateur integer
+  id_decision integer
+  date_demande datetime
+  date_decision datetime
+  commentaire text
+}
+
+Table notification {
+  id_notification integer [pk, increment]
+  id_utilisateur integer
+  id_priorite integer
+  titre varchar
+  message text
+  lu boolean
+  date_creation datetime
+  date_lecture datetime
+}
+
+Table plan_action {
+  id_plan_action bigint [pk, increment]
+  code varchar(50) [unique, not null]
+  intitule varchar(255) [not null]
+  commentaire text
+  date_creation timestamp [not null]
+}
+
+Table origine {
+  id_origine bigint [pk, increment]
+  code varchar(50) [unique, not null]
+  type varchar(30) [not null]
+  reference varchar(50) [not null]
+  intitule varchar(255) [not null]
+  description text
+}
+
+Table plan_action_origine {
+  id_plan_action bigint [not null]
+  id_origine bigint [not null]
+  est_principale boolean [not null, default: false]
+
+  indexes {
+    (id_plan_action, id_origine) [pk]
+  }
+}
+
+Table plan_action_utilisateur {
+  id_plan_action bigint [not null]
+  id_utilisateur bigint [not null]
+  id_role integer [not null]
+
+  indexes {
+    (id_plan_action, id_utilisateur, id_role) [pk]
+  }
+}
+
+// =========================
+// RELATIONS
+// =========================
+
+// Utilisateur
+Ref: utilisateur.id_service > service.id_service
+Ref: utilisateur.id_poste > poste.id_poste
+
+// Token Auth
+Ref: token_auth.id_utilisateur > utilisateur.id_utilisateur
+Ref: token_auth.id_type_token > type_token.id_type_token
+
+// Service
+Ref: service.id_departement > departement.id_departement
+
+// Activité
+Ref: activite.id_service > service.id_service
+Ref: activite.id_type_activite > type_activite.id_type_activite
+Ref: activite.id_priorite > priorite.id_priorite
+Ref: activite.id_site > site.id_site
+Ref: activite.id_operation_pta > operation_pta.id_operation_pta
+Ref: activite_utilisateur.id_activite > activite.id_activite
+Ref: activite.id_procedure > procedure.id_procedure
+
+Ref: activite_utilisateur.id_utilisateur > utilisateur.id_utilisateur
+
+Ref: activite_utilisateur.id_role > role.id_role
+
+// Ressource
+Ref: ressource.id_activite > activite.id_activite
+
+// Valeur indicateur
+Ref: valeur_indicateur.id_indicateur > indicateur.id_indicateur
+
+// Permissions des postes
+Ref: poste_permission.id_poste > poste.id_poste
+Ref: poste_permission.id_permission > permission.id_permission
+
+// Historique activité
+Ref: historique_activite.id_activite > activite.id_activite
+Ref: historique_activite.id_statut > statut.id_statut
+Ref: historique_activite.id_utilisateur > utilisateur.id_utilisateur
+
+// Étapes de validation
+Ref: etape_validation.id_poste > poste.id_poste
+Ref: etape_validation.id_procedure > procedure.id_procedure
+
+// Validation activité
+Ref: validation_activite.id_activite > activite.id_activite
+Ref: validation_activite.id_etape_validation > etape_validation.id_etape_validation
+Ref: validation_activite.id_utilisateur_demandeur > utilisateur.id_utilisateur
+Ref: validation_activite.id_utilisateur_validateur > utilisateur.id_utilisateur
+Ref: validation_activite.id_decision > decision_validation.id_decision
+
+// Notification
+Ref: notification.id_utilisateur > utilisateur.id_utilisateur
+Ref: notification.id_priorite > priorite.id_priorite
+
+// Plan d'action
+Ref: plan_action_origine.id_plan_action > plan_action.id_plan_action
+Ref: plan_action_origine.id_origine > origine.id_origine
+Ref: plan_action_utilisateur.id_plan_action > plan_action.id_plan_action
+Ref: plan_action_utilisateur.id_utilisateur > utilisateur.id_utilisateur
+Ref: plan_action_utilisateur.id_role > role.id_role

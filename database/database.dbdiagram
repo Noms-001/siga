@@ -1,0 +1,797 @@
+{
+  "version": "3.0.0",
+  "darkMode": true,
+  "gridEnabling": false,
+  "currentViewName": null,
+  "defaultView": {
+    "detailLevel": "All",
+    "relationshipMode": "All",
+    "tablePositions": [
+      {
+        "name": "utilisateur",
+        "schemaName": "public",
+        "x": 1849.3830599630883,
+        "y": 618.1196577776652
+      },
+      {
+        "name": "service",
+        "schemaName": "public",
+        "x": 2191.4626186354285,
+        "y": 758.9651009407057
+      },
+      {
+        "name": "departement",
+        "schemaName": "public",
+        "x": 2227.7999399635896,
+        "y": 508.8905840950737
+      },
+      {
+        "name": "statut",
+        "schemaName": "public",
+        "x": 1479.6420503344186,
+        "y": 939.1296368805095
+      },
+      {
+        "name": "poste",
+        "schemaName": "public",
+        "x": 1447.8297264066325,
+        "y": 1500.5101470735742
+      },
+      {
+        "name": "permission",
+        "schemaName": "public",
+        "x": -362.22785061102127,
+        "y": 1382.5638234303444
+      },
+      {
+        "name": "activite",
+        "schemaName": "public",
+        "x": 339.53815068015433,
+        "y": 730.9221393933062
+      },
+      {
+        "name": "priorite",
+        "schemaName": "public",
+        "x": 735.8900136586074,
+        "y": 896.1692354288548
+      },
+      {
+        "name": "type_activite",
+        "schemaName": "public",
+        "x": 820.2128517680519,
+        "y": 444.8905840950737
+      },
+      {
+        "name": "operation_pta",
+        "schemaName": "public",
+        "x": 683.0818869402624,
+        "y": 1213.935138008731
+      },
+      {
+        "name": "site",
+        "schemaName": "public",
+        "x": 1.9026681824665275,
+        "y": 1130.058973439048
+      },
+      {
+        "name": "ressource",
+        "schemaName": "public",
+        "x": 313.66542890829476,
+        "y": 428.8905840950737
+      },
+      {
+        "name": "indicateur",
+        "schemaName": "public",
+        "x": -146.70677074326613,
+        "y": 428.8905840950737
+      },
+      {
+        "name": "valeur_indicateur",
+        "schemaName": "public",
+        "x": -483.927123786838,
+        "y": 646.6787329200304
+      },
+      {
+        "name": "poste_permission",
+        "schemaName": "public",
+        "x": 7.2263986512165275,
+        "y": 1476.229552798289
+      },
+      {
+        "name": "role_activite",
+        "schemaName": "public",
+        "x": 1109.792328525868,
+        "y": 309.37699406735095
+      },
+      {
+        "name": "activite_utilisateur",
+        "schemaName": "public",
+        "x": 713.3175148916623,
+        "y": 148.6902221749848
+      },
+      {
+        "name": "historique_activite",
+        "schemaName": "public",
+        "x": 1102.704524683797,
+        "y": 685.8606779973443
+      },
+      {
+        "name": "etape_validation",
+        "schemaName": "public",
+        "x": 409.63921457439926,
+        "y": 1599.3767961332803
+      },
+      {
+        "name": "decision_validation",
+        "schemaName": "public",
+        "x": -537.1697965543092,
+        "y": 1803.8658340407947
+      },
+      {
+        "name": "validation_activite",
+        "schemaName": "public",
+        "x": -137.84975079827643,
+        "y": 1817.0677095536275
+      },
+      {
+        "name": "token_auth",
+        "schemaName": "public",
+        "x": 1935.6854542465412,
+        "y": 154.9526463104801
+      },
+      {
+        "name": "type_token",
+        "schemaName": "public",
+        "x": 1557.0819483166222,
+        "y": 148.6902221749848
+      },
+      {
+        "name": "procedure",
+        "schemaName": "public",
+        "x": -537.1697965543092,
+        "y": 2187.0677095536275
+      },
+      {
+        "name": "notification",
+        "schemaName": "public",
+        "x": -537.1697965543092,
+        "y": 2493.0677095536275
+      },
+      {
+        "name": "plan_action",
+        "schemaName": "public",
+        "x": 1536.1301412354767,
+        "y": 1970.6075487113485
+      },
+      {
+        "name": "origine",
+        "schemaName": "public",
+        "x": 1893.2409810792267,
+        "y": 1970.6075487113485
+      },
+      {
+        "name": "plan_action_origine",
+        "schemaName": "public",
+        "x": 2175.531996704227,
+        "y": 1970.6075487113485
+      },
+      {
+        "name": "plan_action_utilisateur",
+        "schemaName": "public",
+        "x": 961.6516307863578,
+        "y": 2173.293481809482
+      },
+      {
+        "name": "role",
+        "schemaName": "public",
+        "x": -537.1697965543092,
+        "y": 2831.0677095536275
+      }
+    ],
+    "tableGroupCollapseStates": [],
+    "stickyNoteLayouts": [],
+    "referencePaths": [
+      {
+        "firstFieldNames": [
+          "id_service"
+        ],
+        "firstTableName": "utilisateur",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_service"
+        ],
+        "secondTableName": "service",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_poste"
+        ],
+        "firstTableName": "utilisateur",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_poste"
+        ],
+        "secondTableName": "poste",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_departement"
+        ],
+        "firstTableName": "service",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_departement"
+        ],
+        "secondTableName": "departement",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_type_activite"
+        ],
+        "firstTableName": "activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_type_activite"
+        ],
+        "secondTableName": "type_activite",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_statut"
+        ],
+        "firstTableName": "activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_statut"
+        ],
+        "secondTableName": "statut",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_priorite"
+        ],
+        "firstTableName": "activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_priorite"
+        ],
+        "secondTableName": "priorite",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_site"
+        ],
+        "firstTableName": "activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_site"
+        ],
+        "secondTableName": "site",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_operation_pta"
+        ],
+        "firstTableName": "activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_operation_pta"
+        ],
+        "secondTableName": "operation_pta",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_utilisateur_responsable"
+        ],
+        "firstTableName": "activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_utilisateur"
+        ],
+        "secondTableName": "utilisateur",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_activite"
+        ],
+        "firstTableName": "ressource",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_activite"
+        ],
+        "secondTableName": "activite",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_activite"
+        ],
+        "firstTableName": "indicateur",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_activite"
+        ],
+        "secondTableName": "activite",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_indicateur"
+        ],
+        "firstTableName": "valeur_indicateur",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_indicateur"
+        ],
+        "secondTableName": "indicateur",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_poste"
+        ],
+        "firstTableName": "poste_permission",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_poste"
+        ],
+        "secondTableName": "poste",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_permission"
+        ],
+        "firstTableName": "poste_permission",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_permission"
+        ],
+        "secondTableName": "permission",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_activite"
+        ],
+        "firstTableName": "activite_utilisateur",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_activite"
+        ],
+        "secondTableName": "activite",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_utilisateur"
+        ],
+        "firstTableName": "activite_utilisateur",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_utilisateur"
+        ],
+        "secondTableName": "utilisateur",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_role_activite"
+        ],
+        "firstTableName": "activite_utilisateur",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_role_activite"
+        ],
+        "secondTableName": "role_activite",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_activite"
+        ],
+        "firstTableName": "historique_activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_activite"
+        ],
+        "secondTableName": "activite",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_statut"
+        ],
+        "firstTableName": "historique_activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_statut"
+        ],
+        "secondTableName": "statut",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_utilisateur"
+        ],
+        "firstTableName": "historique_activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_utilisateur"
+        ],
+        "secondTableName": "utilisateur",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_poste"
+        ],
+        "firstTableName": "etape_validation",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_poste"
+        ],
+        "secondTableName": "poste",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_activite"
+        ],
+        "firstTableName": "validation_activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_activite"
+        ],
+        "secondTableName": "activite",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_etape_validation"
+        ],
+        "firstTableName": "validation_activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_etape_validation"
+        ],
+        "secondTableName": "etape_validation",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_utilisateur_demandeur"
+        ],
+        "firstTableName": "validation_activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_utilisateur"
+        ],
+        "secondTableName": "utilisateur",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_utilisateur_validateur"
+        ],
+        "firstTableName": "validation_activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_utilisateur"
+        ],
+        "secondTableName": "utilisateur",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_decision"
+        ],
+        "firstTableName": "validation_activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_decision"
+        ],
+        "secondTableName": "decision_validation",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_utilisateur"
+        ],
+        "firstTableName": "token_auth",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_utilisateur"
+        ],
+        "secondTableName": "utilisateur",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_type_token"
+        ],
+        "firstTableName": "token_auth",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_type_token"
+        ],
+        "secondTableName": "type_token",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_service"
+        ],
+        "firstTableName": "activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_service"
+        ],
+        "secondTableName": "service",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_procedure"
+        ],
+        "firstTableName": "activite",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_procedure"
+        ],
+        "secondTableName": "procedure",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_procedure"
+        ],
+        "firstTableName": "etape_validation",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_procedure"
+        ],
+        "secondTableName": "procedure",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_utilisateur"
+        ],
+        "firstTableName": "notification",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_utilisateur"
+        ],
+        "secondTableName": "utilisateur",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_priorite"
+        ],
+        "firstTableName": "notification",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_priorite"
+        ],
+        "secondTableName": "priorite",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_plan_action"
+        ],
+        "firstTableName": "plan_action_origine",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_plan_action"
+        ],
+        "secondTableName": "plan_action",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_origine"
+        ],
+        "firstTableName": "plan_action_origine",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_origine"
+        ],
+        "secondTableName": "origine",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_utilisateur_responsable"
+        ],
+        "firstTableName": "plan_action",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_utilisateur"
+        ],
+        "secondTableName": "utilisateur",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_plan_action"
+        ],
+        "firstTableName": "plan_action_utilisateur",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_plan_action"
+        ],
+        "secondTableName": "plan_action",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_utilisateur"
+        ],
+        "firstTableName": "plan_action_utilisateur",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_utilisateur"
+        ],
+        "secondTableName": "utilisateur",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_role"
+        ],
+        "firstTableName": "activite_utilisateur",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_role"
+        ],
+        "secondTableName": "role",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      },
+      {
+        "firstFieldNames": [
+          "id_role"
+        ],
+        "firstTableName": "plan_action_utilisateur",
+        "firstSchemaName": "public",
+        "firstRelation": "*",
+        "secondFieldNames": [
+          "id_role"
+        ],
+        "secondTableName": "role",
+        "secondSchemaName": "public",
+        "secondRelation": "1",
+        "checkPoints": []
+      }
+    ]
+  },
+  "views": {}
+}
