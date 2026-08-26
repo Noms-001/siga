@@ -18,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.LoginRequest;
 import mg.bank.backend.dto.LoginResponse;
+import mg.bank.backend.dto.ProfileResponse;
+import mg.bank.backend.model.Utilisateur;
 import mg.bank.backend.service.AuthService;
 
 @RestController
@@ -57,11 +59,6 @@ public class AuthController {
                         LoginResponse.from(result.utilisateur())));
     }
 
-    @GetMapping("/protected-test")
-    public String protectedTest() {
-        return "Utilisateur authentifié";
-    }
-
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             HttpServletRequest request
@@ -72,6 +69,21 @@ public class AuthController {
 
         return ResponseEntity.ok(
                 ApiResponse.success(null)
+        );
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<ProfileResponse>> me(
+            Authentication authentication
+    ) {
+        String email = authentication.getName();
+
+        Utilisateur utilisateur = authService.getUtilisateurByEmail(email);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        ProfileResponse.from(utilisateur)
+                )
         );
     }
 }

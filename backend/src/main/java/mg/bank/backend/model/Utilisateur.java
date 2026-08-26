@@ -31,8 +31,8 @@ public class Utilisateur {
     @Column(name = "id_utilisateur")
     private Integer idUtilisateur;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_service", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_service")
     private Service service;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
