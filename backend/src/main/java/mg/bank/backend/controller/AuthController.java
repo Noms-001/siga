@@ -10,11 +10,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import mg.bank.backend.dto.ActivationRequest;
 import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.LoginRequest;
 import mg.bank.backend.dto.LoginResponse;
@@ -84,6 +87,32 @@ public class AuthController {
                 ApiResponse.success(
                         ProfileResponse.from(utilisateur)
                 )
+        );
+    }
+
+    @GetMapping("/activation/verify")
+    public ResponseEntity<ApiResponse<Void>> verifyActivationToken(
+            @RequestParam String token
+    ) {
+        authService.verifyActivationToken(token);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(null)
+        );
+    }
+
+    @PostMapping("/activation")
+    public ResponseEntity<ApiResponse<Void>> activate(
+            @Valid @RequestBody ActivationRequest request
+    ) {
+        authService.activateAccount(
+                request.getToken(),
+                request.getPassword(),
+                request.getConfirmPassword()
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(null)
         );
     }
 }

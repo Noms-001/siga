@@ -42,10 +42,13 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login").permitAll()
-                        .anyRequest().authenticated());
+                .requestMatchers(
+                    "/api/auth/login",
+                        "/api/auth/activation/verify",
+                        "/api/auth/activation").permitAll()
+                .anyRequest().authenticated());
 
         return http.build();
     }
