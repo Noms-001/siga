@@ -19,11 +19,15 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.ActivationRequest;
 import mg.bank.backend.dto.ApiResponse;
+import mg.bank.backend.dto.ForgotPasswordRequest;
 import mg.bank.backend.dto.LoginRequest;
 import mg.bank.backend.dto.LoginResponse;
 import mg.bank.backend.dto.ProfileResponse;
+import mg.bank.backend.dto.ResetPasswordRequest;
 import mg.bank.backend.model.Utilisateur;
 import mg.bank.backend.service.AuthService;
+import mg.bank.backend.service.TokenAuthService;
+import mg.bank.backend.service.UtilisateurService;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -31,6 +35,8 @@ import mg.bank.backend.service.AuthService;
 public class AuthController {
 
     private final AuthService authService;
+    private final UtilisateurService utilisateurService;
+    private final TokenAuthService tokenAuthService;
 
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
 
@@ -81,7 +87,7 @@ public class AuthController {
     ) {
         String email = authentication.getName();
 
-        Utilisateur utilisateur = authService.getUtilisateurByEmail(email);
+        Utilisateur utilisateur = utilisateurService.getUtilisateurByEmail(email);
 
         return ResponseEntity.ok(
                 ApiResponse.success(
@@ -94,7 +100,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Void>> verifyActivationToken(
             @RequestParam String token
     ) {
-        authService.verifyActivationToken(token);
+        tokenAuthService.verifyActivationToken(token);
 
         return ResponseEntity.ok(
                 ApiResponse.success(null)
@@ -106,6 +112,43 @@ public class AuthController {
             @Valid @RequestBody ActivationRequest request
     ) {
         authService.activateAccount(
+                request.getToken(),
+                request.getPassword(),
+                request.getConfirmPassword()
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(null)
+        );
+    }
+
+    @PostMapping("/password/forgot")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        authService.forgotPassword(request.getEmail());
+
+        return ResponseEntity.ok(
+                ApiResponse.success(null)
+        );
+    }
+
+    @GetMapping("/password/reset/verify")
+    public ResponseEntity<ApiResponse<Void>> verifyResetPasswordToken(
+            @RequestParam String token
+    ) {
+        tokenAuthService.verifyResetPasswordToken(token);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(null)
+        );
+    }
+
+    @PostMapping("/password/reset")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        authService.resetPassword(
                 request.getToken(),
                 request.getPassword(),
                 request.getConfirmPassword()

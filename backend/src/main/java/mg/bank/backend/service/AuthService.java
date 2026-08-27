@@ -10,27 +10,25 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import mg.bank.backend.enums.TypeTokenEnum;
 import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.model.TokenAuth;
 import mg.bank.backend.model.Utilisateur;
-import mg.bank.backend.repository.TokenAuthRepository;
-import mg.bank.backend.repository.UtilisateurRepository;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UtilisateurRepository utilisateurRepository;
-    private final TokenAuthRepository tokenAuthRepository;
+    private final UtilisateurService utilisateurService;
+    private final TokenAuthService tokenAuthService;
+    private final EmailService emailService;
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
-    private static final String INVALID_TOKEN_MESSAGE = "Token invalide ou expiré";
 
     public AuthResult authenticate(String email, String password) {
 
-        Utilisateur utilisateur = getUtilisateurByEmail(email);
+        Utilisateur utilisateur = utilisateurService.getUtilisateurByEmail(email);
 
         if (!Boolean.TRUE.equals(utilisateur.getActif())) {
             throw new ApiException(
@@ -52,18 +50,40 @@ public class AuthService {
         }
 
         utilisateur.setDateDerniereConnexion(LocalDateTime.now());
-        utilisateurRepository.save(utilisateur);
+        utilisateurService.updateUtilisateur(utilisateur);
 
         return new AuthResult(authentication, utilisateur);
     }
 
-    public Utilisateur getUtilisateurByEmail(String email) {
-        return utilisateurRepository.findByEmail(email)
-                .orElseThrow(() -> new ApiException(
-                "Email ou mot de passe incorrect",
-                HttpStatus.UNAUTHORIZED));
+    @Transactional
+    public Utilisateur resetPassword(
+            String token,
+            String password,
+            String confirmPassword
+    ) {
+
+        if (!password.equals(confirmPassword)) {
+            throw new ApiException(
+                    "Les mots de passe ne correspondent pas",
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
+        TokenAuth tokenAuth = tokenAuthService.verifyResetPasswordToken(token);
+
+        Utilisateur utilisateur = tokenAuth.getUtilisateur();
+
+        utilisateur.setMotDePasse(passwordEncoder.encode(password));
+
+        tokenAuth.setDateUtilisation(LocalDateTime.now());
+
+        utilisateurService.updateUtilisateur(utilisateur);
+        tokenAuthService.saveTokenAuth(tokenAuth);
+
+        return utilisateur;
     }
 
+    @Transactional
     public Utilisateur activateAccount(
             String token,
             String password,
@@ -77,7 +97,7 @@ public class AuthService {
             );
         }
 
-        TokenAuth tokenAuth = verifyActivationToken(token);
+        TokenAuth tokenAuth = tokenAuthService.verifyActivationToken(token);
 
         Utilisateur utilisateur = tokenAuth.getUtilisateur();
 
@@ -87,44 +107,31 @@ public class AuthService {
 
         tokenAuth.setDateUtilisation(LocalDateTime.now());
 
-        utilisateurRepository.save(utilisateur);
-        tokenAuthRepository.save(tokenAuth);
+        utilisateurService.updateUtilisateur(utilisateur);
+        tokenAuthService.saveTokenAuth(tokenAuth);
 
         return utilisateur;
     }
 
-    public TokenAuth verifyActivationToken(String token) {
+    public void forgotPassword(String email) {
 
-        return verificationTypeToken(
-                token,
-                TypeTokenEnum.ACTIVATION_COMPTE
-        );
-    }
+        Utilisateur utilisateur = utilisateurService.getUtilisateurByEmail(email);
 
-    private TokenAuth verificationTypeToken(
-            String token,
-            TypeTokenEnum type
-    ) {
-        TokenAuth tokenAuth = tokenAuthRepository.findByToken(token)
-                .orElseThrow(()
-                        -> new ApiException(
-                        INVALID_TOKEN_MESSAGE,
-                        HttpStatus.BAD_REQUEST
-                )
-                );
-
-        if (!type.getCode().equals(tokenAuth.getTypeToken().getCode())
-                || tokenAuth.getDateExpiration() == null
-                || tokenAuth.getDateExpiration().isBefore(LocalDateTime.now())
-                || tokenAuth.getDateUtilisation() != null) {
-
+        if (!Boolean.TRUE.equals(utilisateur.getActif())) {
             throw new ApiException(
-                    INVALID_TOKEN_MESSAGE,
-                    HttpStatus.BAD_REQUEST
+                    "Le compte n'est pas activé",
+                    HttpStatus.FORBIDDEN
             );
         }
 
-        return tokenAuth;
+        TokenAuth tokenAuth = tokenAuthService.createResetPasswordToken(utilisateur);
+
+        tokenAuthService.saveTokenAuth(tokenAuth);
+
+        emailService.sendResetPasswordEmail(
+                utilisateur,
+                tokenAuth
+        );
     }
 
     public record AuthResult(

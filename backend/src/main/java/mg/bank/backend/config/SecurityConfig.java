@@ -47,7 +47,10 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/auth/login",
                         "/api/auth/activation/verify",
-                        "/api/auth/activation").permitAll()
+                        "/api/auth/activation",
+                        "/api/auth/password/forgot",
+                        "/api/auth/password/reset/verify",
+                        "/api/auth/password/reset").permitAll()
                 .anyRequest().authenticated());
 
         return http.build();
