@@ -1,8 +1,13 @@
 <template>
     <nav class="top-nav">
         <div class="nav-left">
-            <button class="btn-hamburger d-lg-none" @click="toggleSidebar" type="button">
+            <button class="btn-hamburger btn-icon d-lg-none" @click="toggleSidebar" type="button"
+                aria-label="Ouvrir le menu">
                 <i class="bi bi-list"></i>
+            </button>
+            <button class="btn-hamburger btn-icon d-none d-lg-inline-flex" @click="toggleSidebar" type="button"
+                aria-label="Réduire le menu latéral">
+                <i class="bi bi-layout-sidebar-inset"></i>
             </button>
             <div class="logo-icon" @click="toggleSidebar">
                 <i class="bi bi-shield-shaded"></i> DTS
@@ -18,10 +23,6 @@
         </div>
 
         <div class="nav-right">
-            <div class="search-bar">
-                <i class="bi bi-search"></i>
-                <input type="text" placeholder="Rechercher..." v-model="searchQuery" @keyup.enter="handleSearch">
-            </div>
 
             <!-- Notifications -->
             <div class="notif-wrapper">
@@ -76,6 +77,11 @@
                     <div class="user-avatar">
                         {{ userInitials }}
                     </div>
+                    <div class="user-meta d-none d-sm-flex">
+                        <strong>{{ userFullName }}</strong>
+                        <small>{{ userRole }}</small>
+                    </div>
+                    <i class="bi bi-chevron-down user-caret"></i>
                 </button>
 
                 <div v-if="isUserMenuOpen" class="user-menu-dropdown">
@@ -154,7 +160,13 @@ const notifDropdownRef = ref<HTMLDivElement | null>(null)
 const userMenuRef = ref<HTMLDivElement | null>(null)
 
 const userRole = computed(() => {
-    return authStore.user?.poste ?? 'Utilisateur'
+    return authStore.posteLibelle ?? 'Utilisateur'
+})
+
+const userFullName = computed(() => {
+    const nom = authStore.user?.nom ?? 'Utilisateur'
+    const prenom = authStore.user?.prenom ?? ''
+    return prenom ? `${prenom} ${nom}` : nom
 })
 
 const userInitials = computed(() => {
@@ -224,10 +236,6 @@ const toggleUserMenu = () => {
     if (isNotifOpen.value) isNotifOpen.value = false
 }
 
-const goToDashboard = () => {
-    router.push('/dashboard')
-}
-
 const handleSearch = () => {
     if (searchQuery.value.trim()) {
         console.log('Recherche:', searchQuery.value)
@@ -281,7 +289,7 @@ onUnmounted(() => {
 
 <style scoped>
 /* ============================================
-   NAVBAR - Styles spécifiques au composant
+   FRONTOFFICE NAVBAR — Design DTS-TSS
    ============================================ */
 
 .top-nav {
@@ -289,160 +297,141 @@ onUnmounted(() => {
     top: 0;
     left: 0;
     right: 0;
-    height: 64px;
-    background-color: var(--primary-color);
-    color: white;
-    padding: 0 24px;
+    height: var(--dts-navbar-h);
+    z-index: 1050;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    z-index: 2000;
-    flex-shrink: 0;
+    gap: 1rem;
+    padding: 0 1rem 0 0.85rem;
+    background: var(--dts-surface);
+    border-bottom: 1px solid var(--dts-border);
+    box-shadow: var(--dts-shadow-xs);
+    color: var(--dts-text);
 }
 
-.nav-left {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
+.nav-left,
 .nav-right {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 0.35rem;
 }
 
-.nav-separator {
-    margin: 0 10px;
-    color: rgba(255, 255, 255, 0.4);
+.nav-left {
+    min-width: 0;
 }
 
-.btn-hamburger {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 1.2rem;
-    padding: 0 4px;
+/* --- Boutons icônes --- */
+.btn-hamburger,
+.notif-btn {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: var(--dts-radius-sm);
+    background: transparent;
+    color: var(--dts-text-2);
+    font-size: 1.02rem;
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.btn-hamburger:hover {
-    opacity: 0.8;
+.btn-hamburger:hover,
+.notif-btn:hover {
+    background: var(--dts-blue-50);
+    color: var(--dts-blue);
+    border-color: var(--dts-border);
 }
 
+.btn-hamburger:focus-visible,
+.notif-btn:focus-visible {
+    outline: 2px solid var(--dts-blue);
+    outline-offset: 1px;
+}
+
+/* --- Marque --- */
 .logo-icon {
-    font-size: 1.2rem;
-    font-weight: bold;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.45rem;
+    height: 34px;
+    margin-left: 0.3rem;
+    padding: 0 0.75rem 0 0.55rem;
+    border-radius: 9px;
+    background: linear-gradient(145deg, var(--dts-navy) 0%, var(--dts-blue) 115%);
+    color: #fff;
+    font-size: 0.92rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    box-shadow: 0 2px 6px rgba(13, 43, 78, 0.28);
     cursor: pointer;
-    transition: opacity 0.2s;
+    user-select: none;
+    white-space: nowrap;
 }
 
-.logo-icon:hover {
-    opacity: 0.8;
+.logo-icon i {
+    font-size: 1.05rem;
 }
 
 .nav-title {
-    font-size: 0.95rem;
-    border-left: 1px solid rgba(255, 255, 255, 0.3);
-    padding-left: 16px;
+    font-size: 0.815rem;
+    color: var(--dts-text-2);
     font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.search-bar {
-    background-color: rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
-    padding: 6px 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.nav-separator {
+    color: var(--dts-border-2);
+    margin: 0 0.2rem;
 }
 
-.search-bar input {
-    background: transparent;
-    border: none;
-    color: white;
-    outline: none;
-    width: 140px;
-}
-
-.search-bar input::placeholder {
-    color: rgba(255, 255, 255, 0.7);
-}
-
-.user-avatar {
-    width: 32px;
-    height: 32px;
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: bold;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-}
-
-/* --- Notifications --- */
-.notif-wrapper {
-    position: relative;
-}
-
-.notif-btn {
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 1.2rem;
-    cursor: pointer;
-    position: relative;
-    padding: 6px 8px;
-    border-radius: 8px;
-    transition: background 0.2s, color 0.2s;
-}
-
-.notif-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #fff;
-}
-
+/* --- Pastille notifications --- */
 .badge-notif-navbar {
     position: absolute;
-    top: -4px;
-    right: -4px;
-    background: #dc2626;
+    top: 2px;
+    right: 1px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 20px;
+    background: var(--dts-danger);
     color: #fff;
-    font-size: 0.6rem;
+    font-size: 0.63rem;
     font-weight: 700;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid var(--primary-color);
-    line-height: 1;
+    line-height: 16px;
+    text-align: center;
+    border: 2px solid var(--dts-surface);
+    box-sizing: content-box;
+}
+
+/* --- Menu notifications --- */
+.notif-wrapper {
+    position: relative;
 }
 
 .notif-dropdown {
     position: absolute;
     right: 0;
     top: calc(100% + 12px);
-    width: 380px;
+    width: 340px;
     max-width: 90vw;
-    background: var(--card-bg);
-    border-radius: 12px;
-    box-shadow: var(--shadow-md);
+    background: var(--dts-surface);
+    border: 1px solid var(--dts-border);
+    border-radius: var(--dts-radius);
+    box-shadow: var(--dts-shadow-md);
+    overflow: hidden;
+    z-index: 1060;
     opacity: 0;
     visibility: hidden;
     transform: translateY(-8px) scale(0.97);
-    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
     transform-origin: top right;
-    overflow: hidden;
-    z-index: 1060;
+    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
 }
 
 .notif-dropdown.open {
@@ -452,118 +441,116 @@ onUnmounted(() => {
 }
 
 .notif-dropdown-header {
-    padding: 1rem 1.2rem 0.6rem 1.2rem;
-    border-bottom: 1px solid var(--border-color);
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid var(--dts-border);
+    font-size: 0.82rem;
 }
 
 .notif-dropdown-header h4 {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--text-color);
     margin: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--dts-text);
 }
 
 .notif-dropdown-header span {
-    font-size: 0.8rem;
-    color: var(--text-muted-custom);
-    background: var(--bg-color);
-    padding: 0.2rem 0.7rem;
+    font-size: 0.74rem;
+    color: var(--dts-blue-600);
+    background: var(--dts-blue-100);
+    border: 1px solid #cfe0ee;
+    padding: 0.12rem 0.5rem;
     border-radius: 20px;
+    font-weight: 600;
 }
 
 .notif-list {
     max-height: 380px;
     overflow-y: auto;
-    padding: 0.4rem 0;
 }
 
 .notif-list::-webkit-scrollbar {
-    width: 4px;
+    width: 9px;
 }
 
 .notif-list::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
+    background: #c9d4e0;
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background-clip: content-box;
 }
 
 .notif-item {
     display: flex;
-    gap: 0.9rem;
-    padding: 0.8rem 1.2rem;
-    border-left: 4px solid transparent;
-    transition: background 0.2s;
+    gap: 0.7rem;
     align-items: flex-start;
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid #f1f4f8;
+    transition: background-color 0.15s ease;
 }
 
 .notif-item:hover {
-    background: #f8fafc;
+    background: var(--dts-blue-50);
 }
 
 .notif-item.critique {
-    border-left-color: #dc2626;
-    background: #fef2f2;
+    background: #fdecea;
 }
 
-.notif-item.critique:hover {
-    background: #fde8e8;
-}
-
-.notif-item .notif-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    font-size: 0.9rem;
-    background: var(--bg-color);
-    color: var(--text-muted-custom);
+.notif-icon {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    font-size: 0.85rem;
+    background: var(--dts-blue-100);
+    color: var(--dts-blue);
 }
 
 .notif-item.critique .notif-icon {
-    background: #fecaca;
-    color: #dc2626;
+    background: #fdecea;
+    color: var(--dts-danger);
 }
 
-.notif-item .notif-content {
+.notif-content {
     flex: 1;
     min-width: 0;
 }
 
-.notif-item .notif-title {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--text-color);
+.notif-title {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.35rem;
     flex-wrap: wrap;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--dts-text);
 }
 
-.notif-item .notif-desc {
-    font-size: 0.82rem;
-    color: var(--text-muted-custom);
+.notif-desc {
+    font-size: 0.72rem;
+    color: var(--dts-muted);
     margin-top: 0.1rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.notif-item .notif-meta {
+.notif-meta {
     display: flex;
     align-items: center;
     gap: 0.8rem;
-    margin-top: 0.3rem;
+    margin-top: 0.25rem;
     flex-wrap: wrap;
 }
 
-.notif-item .notif-time {
+.notif-time {
     font-size: 0.7rem;
-    color: #94a3b8;
+    color: var(--dts-muted);
 }
 
 .badge-urgence {
@@ -576,94 +563,131 @@ onUnmounted(() => {
 }
 
 .badge-urgence.critique {
-    background: #fecaca;
-    color: #b91c1c;
+    background: #fdecea;
+    color: #a61b16;
+    border: 1px solid #f6cfcc;
 }
 
 .badge-urgence.elevee {
-    background: #fed7aa;
-    color: #c2410c;
+    background: #fdf3e2;
+    color: #9a6409;
+    border: 1px solid #f4e2c2;
 }
 
 .badge-urgence.moyenne {
-    background: #bfdbfe;
-    color: #1e40af;
+    background: #e4f0fb;
+    color: #135d95;
+    border: 1px solid #cde2f6;
 }
 
 .badge-urgence.faible {
-    background: #e2e8f0;
-    color: #475569;
+    background: #eef1f5;
+    color: #5b6b7d;
+    border: 1px solid #e0e6ec;
 }
 
 .notif-dropdown-footer {
-    padding: 0.7rem 1.2rem 1rem 1.2rem;
-    border-top: 1px solid var(--border-color);
+    padding: 0.5rem;
+    border-top: 1px solid var(--dts-border);
     text-align: center;
 }
 
 .notif-dropdown-footer a {
-    color: var(--primary-color);
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 0.9rem;
-    transition: color 0.2s;
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
+    width: 100%;
+    justify-content: center;
+    padding: 0.35rem;
+    border: 1px solid var(--dts-border-2);
+    border-radius: var(--dts-radius-sm);
+    background: var(--dts-surface);
+    color: var(--dts-text-2);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .notif-dropdown-footer a:hover {
-    color: var(--secondary-color);
-    text-decoration: underline;
+    background: var(--dts-blue-50);
+    color: var(--dts-blue);
+    border-color: #bdd3e6;
 }
 
-/* ============================================
-   USER MENU
-   ============================================ */
-
+/* --- Bouton utilisateur --- */
 .user-menu {
     position: relative;
 }
 
 .user-menu-toggle {
-    border: none;
-    background: transparent;
-    padding: 0;
-    margin: 0;
-    cursor: pointer;
     display: flex;
     align-items: center;
+    gap: 0.55rem;
+    padding: 0.3rem 0.5rem 0.3rem 0.3rem;
+    border: 1px solid transparent;
+    border-radius: 30px;
+    background: transparent;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.user-menu-toggle:focus {
-    outline: none;
+.user-menu-toggle:hover {
+    background: var(--dts-blue-50);
+    border-color: var(--dts-border);
 }
 
-.user-menu-toggle:hover .user-avatar {
-    background-color: rgba(255, 255, 255, 0.3);
+.user-avatar {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(145deg, #26527f, var(--dts-navy-2));
+    color: #fff;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
 }
 
+.user-meta {
+    flex-direction: column;
+    line-height: 1.16;
+    text-align: left;
+}
+
+.user-meta strong {
+    font-size: 0.805rem;
+    color: var(--dts-text);
+}
+
+.user-meta small {
+    font-size: 0.69rem;
+    color: var(--dts-muted);
+}
+
+.user-caret {
+    font-size: 0.7rem;
+    color: var(--dts-muted);
+}
+
+/* --- Dropdown utilisateur --- */
 .user-menu-dropdown {
     position: absolute;
     right: 0;
     top: calc(100% + 10px);
-
-    width: 230px;
-
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-
-    padding: 0.5rem 0;
-
-    box-shadow: var(--shadow-md);
-
+    width: 240px;
+    background: var(--dts-surface);
+    border: 1px solid var(--dts-border);
+    border-radius: var(--dts-radius);
+    padding: 0.3rem;
+    box-shadow: var(--dts-shadow-md);
     z-index: 3000;
-
-    animation: userMenuAppear 0.15s ease;
+    animation: dtsFoUserAppear 0.15s ease;
 }
 
-@keyframes userMenuAppear {
+@keyframes dtsFoUserAppear {
     from {
         opacity: 0;
         transform: translateY(-5px);
@@ -676,112 +700,95 @@ onUnmounted(() => {
 }
 
 .user-menu-header {
-    padding: 0.6rem 1rem;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
+    padding: 0.6rem 0.65rem;
 }
 
 .user-menu-name {
-    color: var(--text-color);
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     font-weight: 600;
+    color: var(--dts-text);
 }
 
 .user-menu-firstname {
-    color: var(--text-color);
-    font-size: 0.85rem;
-    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--dts-muted);
 }
 
 .user-menu-role {
-    color: var(--text-muted-custom);
-    font-size: 0.75rem;
-    margin-top: 2px;
-}
-
-.user-menu-item {
-    width: 100%;
-
-    display: flex;
-    align-items: center;
-
-    gap: 0.75rem;
-
-    padding: 0.6rem 1rem;
-
-    background: transparent;
-    border: none;
-
-    color: var(--text-color);
-
-    text-decoration: none;
-
-    font-size: 0.875rem;
-
-    text-align: left;
-
-    cursor: pointer;
-
-    transition: background-color 0.15s ease;
-}
-
-.user-menu-item:hover {
-    background: var(--bg-color);
-}
-
-.user-menu-item i {
-    width: 1.2rem;
-    text-align: center;
-}
-
-.user-menu-item.logout {
-    color: #dc2626;
-}
-
-.user-menu-item.logout:hover {
-    background: #fef2f2;
+    font-size: 0.72rem;
+    color: var(--dts-blue-600);
+    background: var(--dts-blue-100);
+    border: 1px solid #cfe0ee;
+    align-self: flex-start;
+    padding: 0.08rem 0.45rem;
+    border-radius: 20px;
+    margin-top: 0.25rem;
 }
 
 .dropdown-divider {
     border: none;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--dts-border);
     margin: 0.25rem 0;
 }
 
-/* --- Responsive --- */
-@media (max-width: 991.98px) {
+.user-menu-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.45rem 0.6rem;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--dts-text);
+    font-size: 0.82rem;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.user-menu-item:hover {
+    background: var(--dts-blue-50);
+}
+
+.user-menu-item i {
+    width: 15px;
+    text-align: center;
+    color: var(--dts-muted);
+}
+
+.user-menu-item.logout {
+    color: var(--dts-danger);
+}
+
+.user-menu-item.logout i {
+    color: currentColor;
+}
+
+.user-menu-item.logout:hover {
+    background: #fdecea;
+}
+
+
+@media (max-width: 767.98px) {
     .nav-title {
-        display: none !important;
-    }
-
-    .search-bar input {
-        width: 100px;
-    }
-}
-
-@media (max-width: 700px) {
-    .notif-dropdown {
-        width: 340px;
-        right: -20px;
-    }
-}
-
-@media (max-width: 480px) {
-    .notif-dropdown {
-        width: calc(100vw - 2rem);
-        right: -1rem;
-        top: calc(100% + 8px);
+        font-size: 0.75rem;
     }
 }
 
 @media (max-width: 575.98px) {
     .top-nav {
-        padding: 0 12px;
+        padding: 0 0.65rem;
     }
 
-    .search-bar {
-        display: none;
+    .notif-dropdown {
+        width: min(340px, calc(100vw - 2rem));
+        right: -1rem;
+        top: calc(100% + 8px);
     }
 }
 </style>

@@ -9,16 +9,6 @@
                         Consultez et gérez vos informations personnelles
                     </p>
                 </div>
-                <div class="d-flex gap-2 flex-wrap">
-                    <BaseButton variant="secondary" @click="handleEditProfile">
-                        <i class="bi bi-pencil"></i>
-                        Modifier mes informations
-                    </BaseButton>
-                    <BaseButton variant="primary" @click="handleChangePassword">
-                        <i class="bi bi-key"></i>
-                        Modifier mon mot de passe
-                    </BaseButton>
-                </div>
             </div>
         </div>
 
@@ -40,7 +30,7 @@
                         </div>
                         <h2 class="avatar-name h5 mb-1">{{ userFullName }}</h2>
                         <p class="avatar-role text-muted mb-3">
-                            {{ user.poste || 'Poste non défini' }}
+                            {{ userPostes || 'Poste non défini' }}
                         </p>
                         <div class="avatar-status d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill">
                             <span class="status-dot active"></span>
@@ -60,7 +50,8 @@
                         </div>
                     </template>
 
-                    <div class="row g-3">
+                    <!-- Lecture -->
+                    <div v-if="!isEditingProfile" class="row g-3">
                         <div class="col-md-6">
                             <div class="info-item">
                                 <label class="info-label text-uppercase text-muted small fw-semibold">Nom</label>
@@ -87,11 +78,60 @@
                         </div>
                     </div>
 
+                    <!-- Édition en place -->
+                    <div v-else class="row g-3">
+                        <div class="col-md-6">
+                            <BaseInput v-model="form.nom" label="Nom" icon="bi bi-person" :error="errors.nom"
+                                :disabled="isSavingProfile" />
+                        </div>
+                        <div class="col-md-6">
+                            <BaseInput v-model="form.prenom" label="Prénom" icon="bi bi-person" :error="errors.prenom"
+                                :disabled="isSavingProfile" />
+                        </div>
+                        <div class="col-md-6">
+                            <BaseInput v-model="form.email" label="Email" type="email" icon="bi bi-envelope"
+                                :error="errors.email" :disabled="isSavingProfile" />
+                        </div>
+                        <div class="col-md-6">
+                            <BaseInput v-model="form.telephone" label="Téléphone" type="tel" icon="bi bi-telephone"
+                                :error="errors.telephone" :disabled="isSavingProfile" />
+                        </div>
+
+                        <div v-if="formAlert" class="col-12">
+                            <div class="profile-alert" :class="`profile-alert--${formAlert.type}`" role="alert">
+                                <i :class="formAlert.type === 'success' ? 'bi bi-check-circle' : 'bi bi-exclamation-circle'"></i>
+                                <span>{{ formAlert.message }}</span>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <p class="profile-hint mb-0">
+                                <i class="bi bi-info-circle"></i>
+                                L'email sert à vous connecter et à réinitialiser votre mot de passe.
+                                Le modifier vous déconnectera sur vos autres appareils.
+                            </p>
+                        </div>
+                    </div>
+
                     <div class="profile-actions mt-3 pt-3 border-top">
-                        <BaseButton variant="secondary" class="w-100" @click="handleEditProfile">
+                        <!-- Bouton lecture -> édition -->
+                        <BaseButton v-if="!isEditingProfile" variant="secondary" class="w-100" @click="startEditProfile">
                             <i class="bi bi-pencil"></i>
                             Modifier mes informations
                         </BaseButton>
+
+                        <!-- Boutons édition -->
+                        <div v-else class="d-flex gap-2">
+                            <BaseButton variant="secondary" class="flex-fill" :disabled="isSavingProfile"
+                                @click="cancelEditProfile">
+                                Annuler
+                            </BaseButton>
+                            <BaseButton variant="primary" class="flex-fill" :loading="isSavingProfile"
+                                @click="saveProfile">
+                                <i class="bi bi-check-lg"></i>
+                                Enregistrer
+                            </BaseButton>
+                        </div>
                     </div>
                 </BaseCard>
 
@@ -108,7 +148,7 @@
                         <div class="col-md-6">
                             <div class="info-item">
                                 <label class="info-label text-uppercase text-muted small fw-semibold">Poste</label>
-                                <p class="info-value mb-0">{{ user.poste || 'Non défini' }}</p>
+                                <p class="info-value mb-0">{{ userPostes || 'Non défini' }}</p>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -137,10 +177,50 @@
                     </div>
 
                     <div class="profile-actions mt-3 pt-3 border-top">
-                        <BaseButton variant="primary" class="w-100" @click="handleChangePassword">
+                        <!-- Bouton lecture -> formulaire -->
+                        <BaseButton v-if="!isEditingPassword" variant="primary" class="w-100" @click="startChangePassword">
                             <i class="bi bi-key"></i>
                             Modifier mon mot de passe
                         </BaseButton>
+
+                        <!-- Formulaire de changement en place -->
+                        <div v-else class="profile-form">
+                            <BaseInput v-model="passwordForm.ancienMotDePasse" label="Mot de passe actuel" type="password"
+                                icon="bi bi-lock" autocomplete="current-password" :error="passwordErrors.ancienMotDePasse"
+                                :disabled="isSavingPassword" />
+
+                            <BaseInput v-model="passwordForm.password" label="Nouveau mot de passe" type="password"
+                                icon="bi bi-lock" autocomplete="new-password" :error="passwordErrors.password"
+                                :disabled="isSavingPassword" />
+
+                            <BaseInput v-model="passwordForm.confirmPassword" label="Confirmer le nouveau mot de passe"
+                                type="password" icon="bi bi-lock" autocomplete="new-password"
+                                :error="passwordErrors.confirmPassword" :disabled="isSavingPassword" />
+
+                            <p class="profile-hint mb-0">
+                                <i class="bi bi-info-circle"></i>
+                                Au moins 8 caractères, avec une majuscule, une minuscule, un chiffre et un caractère
+                                spécial.
+                            </p>
+
+                            <div v-if="passwordAlert" class="profile-alert"
+                                :class="`profile-alert--${passwordAlert.type}`" role="alert">
+                                <i :class="passwordAlert.type === 'success' ? 'bi bi-check-circle' : 'bi bi-exclamation-circle'"></i>
+                                <span>{{ passwordAlert.message }}</span>
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <BaseButton variant="secondary" class="flex-fill" :disabled="isSavingPassword"
+                                    @click="cancelChangePassword">
+                                    Annuler
+                                </BaseButton>
+                                <BaseButton variant="primary" class="flex-fill" :loading="isSavingPassword"
+                                    @click="savePassword">
+                                    <i class="bi bi-check-lg"></i>
+                                    Modifier
+                                </BaseButton>
+                            </div>
+                        </div>
                     </div>
                 </BaseCard>
             </div>
@@ -165,8 +245,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { BaseCard, BaseButton } from '@/components/base'
+import { BaseCard, BaseButton, BaseInput } from '@/components/base'
 import { formatDate } from '@/utils/date'
+import * as authService from '@/services/auth'
 
 // --- Store ---
 const authStore = useAuthStore()
@@ -174,6 +255,20 @@ const authStore = useAuthStore()
 // --- State ---
 const loading = ref(false)
 const error = ref<string | null>(null)
+
+// --- Édition des informations personnelles ---
+const isEditingProfile = ref(false)
+const isSavingProfile = ref(false)
+const form = ref({ nom: '', prenom: '', email: '', telephone: '' })
+const errors = ref<Record<string, string>>({})
+const formAlert = ref<{ type: 'success' | 'danger'; message: string } | null>(null)
+
+// --- Changement de mot de passe ---
+const isEditingPassword = ref(false)
+const isSavingPassword = ref(false)
+const passwordForm = ref({ ancienMotDePasse: '', password: '', confirmPassword: '' })
+const passwordErrors = ref<Record<string, string>>({})
+const passwordAlert = ref<{ type: 'success' | 'danger'; message: string } | null>(null)
 
 // --- Computed ---
 const user = computed(() => authStore.user)
@@ -196,6 +291,16 @@ const userFullName = computed(() => {
     return `${firstName} ${lastName}`.trim()
 })
 
+/**
+ * Poste(s) de l'utilisateur.
+ *
+ * Delegue au store, qui est le seul endroit qui connait la forme de la
+ * liste renvoyee par l'API. C est ce point la qui affichait "Poste non
+ * defini" : le champ lu ici s appelait `poste`, alors que l'API renvoie
+ * `postes`, un tableau.
+ */
+const userPostes = computed(() => authStore.posteLibelle)
+
 // --- Methods ---
 const loadProfile = async () => {
     if (!authStore.isAuthenticated) {
@@ -217,16 +322,151 @@ const loadProfile = async () => {
     }
 }
 
-const handleEditProfile = () => {
-    // Préparer la navigation vers la page d'édition du profil
-    // Exemple: router.push('/profile/edit')
-    console.log('Modifier mes informations')
+const startEditProfile = () => {
+    if (!user.value) return
+
+    isEditingProfile.value = true
+    formAlert.value = null
+    errors.value = {}
+
+    form.value = {
+        nom: user.value.nom ?? '',
+        prenom: user.value.prenom ?? '',
+        email: user.value.email ?? '',
+        telephone: user.value.telephone ?? '',
+    }
 }
 
-const handleChangePassword = () => {
-    // Préparer la navigation vers la page de changement de mot de passe
-    // Exemple: router.push('/profile/change-password')
-    console.log('Modifier mon mot de passe')
+const cancelEditProfile = () => {
+    isEditingProfile.value = false
+    isSavingProfile.value = false
+    formAlert.value = null
+    errors.value = {}
+}
+
+const saveProfile = async () => {
+    errors.value = {}
+    formAlert.value = null
+
+    if (!form.value.nom.trim()) {
+        errors.value.nom = 'Le nom est obligatoire'
+    }
+
+    if (!form.value.prenom.trim()) {
+        errors.value.prenom = 'Le prénom est obligatoire'
+    }
+
+    if (!form.value.email.trim()) {
+        errors.value.email = "L'email est obligatoire"
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.value.email.trim())) {
+        errors.value.email = "L'email est invalide"
+    }
+
+    if (Object.keys(errors.value).length > 0) {
+        return
+    }
+
+    isSavingProfile.value = true
+
+    try {
+        const response = await authService.updateProfile({
+            nom: form.value.nom.trim(),
+            prenom: form.value.prenom.trim(),
+            email: form.value.email.trim(),
+            telephone: form.value.telephone.trim() || null,
+        })
+
+        if (!response.success) {
+            formAlert.value = { type: 'danger', message: response.error }
+            return
+        }
+
+        // L'email est le sujet du JWT : s'il a changé, on stocke les
+        // nouveaux jetons, sinon la session serait invalidée.
+        if (response.data.jetonRenouvele) {
+            if (response.data.accessToken) {
+                localStorage.setItem('accessToken', response.data.accessToken)
+            }
+
+            if (response.data.refreshToken) {
+                localStorage.setItem('refreshToken', response.data.refreshToken)
+            }
+        }
+
+        authStore.setUser(response.data.profil)
+
+        isEditingProfile.value = false
+        formAlert.value = { type: 'success', message: 'Vos informations ont été mises à jour.' }
+    } catch (err) {
+        formAlert.value = {
+            type: 'danger',
+            message: err instanceof Error ? err.message : 'Une erreur est survenue.',
+        }
+    } finally {
+        isSavingProfile.value = false
+    }
+}
+
+const startChangePassword = () => {
+    isEditingPassword.value = true
+    passwordAlert.value = null
+    passwordErrors.value = {}
+    passwordForm.value = { ancienMotDePasse: '', password: '', confirmPassword: '' }
+}
+
+const cancelChangePassword = () => {
+    isEditingPassword.value = false
+    isSavingPassword.value = false
+    passwordAlert.value = null
+    passwordErrors.value = {}
+    passwordForm.value = { ancienMotDePasse: '', password: '', confirmPassword: '' }
+}
+
+const savePassword = async () => {
+    passwordErrors.value = {}
+    passwordAlert.value = null
+
+    if (!passwordForm.value.ancienMotDePasse) {
+        passwordErrors.value.ancienMotDePasse = 'Le mot de passe actuel est obligatoire'
+    }
+
+    if (passwordForm.value.password.length < 8) {
+        passwordErrors.value.password = 'Au moins 8 caractères'
+    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/.test(passwordForm.value.password)) {
+        passwordErrors.value.password =
+            'Il faut une majuscule, une minuscule, un chiffre et un caractère spécial'
+    }
+
+    if (passwordForm.value.password !== passwordForm.value.confirmPassword) {
+        passwordErrors.value.confirmPassword = 'Les mots de passe ne correspondent pas'
+    }
+
+    if (Object.keys(passwordErrors.value).length > 0) {
+        return
+    }
+
+    isSavingPassword.value = true
+
+    try {
+        const response = await authService.changePassword({ ...passwordForm.value })
+
+        if (!response.success) {
+            passwordAlert.value = { type: 'danger', message: response.error }
+            return
+        }
+
+        cancelChangePassword()
+
+        passwordAlert.value = { type: 'success', message: 'Votre mot de passe a été modifié.' }
+        passwordErrors.value = {}
+    } catch (err) {
+        passwordAlert.value = {
+            type: 'danger',
+            message: err instanceof Error ? err.message : 'Une erreur est survenue.',
+        }
+    } finally {
+        isSavingPassword.value = false
+    }
 }
 
 // --- Lifecycle ---
@@ -404,6 +644,51 @@ onMounted(() => {
 /* --- Actions --- */
 .profile-actions {
     padding-top: 1rem;
+}
+
+/* --- Formulaire de changement de mot de passe --- */
+.profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+/* --- Message d'information --- */
+.profile-hint {
+    font-size: 0.78rem;
+    color: var(--text-muted-custom, #74879b);
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+}
+
+.profile-hint i {
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+}
+
+/* --- Alertes de retour --- */
+.profile-alert {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 7px;
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+.profile-alert--success {
+    background: #e7f5ee;
+    border: 1px solid #c2e3d2;
+    color: #1f7a53;
+}
+
+.profile-alert--danger {
+    background: #fdecea;
+    border: 1px solid #f6cfcc;
+    color: #a61b16;
 }
 
 /* --- Responsive --- */

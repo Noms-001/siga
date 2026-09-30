@@ -1,12 +1,15 @@
 package mg.bank.backend.service;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import mg.bank.backend.dto.ModifierProfilRequest;
 import mg.bank.backend.dto.UtilisateurRequest;
 import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.model.Departement;
@@ -35,8 +38,8 @@ public class UtilisateurService {
         // 1. Vérifier le département
         Departement departement = departementRepository.findById(request.getIdDepartement())
                 .orElseThrow(() -> new ApiException(
-                        "Département introuvable",
-                        HttpStatus.NOT_FOUND));
+                "Département introuvable",
+                HttpStatus.NOT_FOUND));
 
         // 2. Vérifier le service s'il est fourni
         mg.bank.backend.model.Service service = null;
@@ -45,8 +48,8 @@ public class UtilisateurService {
 
             service = serviceRepository.findById(request.getIdService())
                     .orElseThrow(() -> new ApiException(
-                            "Service introuvable",
-                            HttpStatus.NOT_FOUND));
+                    "Service introuvable",
+                    HttpStatus.NOT_FOUND));
 
             // Vérifier que le service appartient au département sélectionné
             if (!service.getDepartement().getIdDepartement()
@@ -61,14 +64,17 @@ public class UtilisateurService {
         // 3. Vérifier le poste
         Poste poste = posteRepository.findById(request.getIdPoste())
                 .orElseThrow(() -> new ApiException(
-                        "Poste introuvable",
-                        HttpStatus.NOT_FOUND));
+                "Poste introuvable",
+                HttpStatus.NOT_FOUND));
+
+        Set<Poste> postes = new HashSet<>();
+        postes.add(poste);
 
         // 4. Construire l'utilisateur
         Utilisateur utilisateur = Utilisateur.builder()
                 .departement(departement)
                 .service(service)
-                .poste(poste)
+                .postes(postes)
                 .nom(request.getNom())
                 .prenom(request.getPrenom())
                 .email(request.getEmail())
@@ -111,11 +117,56 @@ public class UtilisateurService {
     public Utilisateur getUtilisateurByEmail(String email) {
         return utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new ApiException(
-                        "Email ou mot de passe incorrect",
-                        HttpStatus.UNAUTHORIZED));
+                "Email ou mot de passe incorrect",
+                HttpStatus.UNAUTHORIZED));
     }
 
     public Utilisateur updateUtilisateur(Utilisateur utilisateur) {
+        return utilisateurRepository.save(utilisateur);
+    }
+
+    /**
+     * Met à jour les informations personnelles de l'utilisateur connecté.
+     *
+     * L'email est la clé de connexion et de réinitialisation de mot de passe.
+     * La table utilisateur ne porte aucune contrainte UNIQUE sur cette colonne,
+     * le contrôle du doublon est donc fait ici, à niveau applicatif.
+     *
+     * @return l'utilisateur mis à jour
+     */
+    @Transactional
+    public Utilisateur modifierProfil(
+            String emailActuel,
+            ModifierProfilRequest request) {
+
+        Utilisateur utilisateur = getUtilisateurByEmail(emailActuel);
+
+        String nouvelEmail = request.getEmail().trim().toLowerCase();
+
+        boolean emailModifie = !nouvelEmail.equalsIgnoreCase(utilisateur.getEmail());
+
+        if (emailModifie) {
+            boolean dejaUtilise = utilisateurRepository
+                    .findByEmail(nouvelEmail)
+                    .filter(other -> !other.getIdUtilisateur().equals(utilisateur.getIdUtilisateur()))
+                    .isPresent();
+
+            if (dejaUtilise) {
+                throw new ApiException(
+                        "Cet email est déjà utilisé par un autre compte",
+                        HttpStatus.CONFLICT);
+            }
+        }
+
+        utilisateur.setNom(request.getNom().trim());
+        utilisateur.setPrenom(request.getPrenom().trim());
+        utilisateur.setEmail(nouvelEmail);
+        utilisateur.setTelephone(
+                request.getTelephone() == null || request.getTelephone().isBlank()
+                        ? null
+                        : request.getTelephone().trim());
+        utilisateur.setDateModification(LocalDateTime.now());
+
         return utilisateurRepository.save(utilisateur);
     }
 }

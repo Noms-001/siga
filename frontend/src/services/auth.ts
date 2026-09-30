@@ -1,6 +1,15 @@
-import { get, post, type ApiResponse } from './api-client'
+import { get, post, put, type ApiResponse } from './api-client'
 
-import type { ForgotPasswordRequest, LoginRequest, LoginResponse, ProfileResponse, ResetPasswordRequest } from '@/types/auth'
+import type {
+  ChangerMotDePasseRequest,
+  ForgotPasswordRequest,
+  LoginRequest,
+  LoginResponse,
+  ModifierProfilRequest,
+  ModifierProfilResponse,
+  ProfileResponse,
+  ResetPasswordRequest
+} from '@/types/auth'
 
 /**
 
@@ -12,15 +21,20 @@ export async function login(
 
   const response = await post<LoginResponse>('/auth/login', data)
 
-  console.log('=== AUTH LOGIN ===')
-  console.log('Réponse complète :', response)
-  console.log('success :', response.success)
-  console.log('data :', response.data)
-  console.log('error :', response.error)
-
   return response
 }
 
+/**
+ * Connexion de l'utilisateur backoffice
+ */
+export async function loginBackoffice(
+  data: LoginRequest
+): Promise<ApiResponse<LoginResponse>> {
+
+  const response = await post<LoginResponse>('/backoffice/auth/login', data)
+
+  return response
+}
 /**
 
 * Récupérer le profil de l'utilisateur connecté
@@ -66,4 +80,22 @@ export function resetPassword(
   data: ResetPasswordRequest
 ): Promise<ApiResponse<null>> {
   return post<null>('/auth/password/reset', data)
+}
+
+/**
+ * Modification des informations personnelles de l'utilisateur connecté
+ */
+export function updateProfile(
+  data: ModifierProfilRequest
+): Promise<ApiResponse<ModifierProfilResponse>> {
+  return put<ModifierProfilResponse>('/utilisateur/me', data)
+}
+
+/**
+ * Changement du mot de passe de l'utilisateur connecté
+ */
+export function changePassword(
+  data: ChangerMotDePasseRequest
+): Promise<ApiResponse<null>> {
+  return post<null>('/utilisateur/me/mot-de-passe', data)
 }

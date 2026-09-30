@@ -18,9 +18,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterView } from 'vue-router'
-import Navbar from '@/components/partial/frontoffice/Navbar.vue'
-import Sidebar from '@/components/partial/frontoffice/Sidebar.vue'
-import Footer from '@/components/partial/frontoffice/Footer.vue'
+import { Navbar, Sidebar, Footer } from '@/components/partial/frontoffice'
 
 // --- State ---
 const isSidebarOpen = ref(false)
@@ -67,7 +65,7 @@ onUnmounted(() => {
    FRONT LAYOUT - Styles spécifiques
    ============================================ */
 
-/* Le body a déjà un padding-top: 64px dans le style global,
+/* Le body a déjà un padding-top: var(--dts-navbar-h) dans le style global,
    donc on n'ajoute rien ici */
 
 .app-layout {
@@ -82,7 +80,7 @@ onUnmounted(() => {
 }
 
 .main-content {
-    margin-left: 260px;
+    margin-left: var(--dts-sidebar-w);
     padding: 1.5rem 2rem;
     flex: 1;
     min-width: 0;
@@ -91,17 +89,17 @@ onUnmounted(() => {
 
 /* Sidebar réduite */
 body.sidebar-collapsed .main-content {
-    margin-left: 72px;
+    margin-left: var(--dts-sidebar-w-sm);
 }
 
 /* Footer */
 .footer {
-    margin-left: 260px;
+    margin-left: var(--dts-sidebar-w);
     transition: margin-left 0.3s ease;
 }
 
 body.sidebar-collapsed .footer {
-    margin-left: 72px;
+    margin-left: var(--dts-sidebar-w-sm);
 }
 
 /* Responsive */

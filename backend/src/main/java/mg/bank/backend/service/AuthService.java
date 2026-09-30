@@ -26,7 +26,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
 
-    public AuthResult authenticate(String email, String password) {
+    public AuthResult authenticate(String email, String password, Boolean isBackoffice) {
 
         Utilisateur utilisateur = utilisateurService.getUtilisateurByEmail(email);
 
@@ -49,24 +49,44 @@ public class AuthService {
                     HttpStatus.UNAUTHORIZED);
         }
 
+        if (Boolean.TRUE.equals(isBackoffice)) {
+            verifyBackofficeAccess(utilisateur);
+        }
+
         utilisateur.setDateDerniereConnexion(LocalDateTime.now());
         utilisateurService.updateUtilisateur(utilisateur);
 
         return new AuthResult(authentication, utilisateur);
     }
 
+    private void verifyBackofficeAccess(Utilisateur utilisateur) {
+
+        boolean isAdministrateur = utilisateur.getPostes() != null
+                && utilisateur.getPostes().stream()
+                        .anyMatch(poste
+                                -> "Administrateur".equalsIgnoreCase(
+                                poste.getLibelle()
+                        )
+                        );
+
+        if (!isAdministrateur) {
+            throw new ApiException(
+                    "Accès au backoffice non autorisé",
+                    HttpStatus.FORBIDDEN
+            );
+        }
+    }
+
     @Transactional
     public Utilisateur resetPassword(
             String token,
             String password,
-            String confirmPassword
-    ) {
+            String confirmPassword) {
 
         if (!password.equals(confirmPassword)) {
             throw new ApiException(
                     "Les mots de passe ne correspondent pas",
-                    HttpStatus.BAD_REQUEST
-            );
+                    HttpStatus.BAD_REQUEST);
         }
 
         TokenAuth tokenAuth = tokenAuthService.verifyResetPasswordToken(token);
@@ -83,18 +103,58 @@ public class AuthService {
         return utilisateur;
     }
 
+    /**
+     * Change le mot de passe d'un utilisateur connecté.
+     *
+     * L'ancien mot de passe est exigé : un mot de passe oublié ne se change pas
+     * depuis la session, cela passe par le flux /password/forgot. Ici on vérifie
+     * que l'utilisateur est bien lui-même, même si un jeton a été dérobé.
+     *
+     * @return l'utilisateur dont le mot de passe a été changé
+     */
+    @Transactional
+    public Utilisateur changerMotDePasse(
+            String email,
+            String ancienMotDePasse,
+            String nouveauMotDePasse,
+            String confirmMotDePasse) {
+
+        if (!nouveauMotDePasse.equals(confirmMotDePasse)) {
+            throw new ApiException(
+                    "Les mots de passe ne correspondent pas",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        if (nouveauMotDePasse.equals(ancienMotDePasse)) {
+            throw new ApiException(
+                    "Le nouveau mot de passe doit être différent de l'ancien",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        Utilisateur utilisateur = utilisateurService.getUtilisateurByEmail(email);
+
+        if (!passwordEncoder.matches(ancienMotDePasse, utilisateur.getMotDePasse())) {
+            throw new ApiException(
+                    "L'ancien mot de passe est incorrect",
+                    HttpStatus.UNAUTHORIZED);
+        }
+
+        utilisateur.setMotDePasse(passwordEncoder.encode(nouveauMotDePasse));
+        utilisateur.setDateModification(LocalDateTime.now());
+
+        return utilisateurService.updateUtilisateur(utilisateur);
+    }
+
     @Transactional
     public Utilisateur activateAccount(
             String token,
             String password,
-            String confirmPassword
-    ) {
+            String confirmPassword) {
 
         if (!password.equals(confirmPassword)) {
             throw new ApiException(
                     "Les mots de passe ne correspondent pas",
-                    HttpStatus.BAD_REQUEST
-            );
+                    HttpStatus.BAD_REQUEST);
         }
 
         TokenAuth tokenAuth = tokenAuthService.verifyActivationToken(token);
@@ -120,8 +180,7 @@ public class AuthService {
         if (!Boolean.TRUE.equals(utilisateur.getActif())) {
             throw new ApiException(
                     "Le compte n'est pas activé",
-                    HttpStatus.FORBIDDEN
-            );
+                    HttpStatus.FORBIDDEN);
         }
 
         TokenAuth tokenAuth = tokenAuthService.createResetPasswordToken(utilisateur);
@@ -130,8 +189,7 @@ public class AuthService {
 
         emailService.sendResetPasswordEmail(
                 utilisateur,
-                tokenAuth
-        );
+                tokenAuth);
     }
 
     public record AuthResult(

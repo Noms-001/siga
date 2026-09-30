@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import type { BaseTableProps, TableColumn } from './BaseTable.types'
 
 export function useBaseTable(props: BaseTableProps<any>, emit: any) {
@@ -45,6 +45,33 @@ export function useBaseTable(props: BaseTableProps<any>, emit: any) {
         return sortedItems.value.slice(start, start + (props.pageSize ?? 10))
     })
 
+    // --- Nouvelle logique de pagination avec numéros ---
+    const visiblePages = computed(() => {
+        const total = totalPages.value
+        const current = currentPage.value
+        const maxVisible = 5
+
+        if (total <= maxVisible) {
+            return Array.from({ length: total }, (_, i) => i + 1)
+        }
+
+        let start = Math.max(1, current - Math.floor(maxVisible / 2))
+        let end = start + maxVisible - 1
+
+        if (end > total) {
+            end = total
+            start = Math.max(1, end - maxVisible + 1)
+        }
+
+        return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+    })
+
+    const goToPage = (page: number) => {
+        if (page >= 1 && page <= totalPages.value) {
+            currentPage.value = page
+        }
+    }
+
     const sort = (key: string) => {
         if (!props.sortable) return
 
@@ -59,6 +86,27 @@ export function useBaseTable(props: BaseTableProps<any>, emit: any) {
 
     const getValue = (item: any, key: string) => item?.[key]
 
+    // --- Gestion du clavier pour la navigation ---
+    const handleKeydown = (event: KeyboardEvent) => {
+        // Navigation avec les flèches gauche/droite
+        if (event.key === 'ArrowLeft' && currentPage.value > 1) {
+            event.preventDefault()
+            goToPage(currentPage.value - 1)
+        } else if (event.key === 'ArrowRight' && currentPage.value < totalPages.value) {
+            event.preventDefault()
+            goToPage(currentPage.value + 1)
+        }
+    }
+
+    // Monter/démonter l'écouteur d'événements
+    onMounted(() => {
+        document.addEventListener('keydown', handleKeydown)
+    })
+
+    onUnmounted(() => {
+        document.removeEventListener('keydown', handleKeydown)
+    })
+
     return {
         search,
         currentPage,
@@ -69,6 +117,8 @@ export function useBaseTable(props: BaseTableProps<any>, emit: any) {
         sortedItems,
         paginatedItems,
         totalPages,
+        visiblePages,
+        goToPage,
         sort,
         getValue
     }

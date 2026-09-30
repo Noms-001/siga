@@ -24,33 +24,40 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
 
 <style scoped>
 /* ============================================
-   FOOTER - Styles spécifiques au composant
+   FRONTOFFICE FOOTER — Design DTS-TSS
    ============================================ */
 
 .footer {
-    background-color: var(--card-bg);
-    border-top: 1px solid var(--border-color);
-    padding: 1rem 0;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.9rem 1.5rem;
+    background: var(--dts-navy);
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 0.8rem;
 }
 
 .footer .container-fluid {
-    padding: 0 24px;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
+    display: contents;
 }
 
 .footer .text-muted-custom {
-    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.78) !important;
+    font-size: 0.8rem;
 }
 
 @media (max-width: 575.98px) {
-    .footer .container-fluid {
+    .footer {
         flex-direction: column;
-        gap: 0.5rem;
-        text-align: center;
+        align-items: flex-start;
+        padding: 0.9rem 1rem;
+    }
+
+    .footer .text-muted-custom {
+        font-size: 0.74rem;
     }
 }
 </style>

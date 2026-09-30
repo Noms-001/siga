@@ -10,6 +10,7 @@ import type {
 } from '@/types/auth'
 
 import * as authService from '@/services/auth'
+import type { ApiResponse } from '@/services/api-client'
 
 export const useAuthStore = defineStore('auth', () => {
 
@@ -21,24 +22,89 @@ export const useAuthStore = defineStore('auth', () => {
     const initialized = ref(false)
 
     /**
+     * Accès backoffice.
+     *
+     * `includes` et non `===` : postes est une liste, donc la comparaison
+     * scalaire renvoyait toujours false et l'acces backoffice etait refuse a
+     * tout le monde, y compris a un vrai administrateur. Le cas passa
+     * inaperçu parce qu'un utilisateur non administrateur voit exactement le
+     * meme resultat, a savoir aucun acces.
+     *
+     * Le libelle est compare sans casse, comme le fait AuthService cote
+     * backend pour la meme verification.
+     */
+    const isBackoffice = computed(() => {
+        return (user.value?.postes ?? []).some(
+            poste => poste.toLowerCase() === 'administrateur'
+        )
+    })
+
+    /** Postes de l'utilisateur, jamais undefined. */
+    const postes = computed<string[]>(() => user.value?.postes ?? [])
+
+    /**
+     * Postes réduits à un libellé affichable, ou null si l'utilisateur n'en
+     * a aucun.
+     *
+     * null et non "" : les appelants utilisent `|| 'Non défini'`, et une
+     * chaine vide passerait pour un poste renseigné mais vide.
+     */
+    const posteLibelle = computed<string | null>(() => {
+        const liste = postes.value
+        return liste.length > 0 ? liste.join(' / ') : null
+    })
+
+    /**
      * Connexion
      */
-    const login = async (credentials: LoginRequest) => {
+    /**
+ * Connexion
+ */
+    const login = async (
+        credentials: LoginRequest,
+        isBackoffice: boolean = false
+    ) => {
 
-        const response = await authService.login(credentials)
+        let response: ApiResponse<LoginResponse>
+
+        if (isBackoffice) {
+            response = await authService.loginBackoffice(credentials)
+        } else {
+            response = await authService.login(credentials)
+        }
 
         if (!response.success || !response.data) {
-            throw new Error(response.error ?? 'Échec de la connexion')
+            throw new Error(
+                response.error ?? 'Échec de la connexion'
+            )
         }
 
         const loginData: LoginResponse = response.data
 
-        // Après le login, on récupère le profil complet
+        // Stocker les tokens AVANT d'appeler /auth/me
+        localStorage.setItem(
+            'accessToken',
+            loginData.accessToken
+        )
+
+        localStorage.setItem(
+            'refreshToken',
+            loginData.refreshToken
+        )
+
+        // Maintenant le JWT sera automatiquement envoyé
+        // par api-client.ts
         const profileResponse = await authService.getProfile()
 
         if (!profileResponse.success || !profileResponse.data) {
+
+            // Si le profil échoue, on nettoie les tokens
+            localStorage.removeItem('accessToken')
+            localStorage.removeItem('refreshToken')
+
             throw new Error(
-                profileResponse.error ?? 'Impossible de récupérer le profil'
+                profileResponse.error ??
+                'Impossible de récupérer le profil'
             )
         }
 
@@ -49,6 +115,7 @@ export const useAuthStore = defineStore('auth', () => {
             ...profileResponse.data
         }
     }
+
 
     /**
      * Récupérer le profil complet
@@ -94,6 +161,21 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     /**
+     * Fermeture de session purement locale, sans appel au backend.
+     *
+     * Réservée aux cas où le serveur considère déjà la session morte (token
+     * expiré, 401 reçu, inactivité) : un POST /auth/logout répondrait à son
+     * tour 401 et ne donnerait rien, sans compter une requête inutile.
+     */
+    const logoutLocal = () => {
+
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+
+        clearUser()
+    }
+
+    /**
      * Déconnexion
      */
     const logout = async () => {
@@ -104,8 +186,7 @@ export const useAuthStore = defineStore('auth', () => {
 
         } finally {
 
-            clearUser()
-
+            logoutLocal()
         }
     }
 
@@ -173,12 +254,16 @@ export const useAuthStore = defineStore('auth', () => {
 
     return {
         user,
+        postes,
+        posteLibelle,
+        isBackoffice,
         isAuthenticated,
         initialized,
         restoreSession,
         login,
         loadProfile,
         logout,
+        logoutLocal,
         forgotPassword,
         verifyResetPasswordToken,
         resetPassword,

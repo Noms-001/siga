@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { BaseCard, BaseInput, BaseButton } from '@/components/base'
 import router from '@/router'
 import { useAuthStore } from '@/stores/auth'
@@ -19,6 +20,15 @@ const loginError = ref('')
 const loading = ref(false)
 
 const authStore = useAuthStore()
+
+const route = useRoute()
+
+/**
+ * Session fermée pour inactivité : le watchdog redirige ici avec
+ * `?session=expiree`. Sans ce message, l'utilisateur landing sur le login
+ * sans avoir cliqué sur "Déconnexion" croirait à une erreur de sa part.
+ */
+const sessionExpiree = computed(() => route.query.session === 'expiree')
 
 /**
  * Connexion de l'utilisateur
@@ -94,6 +104,12 @@ const handleLogin = async () => {
                     <p class="auth-subtitle text-center">
                         Accédez à votre espace de travail
                     </p>
+
+                    <!-- Session fermée pour inactivité -->
+                    <div v-if="sessionExpiree" class="alert alert-warning" role="alert">
+                        Votre session a été fermée après une période d’inactivité.
+                        Veuillez vous reconnecter.
+                    </div>
 
                     <form @submit.prevent="handleLogin">
                         <!-- Champ Email -->
@@ -244,6 +260,12 @@ body {
     color: #dc2626;
 }
 
+.alert-warning {
+    background-color: #fffbeb;
+    border-color: #fde68a;
+    color: #b45309;
+}
+
 /* Responsive */
 @media (max-width: 480px) {
     .auth-card {
@@ -265,48 +287,4 @@ body {
     }
 }
 
-/* Support Dark mode si nécessaire */
-@media (prefers-color-scheme: dark) {
-    .auth-wrapper {
-        background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
-    }
-
-    .auth-card {
-        background: #1f2937;
-        border: 1px solid #374151 !important;
-    }
-
-    .brand-name {
-        color: #f0f2f5;
-    }
-
-    .brand-sub,
-    .brand-tagline,
-    .auth-subtitle {
-        color: #9ca3af;
-    }
-
-    .auth-title {
-        color: #f0f2f5;
-    }
-
-    .forgot-link {
-        color: #9ca3af;
-    }
-
-    .forgot-link:hover {
-        color: #4a6cf7;
-    }
-
-    .auth-footer {
-        color: #6b7280;
-        border-top-color: #374151 !important;
-    }
-
-    .alert-danger {
-        background-color: #2d1b1b;
-        border-color: #5c2626;
-        color: #fca5a5;
-    }
-}
 </style>

@@ -18,6 +18,8 @@ const {
     normalizedColumns,
     paginatedItems,
     totalPages,
+    visiblePages,
+    goToPage,
     sortKey,
     sortDirection,
     getValue
@@ -106,7 +108,7 @@ const isDateValue = (value: any) => {
         return false
     }
     const trimmed = value.trim()
-    return /^\d{4}[-\/]\d{2}[-\/]\d{2}/.test(trimmed) || /^\d{2}[-\/]\d{2}[-\/]\d{4}/.test(trimmed)
+    return /^\d{4}[-/]\d{2}[-/]\d{2}/.test(trimmed) || /^\d{2}[-/]\d{2}[-/]\d{4}/.test(trimmed)
 }
 
 const getCellAlignment = (column: TableColumn, item: any) => {
@@ -147,7 +149,7 @@ const isNumericValue = (value: any) => {
         return false
     }
     const trimmed = value.trim()
-    return trimmed !== '' && /^-?\d+(?:[\.,]\d+)?$/.test(trimmed)
+    return trimmed !== '' && /^-?\d+(?:[.,]\d+)?$/.test(trimmed)
 }
 
 const getFooterCellAlignment = (column: TableColumn) => {
@@ -314,20 +316,30 @@ const totalItems = computed(() => filteredItems.value.length ? filteredItems.val
             </table>
         </div>
 
-        <!-- PAGINATION -->
+        <!-- PAGINATION AVEC NUMÉROS -->
         <div class="table-pagination" v-if="totalPages > 1">
             <div class="table-pagination-info">
                 <strong>{{ totalItems }}</strong> éléments
             </div>
 
             <div class="table-pagination-center">
-                <BaseButton label="Précédent" size="sm" :disabled="currentPage === 1" @click="currentPage--" />
+                <!-- Bouton Précédent -->
+                <BaseButton label="Précédent" size="sm" :disabled="currentPage === 1" @click="goToPage(currentPage - 1)"
+                    tabindex="0" />
 
-                <span>
-                    Page {{ currentPage }} / {{ totalPages }}
-                </span>
+                <!-- Boutons de page -->
+                <div class="pagination-buttons">
+                    <button v-for="page in visiblePages" :key="page" class="page-btn"
+                        :class="{ active: page === currentPage }" @click="goToPage(page)" :tabindex="0"
+                        :aria-current="page === currentPage ? 'page' : undefined" @keydown.enter="goToPage(page)"
+                        @keydown.space.prevent="goToPage(page)">
+                        {{ page }}
+                    </button>
+                </div>
 
-                <BaseButton label="Suivant" size="sm" :disabled="currentPage === totalPages" @click="currentPage++" />
+                <!-- Bouton Suivant -->
+                <BaseButton label="Suivant" size="sm" :disabled="currentPage === totalPages"
+                    @click="goToPage(currentPage + 1)" tabindex="0" />
             </div>
         </div>
 
@@ -600,6 +612,96 @@ tbody tr td.text-center.py-5 {
 }
 
 /* ===================================
+   PAGINATION AVEC NUMÉROS
+=================================== */
+
+.pagination-buttons {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.page-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--surface-color);
+    color: var(--text-color);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* États du bouton de page */
+.page-btn:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(59, 115, 247, 0.2);
+}
+
+.page-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 115, 247, 0.3);
+    border-color: var(--primary-color);
+}
+
+.page-btn:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.page-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 8px rgba(59, 115, 247, 0.25);
+}
+
+.page-btn.active:hover {
+    background: var(--primary-dark, #0b2045);
+    border-color: var(--primary-dark, #0b2045);
+}
+
+.page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Navigation au clavier - focus visible */
+.page-btn:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Animation d'apparition */
+.page-btn {
+    animation: pageFadeIn 0.2s ease;
+}
+
+@keyframes pageFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* ===================================
    SKELETON
 =================================== */
 
@@ -674,6 +776,19 @@ th {
 
     .table {
         min-width: 700px;
+    }
+}
+
+@media (max-width: 576px) {
+    .page-btn {
+        min-width: 30px;
+        height: 30px;
+        font-size: 0.75rem;
+        padding: 0 0.3rem;
+    }
+
+    .pagination-buttons {
+        gap: 0.15rem;
     }
 }
 

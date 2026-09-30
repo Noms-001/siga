@@ -13,17 +13,25 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import mg.bank.backend.security.JwtAuthenticationFilter;
 
 @Configuration
 public class SecurityConfig {
 
     private final UserDetailsService userDetailsService;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(UserDetailsService userDetailsService) {
+    public SecurityConfig(
+            UserDetailsService userDetailsService,
+            JwtAuthenticationFilter jwtAuthenticationFilter) {
+
         this.userDetailsService = userDetailsService;
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
     @Bean
@@ -50,12 +58,10 @@ public class SecurityConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Frontend Vue
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:5173"
         ));
 
-        // Méthodes HTTP autorisées
         configuration.setAllowedMethods(List.of(
                 "GET",
                 "POST",
@@ -64,11 +70,13 @@ public class SecurityConfig {
                 "OPTIONS"
         ));
 
-        // Headers autorisés
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type"
+        ));
 
-        // Autoriser les cookies / sessions
-        configuration.setAllowCredentials(true);
+        // JWT envoyé dans Authorization, pas dans un cookie
+        configuration.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
@@ -79,8 +87,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http)
-            throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http) throws Exception {
 
         http
                 // CORS
@@ -88,7 +96,7 @@ public class SecurityConfig {
                         .configurationSource(corsConfigurationSource())
                 )
 
-                // CSRF désactivé pour l'API
+                // CSRF inutile avec JWT dans Authorization header
                 .csrf(csrf -> csrf.disable())
 
                 // Pas de formulaire Spring Security
@@ -97,10 +105,10 @@ public class SecurityConfig {
                 // Pas de HTTP Basic
                 .httpBasic(basic -> basic.disable())
 
-                // Authentification basée sur la session
+                // JWT = pas de session HTTP
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(
-                                SessionCreationPolicy.IF_REQUIRED
+                                SessionCreationPolicy.STATELESS
                         )
                 )
 
@@ -113,10 +121,17 @@ public class SecurityConfig {
                                 "/api/auth/activation",
                                 "/api/auth/password/forgot",
                                 "/api/auth/password/reset/verify",
-                                "/api/auth/password/reset"
+                                "/api/auth/password/reset",
+                                "/api/backoffice/auth/login"
                         ).permitAll()
 
                         .anyRequest().authenticated()
+                )
+
+                // Vérification du JWT avant UsernamePasswordAuthenticationFilter
+                .addFilterBefore(
+                        jwtAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class
                 );
 
         return http.build();

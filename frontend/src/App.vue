@@ -8,6 +8,14 @@
 
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
+import { useSessionWatchdog } from '@/composables/useSessionWatchdog'
+
+/*
+ * Déconnexion automatique après une période d'inactivité, avec
+ * redirection immédiate vers la page de connexion. Monté ici, à la racine,
+ * pour être actif sur toutes les pages y compris celles hors layout.
+ */
+useSessionWatchdog()
 </script>
 
 <style>

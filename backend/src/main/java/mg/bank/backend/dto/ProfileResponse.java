@@ -1,6 +1,7 @@
 package mg.bank.backend.dto;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -18,7 +19,7 @@ public class ProfileResponse {
     private String telephone;
 
     private String service;
-    private String poste;
+    private List<String> postes;
 
     private Boolean actif;
     private LocalDateTime dateCreation;
@@ -37,10 +38,11 @@ public class ProfileResponse {
                         ? utilisateur.getService().getNom()
                         : null
                 )
-                .poste(
-                        utilisateur.getPoste() != null
-                        ? utilisateur.getPoste().getLibelle()
-                        : null
+                .postes(
+                        utilisateur.getPostes()
+                                .stream()
+                                .map(poste -> poste.getLibelle())
+                                .toList()
                 )
                 .actif(utilisateur.getActif())
                 .dateCreation(utilisateur.getDateCreation())

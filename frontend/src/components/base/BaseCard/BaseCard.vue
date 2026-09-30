@@ -258,9 +258,4 @@ const {
     font-size: clamp(2rem, 3vw, 3rem);
 }
 
-@media (prefers-color-scheme: dark) {
-    .card {
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-    }
-}
 </style>

@@ -44,9 +44,7 @@ public class Service {
     @Column(name = "actif", nullable = false)
     private Boolean actif;
 
-    @Column(name = "date_creation")
-    private LocalDateTime dateCreation;
-
     @Column(name = "date_desactivation")
     private LocalDateTime dateDesactivation;
+
 }

@@ -23,6 +23,31 @@ export default defineConfigWithVueTs(
   vueTsConfigs.recommended,
 
   {
+    name: 'app/partials-single-word-names',
+    // Navbar / Sidebar / Footer sont importés explicitement (pas d'enregistrement
+    // global) : aucune collision possible, on garde ces noms de fichiers.
+    files: ['src/components/partial/**/*.vue'],
+    rules: {
+      'vue/multi-word-component-names': 'off',
+    },
+  },
+
+  {
+    name: 'app/views-single-word-names',
+    // Noms de vues imposés par le cahier des charges (Liste, Detail, Ajout).
+    // Comme les partials, ces vues sont importées par le router ou par une
+    // autre vue, jamais enregistrées globalement.
+    files: [
+      'src/views/frontoffice/Liste.vue',
+      'src/views/frontoffice/Detail.vue',
+      'src/views/frontoffice/Ajout.vue',
+    ],
+    rules: {
+      'vue/multi-word-component-names': 'off',
+    },
+  },
+
+  {
     ...pluginPlaywright.configs['flat/recommended'],
     files: ['e2e/**/*.{test,spec}.{js,ts,jsx,tsx}'],
   },
