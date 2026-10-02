@@ -20,16 +20,10 @@ public class Poste {
     @Column(name = "id_poste")
     private Integer idPoste;
 
-    @Column(name = "libelle", nullable = false)
+    @Column(name = "nom", nullable = false)
     private String libelle;
 
-    @Column(name = "type_contrat")
-    private String typeContrat;
-
-    @Column(name = "categorie")
-    private String categorie;
-
-    @Column(name = "effectif_prevu")
+    @Column(name = "effectif_prevu", nullable = false)
     private Integer effectifPrevu;
 
     @Column(name = "effectif_reel")
@@ -38,8 +32,11 @@ public class Poste {
     @Column(name = "actif", nullable = false)
     private Boolean actif;
 
-    @Column(name = "date_creation")
+    @Column(name = "date_creation", nullable = false)
     private LocalDateTime dateCreation;
+
+    @Column(name = "date_modification")
+    private LocalDateTime dateModification;
 
     @Column(name = "date_desactivation")
     private LocalDateTime dateDesactivation;

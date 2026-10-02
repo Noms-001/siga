@@ -16,7 +16,7 @@ public class TokenAuth {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_token")
+    @Column(name = "id_token_auth")
     private Integer idToken;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -27,7 +27,7 @@ public class TokenAuth {
     @JoinColumn(name = "id_type_token", nullable = false)
     private TypeToken typeToken;
 
-    @Column(name = "token", nullable = false, unique = true)
+    @Column(name = "token", nullable = false)
     private String token;
 
     @Column(name = "date_creation")

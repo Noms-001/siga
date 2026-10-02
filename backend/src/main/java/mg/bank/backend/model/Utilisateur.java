@@ -1,6 +1,8 @@
 package mg.bank.backend.model;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -9,6 +11,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -31,13 +35,17 @@ public class Utilisateur {
     @Column(name = "id_utilisateur")
     private Integer idUtilisateur;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_service", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_departement")
+    private Departement departement;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_service")
     private Service service;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "id_poste", nullable = false)
-    private Poste poste;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "poste_utilisateur", joinColumns = @JoinColumn(name = "id_utilisateur"), inverseJoinColumns = @JoinColumn(name = "id_poste"))
+    private Set<Poste> postes = new HashSet<>();
 
     @Column(name = "nom", nullable = false)
     private String nom;
@@ -45,20 +53,23 @@ public class Utilisateur {
     @Column(name = "prenom", nullable = false)
     private String prenom;
 
-    @Column(name = "email", nullable = false, unique = true)
+    @Column(name = "email", nullable = false)
     private String email;
 
     @Column(name = "telephone")
     private String telephone;
 
-    @Column(name = "mot_de_passe")
+    @Column(name = "mot_de_passe", nullable = false)
     private String motDePasse;
 
     @Column(name = "actif", nullable = false)
     private Boolean actif;
 
-    @Column(name = "date_creation")
+    @Column(name = "date_creation", nullable = false)
     private LocalDateTime dateCreation;
+
+    @Column(name = "date_modification")
+    private LocalDateTime dateModification;
 
     @Column(name = "date_desactivation")
     private LocalDateTime dateDesactivation;

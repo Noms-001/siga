@@ -8,4 +8,5 @@ import mg.bank.backend.model.Utilisateur;
 
 public interface UtilisateurRepository extends JpaRepository<Utilisateur, Integer> {
     Optional<Utilisateur> findByEmail(String email);
+    Boolean existsByEmail(String email);
 }

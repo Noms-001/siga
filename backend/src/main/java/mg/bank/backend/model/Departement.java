@@ -17,6 +17,9 @@ public class Departement {
     @Column(name = "id_departement")
     private Integer idDepartement;
 
+    @Column(name = "code", nullable = false, unique = true)
+    private String code;
+
     @Column(name = "nom", nullable = false)
     private String nom;
 

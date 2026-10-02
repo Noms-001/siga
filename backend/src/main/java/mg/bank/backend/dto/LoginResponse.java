@@ -1,5 +1,7 @@
 package mg.bank.backend.dto;
 
+import java.util.List;
+
 import lombok.Builder;
 import lombok.Getter;
 import mg.bank.backend.model.Utilisateur;
@@ -11,12 +13,32 @@ public class LoginResponse {
     private Integer idUtilisateur;
     private String nom;
     private String prenom;
+    private List<String> postes;
+    private String service;
 
-    public static LoginResponse from(Utilisateur utilisateur) {
+    private String accessToken;
+    private String refreshToken;
+
+    public static LoginResponse from(
+            Utilisateur utilisateur,
+            String accessToken,
+            String refreshToken) {
+
         return LoginResponse.builder()
                 .idUtilisateur(utilisateur.getIdUtilisateur())
                 .nom(utilisateur.getNom())
                 .prenom(utilisateur.getPrenom())
+                .postes(
+                        utilisateur.getPostes()
+                                .stream()
+                                .map(poste -> poste.getLibelle())
+                                .toList()
+                )
+                .service(utilisateur.getService() != null
+                        ? utilisateur.getService().getNom()
+                        : null)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
                 .build();
     }
 }
