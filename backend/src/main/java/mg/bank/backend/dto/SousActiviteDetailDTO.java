@@ -50,4 +50,19 @@ public class SousActiviteDetailDTO {
 
     private List<LivrableDetailDTO> livrables;
 
+    /**
+     * Statut courant de l activite mere.
+     *
+     * Il n existe pas ici de statut de la sous-activite : ce qui la regit
+     * est celui de son activite. Le detail l expose parce qu il decide de ce
+     * qu on peut ecrire dans cette page -- un livrable ne se depose que sur
+     * une activite en cours -- et que le formulaire ne doit pas avoir a le
+     * redemander.
+     *
+     * Nullable quand l activite n a pas d historique : le formulaire traite
+     * alors l absence comme un refus, ce qui est le bon defaut pour une
+     * ecriture.
+     */
+    private String statutActivite;
+
 }

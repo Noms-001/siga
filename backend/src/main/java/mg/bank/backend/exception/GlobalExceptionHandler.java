@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import mg.bank.backend.dto.ApiResponse;
@@ -50,6 +51,31 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error("Ressource introuvable"));
+    }
+
+    /**
+     * Un fichier joint depasse la taille autorisee : 400, et non 500.
+     *
+     * SANS CE CAS, L ERREUR SERAIT INFERNALE POUR L UTILISATEUR
+     *
+     * Tomcat refuse la requete avant qu elle n atteigne le controleur : le
+     * depassement est detecte au moment de lire la partie multipart, donc
+     * LivrableEcritureService n est jamais appele et son controle de taille
+     * n a rien pu faire. Sans ce handler, l exception tombe dans le cas
+     * general et repond "Une erreur interne est survenue" : l utilisateur
+     * verrait une panne du serveur pour un fichier trop lourd, et rien dans
+     * le message ne lui dirait quoi faire.
+     *
+     * Aucun detail sur la limite dans le message : il est deja connu du
+     * formulaire, qui annonce le maximum avant le depot.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSize(
+            MaxUploadSizeExceededException exception) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(
+                        "Un des fichiers joints dépasse la taille maximale autorisée"));
     }
 
     @ExceptionHandler(Exception.class)

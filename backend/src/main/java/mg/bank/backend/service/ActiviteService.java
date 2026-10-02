@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
@@ -20,12 +21,14 @@ import mg.bank.backend.dto.ActiviteOptionsDTO;
 import mg.bank.backend.dto.ActiviteStatistiquesDTO;
 import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.AutocompleteDTO;
+import mg.bank.backend.dto.ObjectifSpecifiqueEcritureRequest;
 import mg.bank.backend.dto.OptionDTO;
 import mg.bank.backend.dto.PageResponse;
 import mg.bank.backend.dto.PerimetreUtilisateur;
 import mg.bank.backend.dto.ReferenceDTO;
 import mg.bank.backend.enums.StatutActiviteEnum;
 import mg.bank.backend.exception.ApiException;
+import mg.bank.backend.model.ObjectifSpecifique;
 import mg.bank.backend.model.Utilisateur;
 import mg.bank.backend.repository.ActiviteRepository;
 import mg.bank.backend.repository.ObjectifSpecifiqueRepository;
@@ -37,12 +40,18 @@ import mg.bank.backend.repository.StatutRepository;
 import mg.bank.backend.repository.TypeActiviteRepository;
 import mg.bank.backend.repository.projection.ActiviteListRow;
 import mg.bank.backend.repository.projection.ActiviteStatistiquesRow;
+import mg.bank.backend.repository.projection.ObjectifAutocompleteRow;
 import mg.bank.backend.repository.projection.OptionRow;
 
 /**
- * Service de consultation des activites.
+ * Service de consultation des activites, et source de verite du perimetre.
  *
- * Toute la logique metier vit ici : les repositories ne contiennent que les
+ * Une exception : la soumission d un brouillon, qui est une ecriture. Elle
+ * vit dans ActiviteSoumissionService, pas ici, pour que cette classe reste
+ * ce qu elle annonce et pour que getPerimetre et utilisateurCourant restent
+ * les seules reconstructions de "qui appelle et jusqu ou".
+ *
+ * Toute la logique metier vit ici : les repositories ne contiennent que des
  * requetes. C'est notamment le cas de trois decisions :
  *
  * 1. le perimetre, reconstruit depuis l'utilisateur authentifie et jamais
@@ -106,7 +115,16 @@ public class ActiviteService {
                 .build();
     }
 
-    private Utilisateur utilisateurCourant() {
+    /**
+     * Appelant, lu dans le contexte de securite.
+     *
+     * Public pour la meme raison que getPerimetre : c est la seule source de
+     * l identite de l appelant dans le projet. Une ecriture doit savoir QUI
+     * soumet, pour l inscrire dans l historique ; si elle reconstruisait
+     * elle-meme cette identite, deux lectures de la regle pourraient
+     * diverger.
+     */
+    public Utilisateur utilisateurCourant() {
         Authentication authentication = SecurityContextHolder
                 .getContext()
                 .getAuthentication();
@@ -118,6 +136,30 @@ public class ActiviteService {
         return utilisateurRepository.findByEmail(authentication.getName())
                 .orElseThrow(() -> new ApiException(
                         "Utilisateur introuvable", HttpStatus.UNAUTHORIZED));
+    }
+
+    /**
+     * Departage 404 / 403, partage par toutes les lectures et ecritures.
+     *
+     * A n'appeler qu apres l echec d une requete RESTREINTE au perimetre :
+     * cette requete a deja repondu "rien", et la question reste de savoir si
+     * c est parce que la donnee n existe pas ou parce qu elle appartient a
+     * quelqu un d autre. Sans cette verification supplementaire, un 403
+     * paraitrait inexistant, et l appelant ne pourrait plus distinguer une
+     * faute de frappe d un acces refuse.
+     *
+     * Le message du 403 ne nomme ni l activite ni son service : il confirme
+     * l acces refuse, pas la position de la donnee.
+     */
+    @Transactional(readOnly = true)
+    public ApiException refusOuAbsence(Integer idActivite) {
+        if (activiteRepository.compterActivite(idActivite) > 0) {
+            return new ApiException(
+                    "Vous n etes pas autorise a consulter cette activite",
+                    HttpStatus.FORBIDDEN);
+        }
+
+        return new ApiException("Activite introuvable", HttpStatus.NOT_FOUND);
     }
 
     // ------------------------------------------------------------------
@@ -234,6 +276,116 @@ public class ActiviteService {
 
     private String videSiBlanc(String valeur) {
         return (valeur == null || valeur.isBlank()) ? null : valeur.trim();
+    }
+
+    /**
+     * Creer un objectif specifique depuis le formulaire d'activite.
+     *
+     * UNE EXCEPTION A LA REGLE DE CE SERVICE
+     *
+     * Ce service est annonce comme celui de la consultation, et la creation
+     * d'un objectif en est une. Elle n'ouvre pas pour autant un second
+     * service : l'objectif n'existe dans l'application qu'a travers le
+     * formulaire d'activite -- c'est le seul ecran qui le choisit -- et
+     * l'ecrire ailleurs disperserait une regle qui n'a qu'un appelant. La
+     * regle d'ecriture reste celle du projet : tout le metier est ici, le
+     * repository ne fait qu'enregistrer.
+     *
+     * LA REPONSE EST UN OBJECTIF, ET PAS UN IDENTIFIANT
+     *
+     * Le formulaire selectionne l'objectif qu'il vient de creer, sans repasser
+     * par l'autocomplete : c'est cette forme, enrichie du meme libelle et du
+     * meme `prochainNumero` que propose l'autocomplete, qui evite un aller-retour
+     * et une saisie qui peut reussir a l'ecran et echouer en base.
+     *
+     * `prochainNumero` vaut 1 : un objectif ne vient que d'etre cree, il ne
+     * porte aucune activite, et la premiere activite qu'on y rattache sera la
+     * numero 1. C'est la valeur qu'on proposerait si l'on relisait l'autocomplete.
+     */
+    @Transactional
+    /**
+     * Code propose pour une activite NON PTA : A-<annee>-<suite du dernier>.
+     *
+     * UNE NON PTA N A NI OBJECTIF NI NUMERO D ACTIVITE
+     *
+     * Le code d un PTA se deduit de l objectif (A-<annee>-<objectif>-<n>), donc
+     * l objectif permet de le proposer. Une NON PTA n en a pas : sans cette
+     * regle, le champ resterait vide et l utilisateur devrait inventer un code
+     * qui ne se rappelle de rien -- alors que la regle du jeu de donnees est
+     * simple, une sequence par annee, A-2027-01 a A-2027-50.
+     *
+     * LE CODE COMPLET EST RENVOYE, ET PAS LE NUMERO
+     *
+     * Le format appartient a la base : c est elle qui porte la regle, et le
+     * formulaire comme une lecture du code existant evitent d avoir a la
+     * reconcevoir. Le backend renvoie donc la valeur prete a etre affichee,
+     * ce qui laisse au front une seule chose a faire.
+     *
+     * La valeur reste une PROPOSITION : le champ est modifiable, et le backend
+     * ne controle que l unicite. Deux utilisateurs qui ouvrent le formulaire en
+     * meme temps peuvent voir le meme code ; le second enregistrement est alors
+     * refuse pour code deja utilise, ce qui est une erreur de saisie et non une
+     * panne.
+     *
+     * L annee est demandee et non relue ailleurs : une NON PTA n a pas d
+     * objectif, donc rien dans l activite ne la designe avant que l
+     * utilisateur ne renseigne sa date de debut. C est au formulaire de
+     * savoir sur quelle annee il travaille.
+     */
+    public String prochainCodeNonPta(int annee) {
+
+        if (annee < 1900 || annee > 2100) {
+            throw new ApiException(
+                    "L'année doit être comprise entre 1900 et 2100",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        int dernier = activiteRepository.dernierNumeroNonPta(annee);
+
+        return "A-" + annee + "-" + (dernier + 1);
+    }
+
+    public AutocompleteDTO creerObjectifSpecifique(ObjectifSpecifiqueEcritureRequest request) {
+
+        String code = request.getCode().trim();
+
+        if (objectifSpecifiqueRepository.existsByCodeIgnoreCase(code)) {
+            // Refuse ici et non sur la violation de la contrainte unique, qui
+            // remonterait en 500 : l'utilisateur a saisi un code deja pris,
+            // c'est une erreur de saisie et non une panne.
+            throw new ApiException(
+                    "Un objectif porte déjà le code « " + code + " »",
+                    HttpStatus.CONFLICT);
+        }
+
+        ObjectifSpecifique enregistre;
+
+        try {
+            // Identifiant genere par la base : le INSERT part ici, ce qui permet
+            // de traduire la violation de contrainte.
+            enregistre = objectifSpecifiqueRepository.save(
+                    ObjectifSpecifique.builder()
+                            .code(code)
+                            .designation(request.getDesignation().trim())
+                            .annee(request.getAnnee())
+                            .build());
+        } catch (DataIntegrityViolationException e) {
+            // Deux creations du meme code au meme instant franchissent toutes
+            // deux le controle precedent : c'est la meme erreur de saisie que
+            // ci-dessus, pas une panne, et elle doit se lire pareil.
+            throw new ApiException(
+                    "Un objectif porte déjà le code « " + code + " »",
+                    HttpStatus.CONFLICT);
+        }
+
+        return AutocompleteDTO.builder()
+                .id(enregistre.getIdObjectifSpecifique())
+                .code(enregistre.getCode())
+                .libelle(enregistre.getDesignation())
+                .libelleSecondaire(String.valueOf(enregistre.getAnnee()))
+                .annee(enregistre.getAnnee())
+                .prochainNumero(1)
+                .build();
     }
 
     // ------------------------------------------------------------------
@@ -429,6 +581,10 @@ public class ActiviteService {
                         .id(r.getId())
                         .code(r.getCode())
                         .libelle(r.getLibelle())
+                        // La requete selectionne deja la designation du type
+                        // d activite : sans elle, deux activites de meme
+                        // prefixe de code seraient impossibles a distinguer.
+                        .libelleSecondaire(r.getLibelleSecondaire())
                         .build())
                 .toList();
     }
@@ -436,7 +592,7 @@ public class ActiviteService {
     @Transactional(readOnly = true)
     public List<AutocompleteDTO> autocompleterObjectifs(String recherche) {
 
-        List<OptionRow> rows = objectifSpecifiqueRepository.autocomplete(
+        List<ObjectifAutocompleteRow> rows = objectifSpecifiqueRepository.autocomplete(
                 videSiBlanc(recherche),
                 motif(recherche),
                 TAILLE_AUTOCOMPLETE);
@@ -450,6 +606,12 @@ public class ActiviteService {
                         .id(r.getId())
                         .code(r.getCode())
                         .libelle(r.getLibelle())
+                        // L'annee reste le second axe de recherche du
+                        // menu, comme elle l'etait en libelleSecondaire.
+                        .libelleSecondaire(
+                                r.getAnnee() == null ? null : String.valueOf(r.getAnnee()))
+                        .annee(r.getAnnee())
+                        .prochainNumero(r.getProchainNumero())
                         .build())
                 .toList();
     }

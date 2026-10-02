@@ -10,12 +10,18 @@
  * Comme pour le detail d'activite, le front n'assemble rien : l'avancement
  * courant et son etat sont deja determines par le backend.
  */
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { BaseButton, BaseCard, BaseModal } from '@/components/base'
+import { BaseButton, BaseCard } from '@/components/base'
+import { FichiersModal, LivrableModal } from '@/components/activite'
 import * as activiteService from '@/services/activite'
-import type { FichierDetail, SousActiviteDetail, UtilisateurResume } from '@/types/activite'
+import type {
+    FichierDetail,
+    LivrableDetail,
+    SousActiviteDetail,
+    UtilisateurResume,
+} from '@/types/activite'
 import { formatDateSeule } from '@/utils/date'
 
 // ------------------------------------------------------------------
@@ -46,13 +52,10 @@ const detail = ref<SousActiviteDetail | null>(null)
 const chargement = ref(false)
 const erreur = ref<string | null>(null)
 
-// --- Apercu et telechargement de fichiers ---
+// --- Telechargement des fichiers ---
 
 /** Id du fichier en cours de telechargement, pour desactiver les autres. */
 const fichierEnTelechargement = ref<number | null>(null)
-
-const apercuOuvert = ref(false)
-const apercu = ref<{ nom: string; typeMime: string; url: string } | null>(null)
 
 // ------------------------------------------------------------------
 // Presentation
@@ -118,51 +121,104 @@ function responsablesActifs(): UtilisateurResume[] {
 }
 
 // ------------------------------------------------------------------
-// Apercu et telechargement de fichiers
+// Depot d un livrable
 // ------------------------------------------------------------------
 
-/** Les images et les PDF sont affichables dans le navigateur. */
-function apercevable(f: FichierDetail): boolean {
-    return f.typeMime.startsWith('image/') || f.typeMime === 'application/pdf'
+const modalLivrable = ref(false)
+
+/**
+ * Les deux statuts sur lesquels le serveur accepte le depot.
+ *
+ * Les statuts sont listes et non deduits par exclusion : un statut ajoute
+ * dans StatutsActivite doit rester refuse tant qu on n a pas decide de son
+ * cas, et c est ce que fait le backend. Cette liste doit rester identique a
+ * LivrableEcritureService.depotAutorise -- diverger produirait soit un bouton
+ * qui propose une ecriture refusee, soit un depot refuse sans explication.
+ */
+const STATUTS_DEPOSIT_OUVERTS = new Set(['BROUILLON', 'EN_COURS'])
+
+/**
+ * Le depot est ouvert sur une activite BROUILLON ou EN COURS.
+ *
+ * La regle est posee ici sur le statut que le detail renvoie -- le statut de
+ * l activite MERE, une sous-activite n en ayant pas. Le backend la verifie
+ * de nouveau, sous verrou, a l ecriture : ceci ne sert donc qu a ne pas
+ * proposer une action qui serait refusee.
+ *
+ * BROUILLON est admis avec EN_COURS parce que c est la phase ou l activite se
+ * compose, et la seule ou ses sous-activites s ecrivent : le backend n ecrit
+ * des sous-activites que depuis la creation ou la modification d une activite,
+ * et la modification refuse tout statut autre que BROUILLON. Refuser ici
+ * empecherait de joindre un livrable a la sous-activite que l on vient de
+ * creer.
+ *
+ * Une activite sans historique n a pas de statut courant : statutActivite vaut
+ * null et le depot est refuse. Absence et statut inconnu sont traites pareil,
+ * volontairement -- dans les deux cas on ignore l etat de l activite, et on
+ * n ecrit pas dessus.
+ */
+const depotOuvert = computed(
+    () => STATUTS_DEPOSIT_OUVERTS.has(detail.value?.statutActivite ?? '')
+)
+
+/** Motif du refus, porte par le bouton desactive. */
+const motifDepotRefuse = computed(() => {
+    const statut = detail.value?.statutActivite
+
+    return statut
+        ? `Un livrable ne peut être ajouté qu’à une activité en brouillon ou en cours (activité ${statut}).`
+        : 'Un livrable ne peut être ajouté qu’à une activité en brouillon ou en cours.'
+})
+
+/**
+ * Le livrable cree rejoint la liste affichee, sans recharger la page.
+ *
+ * Plutot qu un rechargement complet : le depot vient d aboutir, la reponse
+ * contient deja le livrable et ses fichiers, et recharger ferait disparaitre
+ * l etat de la page -- son titre, son onglet, la position dans la liste --
+ * pour reafficher presque la meme chose.
+ */
+function ajouterALivrables(livrable: LivrableDetail): void {
+    if (!detail.value) return
+
+    detail.value.livrables = [...detail.value.livrables, livrable]
 }
 
-async function ouvrirApercu(f: FichierDetail) {
-    let reponse
+/**
+ * Le livrable dont on ajoute des fichiers, et l'ouverture du modal.
+ *
+ * Le livrable entier est memorise, et pas seulement son identifiant : le
+ * modal affiche son libelle et le nombre de fichiers deja deposes. Les relire
+ * dans la liste au moment de l'envoi serait possible, mais le libelle change
+ * entre-temps ferait diverger le titre de l'ecran et celui du depot.
+ */
+const livrableChoisi = ref<LivrableDetail | null>(null)
+const modalFichiers = ref(false)
 
-    try {
-        reponse = await activiteService.telechargerFichier(
-            idActivite.value, idSousActivite.value, f.id
-        )
-    } catch {
-        erreur.value = 'Connexion au serveur impossible. Réessayez dans un instant.'
-        return
-    }
-
-    if (!reponse.success) {
-        erreur.value = reponse.error
-        return
-    }
-
-    if (apercu.value) {
-        URL.revokeObjectURL(apercu.value.url)
-    }
-
-    apercu.value = {
-        nom: f.nomOriginal,
-        typeMime: reponse.data.type,
-        url: URL.createObjectURL(reponse.data),
-    }
-    apercuOuvert.value = true
+function ouvrirFichiers(livrable: LivrableDetail): void {
+    livrableChoisi.value = livrable
+    modalFichiers.value = true
 }
 
-function fermerApercu() {
-    apercuOuvert.value = false
+/**
+ * Le livrable relu remplace l'ancien, sans rechargement.
+ *
+ * Le serveur renvoie le livrable complet, fichiers anterieurs compris : on
+ * remplace donc la ligne entiere plutot que d ajouter les nouveaux fichiers a
+ * la main. Un melange manuel finirait par diverger du tri du serveur, qui
+ * classe par nom d origine.
+ */
+function fichiersAjoutes(livrable: LivrableDetail): void {
+    if (!detail.value) return
 
-    if (apercu.value) {
-        URL.revokeObjectURL(apercu.value.url)
-        apercu.value = null
-    }
+    detail.value.livrables = detail.value.livrables.map((existant) =>
+        existant.id === livrable.id ? livrable : existant
+    )
 }
+
+// ------------------------------------------------------------------
+// Telechargement des fichiers
+// ------------------------------------------------------------------
 
 async function telecharger(f: FichierDetail) {
     if (fichierEnTelechargement.value !== null) return
@@ -196,8 +252,6 @@ async function telecharger(f: FichierDetail) {
     lien.remove()
     URL.revokeObjectURL(url)
 }
-
-onUnmounted(fermerApercu)
 
 // ------------------------------------------------------------------
 // Chargement
@@ -469,23 +523,67 @@ onMounted(charger)
                     </div>
                 </template>
 
+                <!--
+                    Le depot n'est possible que sur une activité en brouillon
+                    ou en cours. Le
+                    bouton reste visible et désactivé dans le cas contraire :
+                    le retirer ferait croire qu'il n'y a rien à faire, alors
+                    que la raison est une règle métier. Le motif est dans le
+                    `title`, qui est ce que le navigateur affiche au survol.
+
+                    La règle est vérifiée par le serveur à l'écriture, sous
+                    verrou : ce bouton évite une action refusée, il ne
+                    remplace pas le contrôle.
+                -->
+                <template #actions>
+                    <BaseButton
+                        size="sm"
+                        variant="primary"
+                        :disabled="!depotOuvert"
+                        :title="depotOuvert
+                            ? 'Ajouter un livrable à cette sous-activité'
+                            : motifDepotRefuse"
+                        @click="modalLivrable = true"
+                    >
+                        <i class="bi bi-plus-lg"></i>
+                    </BaseButton>
+                </template>
+
                 <div v-if="detail.livrables.length" class="livrables">
                     <div v-for="liv in detail.livrables" :key="liv.id" class="livrable">
                         <div class="livrable__head">
                             <i class="bi bi-file-earmark-text"></i>
                             <span class="livrable__designation">{{ liv.designation }}</span>
+
+                            <!--
+                                Ajout de fichiers a un livrable existant. Meme
+                                regle que le "+" de la carte : desactive hors
+                                brouillon et en cours, pour ne pas proposer un
+                                depot que le serveur refuserait.
+                            -->
+                            <BaseButton
+                                size="sm"
+                                variant="secondary"
+                                :disabled="!depotOuvert"
+                                :title="depotOuvert
+                                    ? 'Ajouter des fichiers à ce livrable'
+                                    : motifDepotRefuse"
+                                :aria-label="`Ajouter des fichiers à ${liv.designation}`"
+                                @click="ouvrirFichiers(liv)"
+                            >
+                                <i class="bi bi-paperclip"></i>
+                            </BaseButton>
                         </div>
 
                         <p v-if="liv.description" class="livrable__description">{{ liv.description }}</p>
 
                         <div v-if="liv.fichiers.length" class="fichiers">
                             <span class="fichier__titre">Fichiers déposés</span>
-                            <div v-for="f in liv.fichiers" :key="f.id" class="fichier"
-                                    :class="{ 'fichier--apercevable': apercevable(f) }"
-                                    :title="apercevable(f) ? 'Cliquer pour afficher l\'aperçu' : ''"
-                                    role="button" tabindex="0"
-                                    @click="apercevable(f) && ouvrirApercu(f)"
-                                    @keydown.enter="apercevable(f) && ouvrirApercu(f)">
+                            <div
+                                v-for="f in liv.fichiers"
+                                :key="f.id"
+                                class="fichier"
+                            >
                                 <i class="bi bi-paperclip"></i>
                                 <span class="fichier__nom">{{ f.nomOriginal }}</span>
                                 <span class="fichier__meta">
@@ -499,6 +597,7 @@ onMounted(charger)
                                         size="sm"
                                         variant="secondary"
                                         title="Télécharger le fichier"
+                                        :aria-label="`Télécharger ${f.nomOriginal}`"
                                         :loading="fichierEnTelechargement === f.id"
                                         :disabled="fichierEnTelechargement !== null && fichierEnTelechargement !== f.id"
                                         @click.stop="telecharger(f)"
@@ -517,31 +616,32 @@ onMounted(charger)
             </BaseCard>
         </template>
 
-        <!-- ============ APERÇU FICHIER ============ -->
-        <BaseModal
-            v-model="apercuOuvert"
-            size="lg"
-            :title="apercu ? apercu.nom : 'Aperçu du fichier'"
-            @close="fermerApercu"
-        >
-            <template v-if="apercu">
-                <div v-if="apercu.typeMime.startsWith('image/')" class="apercu">
-                    <img :src="apercu.url" :alt="apercu.nom" class="apercu__image" />
-                </div>
+        <!-- ============ AJOUT D'UN LIVRABLE ============ -->
+        <LivrableModal
+            v-model="modalLivrable"
+            :idActivite="idActivite"
+            :idSousActivite="idSousActivite"
+            :designationSousActivite="detail?.designation"
+            @ajoute="ajouterALivrables"
+        />
 
-                <template v-else-if="apercu.typeMime === 'application/pdf'">
-                    <iframe class="apercu__pdf" :src="apercu.url" :title="apercu.nom"></iframe>
-                </template>
+        <!--
+            ============ AJOUT DE FICHIERS A UN LIVRABLE ============
 
-                <p v-else class="vide">
-                    Aucun aperçu n'est disponible pour ce type de fichier.
-                </p>
-            </template>
-
-            <template v-else>
-                <p class="vide">Chargement du fichier…</p>
-            </template>
-        </BaseModal>
+            Monté seulement si un livrable est choisi : les identifiants sont
+            requis, et le parent n'en a pas tant qu'aucun n'est ouvert. Le
+            v-if évite aussi de laisser un modal fantôme en mémoire.
+        -->
+        <FichiersModal
+            v-if="livrableChoisi"
+            v-model="modalFichiers"
+            :idActivite="idActivite"
+            :idSousActivite="idSousActivite"
+            :idLivrable="livrableChoisi.id"
+            :designationLivrable="livrableChoisi.designation"
+            :fichiersExistants="livrableChoisi.fichiers.length"
+            @ajoute="fichiersAjoutes"
+        />
     </div>
 </template>
 
@@ -843,18 +943,6 @@ onMounted(charger)
     color: #b6c2ce;
 }
 
-.fichier--apercevable {
-    cursor: pointer;
-    border-radius: 7px;
-    padding: 0.25rem 0.4rem;
-    margin: -0.25rem 0 0 -0.4rem;
-    transition: background var(--transition-fast);
-}
-
-.fichier--apercevable:hover {
-    background: #f2f7fa;
-}
-
 .fichier__nom {
     font-weight: 600;
     color: #33475c;
@@ -872,26 +960,6 @@ onMounted(charger)
 
 .fichier__actions .base-btn {
     padding: 0.28rem 0.55rem;
-}
-
-/* --- Apercu --- */
-.apercu {
-    display: flex;
-    justify-content: center;
-}
-
-.apercu__image {
-    max-width: 100%;
-    max-height: 72vh;
-    border-radius: 8px;
-    object-fit: contain;
-}
-
-.apercu__pdf {
-    width: 100%;
-    height: 72vh;
-    border: none;
-    border-radius: 8px;
 }
 
 .livrable__aucun {

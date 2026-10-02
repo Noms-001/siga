@@ -24,7 +24,7 @@ export interface ActiviteReference {
 export interface ActiviteListItem {
     id: number
     code: string
-    reference: string
+    reference: string | null
     designation: string
 
     dateDebutPrevue: string | null
@@ -86,6 +86,39 @@ export interface ActiviteAutocomplete {
     code?: string | null
     libelle?: string | null
     libelleSecondaire?: string | null
+    /**
+     * Objectif specifique uniquement : annee de l'objectif et prochain
+     * numero d'activite libre dans cet objectif. Le formulaire s'en sert pour
+     * proposer un code et une reference, qui restent modifiables.
+     */
+    annee?: number | null
+    prochainNumero?: number | null
+}
+
+/**
+ * Code propose pour une activite NON PTA.
+ *
+ * `annee` accompagne le code parce que la proposition ne vaut que pour elle :
+ * changer d'annee dans le formulaire doit rendre la valeur affichee
+ * caduque, et non la laisser paraitre toujours valable.
+ */
+export interface CodePropose {
+    code: string
+    annee: number
+}
+
+/**
+ * Objectif specifique a creer depuis le formulaire d'activite.
+ *
+ * `annee` est demandee et non deduite : la colonne est NOT NULL, contrainte
+ * entre 1900 et 2100, et le code ne la porte pas (`BCT/1`). Le backend ne
+ * peut donc pas la retrouver, et une valeur par defaut rangerait l'utilisateur
+ * dans l'annee du jour sans qu'il l'ait demandee.
+ */
+export interface ObjectifSpecifiqueEcriture {
+    code: string
+    designation: string
+    annee: number
 }
 
 /**
@@ -105,6 +138,36 @@ export interface ActiviteOptions {
 
 /** Vue PTA / NON PTA. PTA par defaut. */
 export type VueActivite = 'PTA' | 'NON_PTA'
+
+/**
+ * "Brouillon" est un statut d'ecriture, pas de suivi : il n'apparait dans
+ * aucune carte de la liste, qui ne compte que les activites publiees. Il est
+ * donc exporte a part, pour la seule page qui liste les activites en cours
+ * de redaction.
+ */
+export const BROUILLON = 'BROUILLON'
+
+/**
+ * "En attente de validation" est exporte pour la seule page qui vide le
+ * circuit, comme BROUILLON pour celle qui l'emplit. Ces deux statuts-la sont
+ * des etats de travail : ni l'un ni l'autre n'apparait dans les cartes de la
+ * liste de suivi.
+ */
+export const EN_ATTENTE_VALIDATION = 'EN_ATTENTE_VALIDATION'
+
+/**
+ * Accuse de soumission (POST /api/activites/{id}/soumettre-validation).
+ *
+ * statut est toujours EN_ATTENTE_VALIDATION : l'activite quitte la liste des
+ * brouillons, elle n'entre pas encore dans le suivi. C'est ce qui permet a la
+ * page de retirer la carte sans relire l'activite.
+ */
+export interface SoumissionResultat {
+    idActivite: number
+    code: string
+    statut: string
+    dateSoumission: string | null
+}
 
 /**
  * "En retard" n'est pas un statut en base : c'est une regle metier.
@@ -221,6 +284,33 @@ export interface SousActiviteDetail {
     historiqueAvancement: AvancementDetail[]
     affectations: AffectationDetail[]
     livrables: LivrableDetail[]
+    /**
+     * Statut courant de l'activite mere : une sous-activite n'en a pas.
+     *
+     * C'est lui qui autorise le depot d'un livrable, et le backend le
+     * verifie de nouveau a l'ecriture -- cette valeur sert a afficher le
+     * bouton, pas a decider. `null` quand l'activite n'a pas d'historique,
+     * ce qui equivaut a un refus.
+     */
+    statutActivite: string | null
+}
+
+/**
+ * Accuse de decision (POST /api/activites/{id}/decision).
+ *
+ * statut est le statut APRES decision, et il est renvoye pour que la page
+ * n'ait pas a le deduire : c'est lui qui permet de retirer la carte sans
+ * relire l'activite. dateDecision peut etre nulle si le backend a rejoue une
+ * ecriture sans horodatage, d'ou le type large plutot que Date.
+ */
+export interface DecisionResultat {
+    idActivite: number
+    code: string
+    /** Ce qui a ete decide : VALIDE, REJETE ou RETOUR_MODIFICATION. */
+    decision: string
+    /** Statut obtenu : VALIDEE, REJETE ou BROUILLON. */
+    statut: string
+    dateDecision: string | null
 }
 
 /**
@@ -300,6 +390,25 @@ export interface ResultatIntermediaire {
     designation: string
 }
 
+/**
+ * Resultat intermediaire ecrit par le formulaire.
+ *
+ * Un seul champ, contre deux cote lecture : l'identifiant n'est pas renvoye
+ * parce que le backend remplace l'ensemble des resultats a l'enregistrement.
+ * Aucune table ne depend d'un resultat intermediaire, donc le supprimer
+ * n'entraine rien -- contrairement a une sous-activite, dont les
+ * affectations et livrables interdit de la reecrire ainsi.
+ */
+export interface ResultatIntermediaireEcriture {
+    designation: string
+}
+
+/** Ligne de resultat intermediaire pre-remplie par le backend. */
+export interface ResultatIntermediaireFormulaire {
+    idResultatIntermediaire: number
+    designation: string
+}
+
 /** Entree de l'historique de statut d'une activite. */
 export interface HistoriqueActivite {
     id: number
@@ -315,7 +424,7 @@ export interface HistoriqueActivite {
 export interface ActiviteDetail {
     id: number
     code: string
-    reference: string
+    reference: string | null
     designation: string
     dateDebutPrevue: string | null
     dateFinPrevue: string | null
@@ -342,4 +451,163 @@ export interface ActiviteDetail {
     resultatsIntermediaires: ResultatIntermediaire[]
     /** Du plus recent au plus ancien. */
     historique: HistoriqueActivite[]
+}
+
+/**
+ * Corps d'ecriture d'une activite, partage par la creation et la
+ * modification.
+ *
+ * `pta` est envoye explicitement plutot que deduit de la presence d'un
+ * objectif : c'est ce qui permet au backend de refuser un corps qui se
+ * contredit (pta vrai sans objectif, ou pta faux avec un objectif) au lieu
+ * de le corriger en silence.
+ *
+ * `idService` est facultatif : un utilisateur rattache a un service n'a pas
+ * d'element a choisir, et le backend impose le sien. Un utilisateur de
+ * niveau departement doit, lui, en designer un.
+ */
+export interface ActiviteEcriture {
+    code: string
+    reference: string | null
+    designation: string
+    dateDebutPrevue: string
+    dateFinPrevue: string | null
+    pta: boolean
+    idObjectifSpecifique: number | null
+    idTypeActivite: number | null
+    idSite: number | null
+    idPriorite: number
+    idService: number | null
+    sousActivites: SousActiviteEcriture[]
+    resultatsIntermediaires: ResultatIntermediaireEcriture[]
+}
+
+/**
+ * Ligne de sous-activite du formulaire.
+ *
+ * `idSousActivite` a null = creation, renseignee = modification de cette
+ * ligne. C'est ce qui permet d'ajouter ou de retirer une ligne sans
+ * supprimer puis recreer toutes les autres.
+ *
+ * `code` vide = le backend en genere un, car il est unique dans toute la
+ * base et non seulement par activite.
+ *
+ * `livrables` suit la meme logique, mais sans identifiant : le backend
+ * reconnait un livrable a sa designation et le remplace tant qu'il ne porte
+ * pas de fichier. Un livrable ne designe personne d'autre, contrairement a la
+ * sous-activite, donc il n'a pas besoin d'etre lu par affectation.
+ */
+export interface SousActiviteEcriture {
+    idSousActivite: number | null
+    code: string
+    designation: string
+    dateDebutPrevue: string
+    dateFinPrevue: string
+    livrables: LivrableEcriture[]
+}
+
+/**
+ * Livrable a ajouter depuis le detail d'une sous-activite.
+ *
+ * Deux champs seulement, parce que la table n'en porte que deux. Les
+ * FICHIERS ne voyagent pas dans ce corps : ils sont joints en multipart, a
+ * cote, via creerLivrable. Ils restent donc facultatifs des deux cotes, et le
+ * serveur ne refuse pas un livrable sans depot.
+ */
+export interface LivrableAjout {
+    designation: string
+    description?: string | null
+}
+
+/**
+ * Livrable ecrit par le formulaire.
+ *
+ * Aucun identifiant n'est renvoye, et c'est volontaire : la designation est
+ * le nom que l'utilisateur donne au livrable, et c'est elle qui sert a
+ * reconnaitre une ligne deja enregistree. Renvoyer un identifiant que le
+ * formulaire ne pourrait pas resoudre -- aucun livrable ne porte
+ * d'affectation -- n'ajouterait qu'un ecran a gerer.
+ */
+export interface LivrableEcriture {
+    designation: string
+    description: string
+}
+
+/**
+ * Livrable pre-rempli par le backend.
+ *
+ * `nombreFichiers` n'est pas qu'un libelle a afficher : il interdit au
+ * formulaire de proposer la suppression d'un livrable que le backend
+ * refuserait. Il est donc charge avec la ligne, et non relu a
+ * l'enregistrement, ou un depot peut avoir ete ajoute depuis.
+ */
+export interface LivrableFormulaire {
+    idLivrable: number
+    designation: string
+    description: string | null
+    nombreFichiers: number
+}
+
+/** Accuse de creation ou de modification. */
+export interface ActiviteEcritureResultat {
+    idActivite: number
+    code: string
+    reference: string | null
+    designation: string
+    statut: string
+    dateDebutPrevue: string
+    dateFinPrevue: string | null
+    dateEnregistrement: string
+    nombreSousActivites: number
+    nombreResultatsIntermediaires: number
+}
+
+/** Ligne de sous-activite pre-remplie par le backend. */
+export interface SousActiviteFormulaire {
+    idSousActivite: number
+    code: string
+    designation: string
+    dateDebutPrevue: string
+    dateFinPrevue: string
+    dateDebutReelle: string | null
+    dateFinReelle: string | null
+    livrables: LivrableFormulaire[]
+}
+
+/**
+ * Ce que le formulaire doit pre-remplir en mode modification.
+ *
+ * Sous-ensemble du detail d'une activite : celui-ci porte en plus avancement,
+ * livrables, fichiers, validations, indicateurs et historique, qu'un
+ * formulaire de redaction n'edite pas.
+ *
+ * `statut` sert uniquement a afficher ou masquer le bouton Modifier ; c'est
+ * le backend qui refuse la modification si l'activite n'est plus un
+ * brouillon.
+ */
+export interface ActiviteFormulaire {
+    idActivite: number
+    code: string
+    reference: string | null
+    designation: string
+    dateDebutPrevue: string
+    dateFinPrevue: string | null
+    idObjectifSpecifique: number | null
+    /**
+     * Objectif retenu, en clair.
+     *
+     * Un identifiant seul ne suffirait pas a pre-remplir le champ : le
+     * formulaire doit afficher un libelle, pas un nombre. Les trois valeurs
+     * sont nulles ensemble, quand aucun objectif n'est rattache.
+     */
+    objectifCode: string | null
+    objectifDesignation: string | null
+    objectifAnnee: number | null
+    idTypeActivite: number | null
+    idSite: number | null
+    idPriorite: number
+    idService: number
+    statut: string
+    sousActivites: SousActiviteFormulaire[]
+    resultatsIntermediaires: ResultatIntermediaireFormulaire[]
 }

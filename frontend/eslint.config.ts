@@ -37,10 +37,15 @@ export default defineConfigWithVueTs(
     // Noms de vues imposés par le cahier des charges (Liste, Detail, Ajout).
     // Comme les partials, ces vues sont importées par le router ou par une
     // autre vue, jamais enregistrées globalement.
+    //
+    // Le dossier `activites/` est celui de laReleve : sans lui, ces trois
+    // chemins ne desactivaient plus rien et la regle revenait a interdire
+    // les noms que le cahier des charges demande.
     files: [
-      'src/views/frontoffice/Liste.vue',
-      'src/views/frontoffice/Detail.vue',
-      'src/views/frontoffice/Ajout.vue',
+      'src/views/frontoffice/activites/Liste.vue',
+      'src/views/frontoffice/activites/Detail.vue',
+      'src/views/frontoffice/activites/Ajout.vue',
+      'src/views/frontoffice/activites/Brouillons.vue',
     ],
     rules: {
       'vue/multi-word-component-names': 'off',

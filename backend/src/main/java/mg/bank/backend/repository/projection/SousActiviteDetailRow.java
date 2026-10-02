@@ -27,4 +27,13 @@ public interface SousActiviteDetailRow {
 
     LocalDate getDateFinReelle();
 
+    /**
+     * Statut courant de l activite mere, pas de la sous-activite : celle-ci
+     * n en a pas. Vient de la meme jointure d historique que le detail
+     * d activite, et sert a autoriser ou non les ecritures de suivi.
+     *
+     * Nullable : une activite sans historique n a pas de statut courant.
+     */
+    String getStatutActivite();
+
 }

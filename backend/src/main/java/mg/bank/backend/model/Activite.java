@@ -43,7 +43,20 @@ public class Activite {
     @Column(name = "code", nullable = false)
     private String code;
 
-    @Column(name = "reference", nullable = false)
+    /**
+     * Nullable, et ce n'est pas un oubli.
+     *
+     * Une activite NPTA n est rattachee a aucun objectif specifique : sa
+     * reference, qui porte l objectif (BCT/1_1), n a donc rien a designer.
+     * La colonne est nullable en base depuis le passage au nouveau format, et
+     * l annotation doit le dire : la laisser en nullable = false ferait
+     * echouer la validation d Hibernate sur une entite legitimately sans
+     * reference, avant meme d atteindre la base.
+     *
+     * La regle metier reste cote service : une activite PTA doit en
+     * fournir une, une NPTA jamais. Voir ActiviteEcritureService.
+     */
+    @Column(name = "reference")
     private String reference;
 
     @Column(name = "designation", nullable = false)

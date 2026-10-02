@@ -41,10 +41,28 @@
                     </router-link>
                 </li>
                 <li class="nav-item">
+                    <!--
+                        Pointe les activites en cours de redaction, pas la
+                        file de validation : ce sont deux listes opposées,
+                        l'une alimentée par l'autre.
+
+                    -->
+                    <router-link class="nav-link" to="/activites/brouillons"
+                        :class="{ active: isActive('/activites/brouillons') }">
+                        <i class="bi bi-pencil-square"></i>
+                        <span>Activités créées</span>
+                    </router-link>
+                </li>
+                <li class="nav-item">
+                    <!--
+                        L'autre bout du circuit : ce qui a été soumis et attend
+                        une décision. Distinct de "Activités créées" par le
+                        sens du parcours, et non par une nuance de libellé.
+                    -->
                     <router-link class="nav-link" to="/activites/a-valider"
                         :class="{ active: isActive('/activites/a-valider') }">
                         <i class="bi bi-check2-square"></i>
-                        <span>À valider</span>
+                        <span>Activités à valider</span>
                     </router-link>
                 </li>
                 <li class="nav-item">
@@ -216,7 +234,7 @@ const route = useRoute()
 
 // --- Computed ---
 const isActive = (path: string) => {
-    return route.path === path || route.path.startsWith(path + '/')
+    return route.path === path 
 }
 
 // --- Methods ---

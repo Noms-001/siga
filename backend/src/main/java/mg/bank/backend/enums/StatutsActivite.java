@@ -22,6 +22,18 @@ public final class StatutsActivite {
     public static final String SUSPENDUE = "SUSPENDUE";
 
     /**
+     * Statut de redaction : l'activite existe mais n'a pas ete soumise.
+     *
+     * Comme les trois codes suivants, il est absent de
+     * StatutActiviteEnum, mais pour une raison opposee : il n'est pas dans
+     * le circuit de validation, il en est le point de depart. C est le seul
+     * des quatre a etre visible dans la liste, et il se distingue des trois
+     * autres parce qu'il n'est pas dans SQL_NON_PUBLIEES : un brouillon doit
+     * rester trouvable, sinon son auteur ne pourrait plus le soumettre.
+     */
+    public static final String BROUILLON = "BROUILLON";
+
+    /**
      * Statuts du circuit de validation, avant que l'activite ne soit
      * publiee au suivi.
      *

@@ -23,4 +23,24 @@ public class AutocompleteDTO {
     private String libelle;
     private String libelleSecondaire;
 
+    /**
+     * Annee de l'objectif, pour l'autocomplete des objectifs uniquement.
+     *
+     * Distincte de libelleSecondaire, qui n'en est que la version affichee
+     * dans le menu : le code d'une activite doit reprendre l'annee reelle,
+     * et la reextraire d'un libelle destine a l'ecran serait fragile.
+     */
+    private Integer annee;
+
+    /**
+     * Prochain numero disponible dans l'objectif, pour l'autocomplete des
+     * objectifs uniquement : reste null sur l'autocomplete des activites,
+     * qui n'a pas d'objectif.
+     *
+     * Renvoye en nombre et non en chaine : le zero de remplissage a deux
+     * chiffres appartient au format du code d'activite, qui est une regle du
+     * formulaire, et non une propriete de l'objectif.
+     */
+    private Integer prochainNumero;
+
 }

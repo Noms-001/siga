@@ -138,15 +138,13 @@ public class ActiviteDetailService {
      *
      * Le message du 403 ne nomme ni l activite ni son service : il confirme
      * l acces refuse, pas la position de la donnee.
+     *
+     * La regle elle-meme est portee par ActiviteService, comme le perimetre :
+     * une ecriture doit pouvoir repondre 403 sur la meme activite, sans que
+     * les deux services puissent diverger sur ce qui autorise un acces.
      */
     private ApiException refusOuAbsence(Integer id) {
-        if (activiteRepository.compterActivite(id) > 0) {
-            return new ApiException(
-                    "Vous n etes pas autorise a consulter cette activite",
-                    HttpStatus.FORBIDDEN);
-        }
-
-        return new ApiException("Activite introuvable", HttpStatus.NOT_FOUND);
+        return activiteService.refusOuAbsence(id);
     }
 
     /**
@@ -199,8 +197,18 @@ public class ActiviteDetailService {
      * n aiderait pas. Reste le 403 : la sous-activite existe, son activite
      * aussi, mais elle sort du perimetre. Ces comptages ne sont payes que sur
      * le chemin de l erreur, jamais en fonctionnement nominal.
+     *
+     * PUBLIC, ET POUR LA MEME RAISON QUE getPerimetre ET refusOuAbsence
+     *
+     * Une ecriture qui porte sur une sous-activite -- y ajouter un livrable --
+     * doit rendre exactement le meme 403 et le meme 404. Dupliquer ces trois
+     * comptages ailleurs autoriserait les deux reponses a diverger : un jour
+     * l une nommerait la sous-activite sur un 403 que l autre refuse de
+     * nommer. C est aussi ce qui permet au service d ecriture de s appuyer sur
+     * l echec de findSousActivite, qui signifie deja "inexistante ou hors
+     * perimetre".
      */
-    private ApiException refusOuAbsenceSousActivite(
+    public ApiException refusOuAbsenceSousActivite(
             Integer idActivite,
             Integer idSousActivite) {
 
@@ -218,6 +226,29 @@ public class ActiviteDetailService {
         return new ApiException(
                 "Vous n etes pas autorise a consulter cette sous-activite",
                 HttpStatus.FORBIDDEN);
+    }
+
+    /**
+     * Fichiers d un livrable, decrits comme le detail les decrit.
+     *
+     * PUBLIC POUR LE SERVICE D ECRITURE, QUI AJOUTE DES FICHIERS
+     *
+     * Apres un ajout, la reponse doit decrire le livrable tel que le detail le
+     * decrirait -- meme tri, meme auteur, meme forme. Reconstruire cette liste
+     * dans le service d ecriture depuis les lignes qu il vient d ecrire
+     * donnerait deux versions de la meme description, qui divergeraient a la
+     * premiere evolution de l une des deux. Passer par ici garantit qu il n y
+     * en a qu une.
+     *
+     * Le perimetre n est pas revalide ici : l appelant a deja passe par
+     * findSousActivite, qui l applique, et il n appelle cette methode que pour
+     * un livrable dont il a verifie l appartenance a cette sous-activite.
+     */
+    public List<FichierDetailDTO> fichiers(Integer idLivrable) {
+
+        return activiteRepository.findFichiersLivrable(idLivrable).stream()
+                .map(this::fichier)
+                .toList();
     }
 
     /**
@@ -496,6 +527,10 @@ public class ActiviteDetailService {
                 .dateFinPrevue(row.getDateFinPrevue())
                 .dateDebutReelle(row.getDateDebutReelle())
                 .dateFinReelle(row.getDateFinReelle())
+                // Nullable quand l'activite n'a pas d'historique : l'absence
+                // est transmise telle quelle, pour que le formulaire refuse
+                // l'ecriture plutot que de la laisser passer.
+                .statutActivite(row.getStatutActivite())
                 .avancementCourant(suivi.isEmpty() ? null : suivi.getFirst())
                 .historiqueAvancement(suivi)
                 .affectations(affectations.stream()

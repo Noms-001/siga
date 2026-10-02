@@ -1,14 +1,6 @@
 <template>
     <nav class="top-nav">
         <div class="nav-left">
-            <button class="btn-hamburger btn-icon d-lg-none" @click="toggleSidebar" type="button"
-                aria-label="Ouvrir le menu">
-                <i class="bi bi-list"></i>
-            </button>
-            <button class="btn-hamburger btn-icon d-none d-lg-inline-flex" @click="toggleSidebar" type="button"
-                aria-label="Réduire le menu latéral">
-                <i class="bi bi-layout-sidebar-inset"></i>
-            </button>
             <div class="logo-icon" @click="toggleSidebar">
                 <i class="bi bi-shield-shaded"></i> DTS
             </div>
@@ -322,7 +314,6 @@ onUnmounted(() => {
 }
 
 /* --- Boutons icônes --- */
-.btn-hamburger,
 .notif-btn {
     position: relative;
     width: 36px;
@@ -340,14 +331,12 @@ onUnmounted(() => {
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.btn-hamburger:hover,
 .notif-btn:hover {
     background: var(--dts-blue-50);
     color: var(--dts-blue);
     border-color: var(--dts-border);
 }
 
-.btn-hamburger:focus-visible,
 .notif-btn:focus-visible {
     outline: 2px solid var(--dts-blue);
     outline-offset: 1px;

@@ -1,4 +1,18 @@
 <template>
+    <!--
+        ============ CONFIRMATION ============
+
+        Placee hors du contenu pour qu'elle ne soit pas dupliquee par les deux
+        sections de la page, et teleporte dans le body par BaseModal.
+    -->
+    <BaseConfirm
+        v-model="confirmation.ouvert.value"
+        :demande="confirmation.demande.value"
+        :loading="confirmation.enCours.value || isSavingProfile || isSavingPassword"
+        @confirme="confirmation.confirmer"
+        @annule="confirmation.annuler"
+    />
+
     <div class="profile-page">
         <!-- En-tête -->
         <div class="profile-header mb-4">
@@ -245,7 +259,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { BaseCard, BaseButton, BaseInput } from '@/components/base'
+import { BaseCard, BaseButton, BaseConfirm, BaseInput } from '@/components/base'
+import { useConfirmation } from '@/composables/useConfirmation'
 import { formatDate } from '@/utils/date'
 import * as authService from '@/services/auth'
 
@@ -337,6 +352,13 @@ const startEditProfile = () => {
     }
 }
 
+/*
+    Une seule instance pour les deux confirmations de la page : le profil et le
+    mot de passe ne se modifient pas au meme moment, et deux modales
+    superposees laisseraient l'utilisateur deviner laquelle il repond.
+*/
+const confirmation = useConfirmation()
+
 const cancelEditProfile = () => {
     isEditingProfile.value = false
     isSavingProfile.value = false
@@ -344,7 +366,15 @@ const cancelEditProfile = () => {
     errors.value = {}
 }
 
-const saveProfile = async () => {
+/**
+ * Enregistrer le profil, apres confirmation.
+ *
+ * L'email est le sujet du jeton de session : le changer invalide les sessions
+ * ouvertes ailleurs. C'est un consequence qu'il faut annoncer avant le clic, et
+ * non decouvrir apres coup -- d'ou une confirmation, alors que le reste du
+ * formulaire est ordinaire.
+ */
+const saveProfile = () => {
     errors.value = {}
     formAlert.value = null
 
@@ -366,6 +396,24 @@ const saveProfile = async () => {
         return
     }
 
+    const emailChange = form.value.email.trim() !== (authStore.user?.email ?? '')
+
+    confirmation.demander({
+        titre: 'Enregistrer le profil',
+        message: emailChange
+            ? `Votre email passera à ${form.value.email.trim()}.`
+            : 'Vos informations personnelles seront enregistrées.',
+        consequence: emailChange
+            ? "Changer d'email déconnecte vos autres sessions, car il est le sujet du jeton."
+            : undefined,
+        libelleConfirmer: 'Enregistrer',
+        ton: emailChange ? 'warning' : 'primary',
+        icone: 'bi bi-person-check',
+        action: enregistrerProfil,
+    })
+}
+
+const enregistrerProfil = async () => {
     isSavingProfile.value = true
 
     try {
@@ -422,7 +470,14 @@ const cancelChangePassword = () => {
     passwordForm.value = { ancienMotDePasse: '', password: '', confirmPassword: '' }
 }
 
-const savePassword = async () => {
+/**
+ * Changer de mot de passe, apres confirmation.
+ *
+ * Le nouveau mot de passe n'est pas rappelable apres coup, et l'utilisateur
+ * peut avoir saisi un mot de passe deja employe ailleurs : c'est le moment de
+ * le dire, pas apres un echec d'authentification.
+ */
+const savePassword = () => {
     passwordErrors.value = {}
     passwordAlert.value = null
 
@@ -445,6 +500,19 @@ const savePassword = async () => {
         return
     }
 
+    confirmation.demander({
+        titre: 'Changer le mot de passe',
+        message: 'Votre mot de passe actuel sera remplacé.',
+        consequence: 'Les autres sessions ouvertes avec le mot de passe précédent devront vous reconnecter.',
+        libelleConfirmer: 'Changer',
+        libelleAnnuler: 'Revenir',
+        ton: 'warning',
+        icone: 'bi bi-key',
+        action: enregistrerMotDePasse,
+    })
+}
+
+const enregistrerMotDePasse = async () => {
     isSavingPassword.value = true
 
     try {

@@ -26,6 +26,9 @@ CREATE TABLE service(
    FOREIGN KEY(id_departement) REFERENCES departement(id_departement)
 );
 
+CREATE INDEX ix_service_departement
+ON service (id_departement, nom);
+
 CREATE TABLE objectif_specifique(
    id_objectif_specifique SERIAL,
    code VARCHAR(20)  NOT NULL,
@@ -36,6 +39,9 @@ CREATE TABLE objectif_specifique(
    UNIQUE(code),
    CONSTRAINT chk_objectif_specifique_annee CHECK (annee BETWEEN 1900 AND 2100)
 );
+
+CREATE INDEX ix_objectif_specifique_annee
+ON objectif_specifique (annee DESC, code);
 
 CREATE TABLE site(
    id_site SERIAL,
@@ -98,7 +104,7 @@ CREATE TABLE poste(
 CREATE TABLE activite(
    id_activite SERIAL,
    code VARCHAR(20)  NOT NULL,
-   reference VARCHAR(20)  NOT NULL,
+   reference VARCHAR(20),
    designation VARCHAR(255)  NOT NULL,
    date_debut_prevue DATE NOT NULL,
    date_fin_prevue DATE,
@@ -124,6 +130,12 @@ CREATE TABLE activite(
    )
 );
 
+CREATE INDEX ix_activite_service
+ON activite (id_service);
+
+CREATE INDEX ix_activite_objectif
+ON activite (id_objectif_specifique);
+
 CREATE TABLE sous_activite(
    id_sous_activite SERIAL,
    code VARCHAR(20)  NOT NULL,
@@ -144,6 +156,9 @@ CREATE TABLE sous_activite(
    )
 );
 
+CREATE INDEX ix_sous_activite_activite
+ON sous_activite (id_activite, date_debut_prevue, code);
+
 CREATE TABLE resultat_intermediaire(
    id_resultat_intermediaire SERIAL,
    designation VARCHAR(255)  NOT NULL,
@@ -151,6 +166,9 @@ CREATE TABLE resultat_intermediaire(
    PRIMARY KEY(id_resultat_intermediaire),
    FOREIGN KEY(id_activite) REFERENCES activite(id_activite)
 );
+
+CREATE INDEX ix_resultat_intermediaire_activite
+ON resultat_intermediaire (id_activite);
 
 CREATE TABLE livrable_sous_activite(
    id_livrable_sous_activite SERIAL,
@@ -160,6 +178,9 @@ CREATE TABLE livrable_sous_activite(
    PRIMARY KEY(id_livrable_sous_activite),
    FOREIGN KEY(id_sous_activite) REFERENCES sous_activite(id_sous_activite)
 );
+
+CREATE INDEX ix_livrable_sous_activite_sous
+ON livrable_sous_activite (id_sous_activite, designation);
 
 CREATE TABLE utilisateur(
    id_utilisateur SERIAL,
@@ -183,6 +204,9 @@ CREATE TABLE utilisateur(
        id_service IS NULL OR id_departement IS NOT NULL
    )
 );
+
+CREATE INDEX ix_utilisateur_email
+ON utilisateur (email);
 
 CREATE TABLE type_token(
    id_type_token SERIAL,
@@ -230,6 +254,9 @@ CREATE TABLE affectation_sous_activite(
    FOREIGN KEY(id_utilisateur) REFERENCES utilisateur(id_utilisateur)
 );
 
+CREATE INDEX ix_affectation_sous_activite_sous
+ON affectation_sous_activite (id_sous_activite, date_affectation DESC);
+
 CREATE TABLE "procedure"(
    id_procedure SERIAL,
    designation VARCHAR(255)  NOT NULL,
@@ -273,6 +300,9 @@ CREATE TABLE validation_activite(
    )
 );
 
+CREATE INDEX ix_validation_activite_activite
+ON validation_activite (id_activite);
+
 CREATE TABLE indicateur(
    id_indicateur SERIAL,
    code VARCHAR(50)  NOT NULL,
@@ -310,6 +340,9 @@ CREATE TABLE valeur_indicateur(
    FOREIGN KEY(id_indicateur) REFERENCES indicateur(id_indicateur),
    CONSTRAINT chk_valeur_indicateur_periode CHECK (periode_fin > periode_debut)
 );
+
+CREATE INDEX ix_valeur_indicateur_indicateur
+ON valeur_indicateur (id_indicateur);
 
 CREATE TABLE plan_action(
    id_plan_action SERIAL,
@@ -419,6 +452,13 @@ CREATE TABLE historique_activite(
    FOREIGN KEY(id_activite) REFERENCES activite(id_activite)
 );
 
+-- L'ordre DESC reproduit celui du "NOT EXISTS (date, id) > (date, id)" qui
+-- remplace le ORDER BY ... LIMIT 1 du statut courant, ainsi que celui de
+-- l'historique. Ne pas le repasser en ASC : la comparaison de tuples resterait
+-- correcte, mais l'index ne fournirait plus l'ordre.
+CREATE INDEX ix_historique_activite_activite
+ON historique_activite (id_activite, date_changement DESC, id_historique_activite DESC);
+
 CREATE TABLE avancement_sous_activite(
    id_historique_sous_activite SERIAL,
    valeur_pourcentage NUMERIC(15,2)   NOT NULL,
@@ -435,6 +475,12 @@ CREATE TABLE avancement_sous_activite(
        valeur_pourcentage >= 0 AND valeur_pourcentage <= 100
    )
 );
+
+-- Meme raison que ix_historique_activite_activite : dernier avancement courant
+-- par sous-activite, puis historique de la sous-activite, tous deux dans le
+-- meme sens de lecture.
+CREATE INDEX ix_avancement_sous_activite_sous
+ON avancement_sous_activite (id_sous_activite, date_changement DESC, id_historique_sous_activite DESC);
 
 CREATE TABLE fichier_sous_activite(
    id_fichier_sous_activite SERIAL,
@@ -455,6 +501,9 @@ CREATE TABLE fichier_sous_activite(
    CONSTRAINT chk_fichier_sous_activite_taille CHECK (taille IS NULL OR taille >= 0)
 );
 
+CREATE INDEX ix_fichier_sous_activite_livrable
+ON fichier_sous_activite (id_livrable_sous_activite);
+
 CREATE TABLE token_auth(
    id_token_auth SERIAL,
    token VARCHAR(255)  NOT NULL,
@@ -467,6 +516,9 @@ CREATE TABLE token_auth(
    FOREIGN KEY(id_type_token) REFERENCES type_token(id_type_token),
    FOREIGN KEY(id_utilisateur) REFERENCES utilisateur(id_utilisateur)
 );
+
+CREATE INDEX ix_token_auth_token
+ON token_auth (token);
 
 CREATE TABLE type_activite_service(
    id_service INTEGER,

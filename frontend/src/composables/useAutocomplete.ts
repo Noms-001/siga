@@ -6,6 +6,19 @@ export interface Suggestion {
     code?: string | null
     libelle?: string | null
     libelleSecondaire?: string | null
+    /**
+     * Objectif specifique uniquement.
+     *
+     * Annee de l'objectif, et prochain numero d'activite libre dans cet
+     * objectif. Les deux servent a proposer un code d'activite, et n'ont pas
+     * d'equivalent dans l'autocomplete des activites, qui les laisse a null.
+     *
+     * `annee` est distincte de `libelleSecondaire` bien que les deux portent
+     * la meme valeur : celle-ci est une chaine faite pour etre affichee,
+     * celle-la un nombre destine a etre concatene dans un code.
+     */
+    annee?: number | null
+    prochainNumero?: number | null
 }
 
 export interface UseAutocompleteOptions {
@@ -118,10 +131,14 @@ export function useAutocomplete(options: UseAutocompleteOptions): UseAutocomplet
     }
 
     function selectionner(suggestion: Suggestion): void {
-        saisie.value = suggestion.libelle ?? suggestion.code ?? ''
+        annulerMinuteur()
+
+        // Invalide toute requête précédente encore en cours.
+        jetonEnCours++
+
         suggestions.value = []
         fermer()
-        annulerMinuteur()
+
         options.onSelectionner?.(suggestion)
     }
 

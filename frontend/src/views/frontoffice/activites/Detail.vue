@@ -23,6 +23,7 @@ import type {
     SousActiviteDetail,
     UtilisateurResume,
 } from '@/types/activite'
+import { BROUILLON } from '@/types/activite'
 import { formatDateSeule } from '@/utils/date'
 
 // ------------------------------------------------------------------
@@ -142,6 +143,23 @@ function voirSousActivite(idSousActivite: number) {
     })
 }
 
+/**
+ * Le formulaire de modification n'a de sens que sur un brouillon.
+ *
+ * Le statut vient du detail, donc de la meme source que le reste de la page,
+ * et non d'une requete supplementaire. L'unicite du statut garantit qu'il
+ * ne peut pas y avoir de lien ajoute et retire entre deux chargements --
+ * c'est ce que produit la derniere entree d'historique.
+ */
+const peutModifier = computed(() => detail.value?.statut?.code === BROUILLON)
+
+function ouvrirFormulaire(): void {
+    router.push({
+        name: 'activite-modifier',
+        params: { id: idActivite.value },
+    })
+}
+
 // ------------------------------------------------------------------
 // Chargement
 // ------------------------------------------------------------------
@@ -200,25 +218,38 @@ onMounted(charger)
                 </p>
             </div>
 
-            <div v-if="detail" class="badges">
-                <span v-if="detail.statut" class="badge-soft"
-                    :class="`badge-soft--${varianteStatut(detail.statut.code)}`">
-                    {{ detail.statut.libelle }}
-                </span>
+            <div v-if="detail" class="d-flex flex-wrap align-items-center gap-3">
+                <div class="badges">
+                    <span v-if="detail.statut" class="badge-soft"
+                        :class="`badge-soft--${varianteStatut(detail.statut.code)}`">
+                        {{ detail.statut.libelle }}
+                    </span>
 
-                <span v-if="detail.priorite" class="badge-soft"
-                    :class="`badge-soft--${variantePriorite(detail.priorite.code)}`">
-                    {{ detail.priorite.libelle }}
-                </span>
+                    <span v-if="detail.priorite" class="badge-soft"
+                        :class="`badge-soft--${variantePriorite(detail.priorite.code)}`">
+                        {{ detail.priorite.libelle }}
+                    </span>
 
-                <span class="badge-soft badge-soft--secondary">
-                    {{ detail.pta ? 'PTA' : 'Non PTA' }}
-                </span>
+                    <span class="badge-soft badge-soft--secondary">
+                        {{ detail.pta ? 'PTA' : 'Non PTA' }}
+                    </span>
 
-                <span v-if="detail.enRetard" class="badge-soft badge-soft--danger">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    En retard
-                </span>
+                    <span v-if="detail.enRetard" class="badge-soft badge-soft--danger">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        En retard
+                    </span>
+                </div>
+
+                <!--
+                    Reserve au brouillon : une activite soumise n'a plus de
+                    redaction a faire, son contenu appartient au suivi. Ce
+                    n'est qu'un affichage -- un bouton absent ne protege
+                    rien, et le refus est aussi verifie a l'enregistrement.
+                -->
+                <BaseButton v-if="peutModifier" variant="secondary" @click="ouvrirFormulaire">
+                    <i class="bi bi-pencil"></i>
+                    Modifier
+                </BaseButton>
             </div>
         </div>
 
