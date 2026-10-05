@@ -24,9 +24,9 @@ Application de gestion (Spring Boot + Vue.js + PostgreSQL) conteneurisée avec D
 Le fichier `.env` à la racine alimente `docker-compose.yml` :
 
 ```env
-POSTGRES_DB=sagadb
-POSTGRES_USER=saga_user
-POSTGRES_PASSWORD=saga_pwd
+POSTGRES_DB=dbname
+POSTGRES_USER=username
+POSTGRES_PASSWORD=password
 POSTGRES_PORT=5433
 
 BACKEND_PORT=8080

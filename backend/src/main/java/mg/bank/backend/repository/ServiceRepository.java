@@ -29,4 +29,15 @@ public interface ServiceRepository extends JpaRepository<Service, Integer> {
             nativeQuery = true)
     List<OptionRow> findOptionsActivesParDepartement(Integer idDepartement);
 
+    List<Service> findByActifTrue();
+
+    List<Service> findByDepartementIdDepartement(Integer idDepartement);
+
+    List<Service> findByDepartementIdDepartementAndActifTrue(Integer idDepartement);
+
+    boolean existsByNomAndDepartementIdDepartement(String nom, Integer idDepartement);
+
+    boolean existsByNomAndDepartementIdDepartementAndIdServiceNot(
+            String nom, Integer idDepartement, Integer idService);
+
 }

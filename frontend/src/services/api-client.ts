@@ -264,3 +264,20 @@ export async function postForm<T>(
 
     return handleResponse<T>(response)
 }
+
+/**
+ * Requête PATCH
+ */
+export async function patch<T>(
+    url: string,
+    body?: unknown
+): Promise<ApiResponse<T>> {
+
+    const response = await fetch(`${BASE_URL}${url}`, {
+        method: 'PATCH',
+        headers: body ? getHeaders(true) : getHeaders(),
+        body: body ? JSON.stringify(body) : undefined,
+    })
+
+    return handleResponse<T>(response)
+}

@@ -82,30 +82,29 @@ const emit = defineEmits<{
 // --- Router ---
 const route = useRoute()
 
-// --- Menu Data ---
-const principalItems: MenuItem[] = [
-    { path: '/dashboard', label: 'Tableau de bord', icon: 'bi bi-house-door' },
-    { path: '/activites', label: 'Activités', icon: 'bi bi-clipboard-list' },
-    { path: '/notifications', label: 'Notifications', icon: 'bi bi-bell' },
-]
-
-const gestionItems: MenuItem[] = [
-    { path: '/utilisateurs', label: 'Utilisateurs', icon: 'bi bi-people' },
-    { path: '/plan-action', label: 'Plans d\'action', icon: 'bi bi-tasks' },
-    { path: '/procedures', label: 'Procédures', icon: 'bi bi-file-text' },
-    { path: '/indicateurs', label: 'Indicateurs', icon: 'bi bi-chart-bar' },
-]
-
-const referentielsItems: MenuItem[] = [
-    { path: '/departements', label: 'Départements', icon: 'bi bi-building' },
-    { path: '/services', label: 'Services', icon: 'bi bi-diagram-3' },
-    { path: '/postes', label: 'Postes', icon: 'bi bi-briefcase' },
-    { path: '/permissions', label: 'Permissions', icon: 'bi bi-shield-check' },
-    { path: '/roles', label: 'Rôles', icon: 'bi bi-person-badge' },
-]
-
-const adminItems: MenuItem[] = [
-    { path: '/parametres', label: 'Paramètres', icon: 'bi bi-gear' },
+const principalItems: MenuItem[] = [ { path: '/dashboard', label: 'Tableau de bord', icon: 'bi bi-grid-1x2' } ] 
+// ============================================================ // Gestion // ============================================================ 
+const gestionItems: MenuItem[] = [ 
+    { path: '/utilisateurs', label: 'Utilisateurs', icon: 'bi bi-people' }, 
+    { path: '/activites', label: 'Activités', icon: 'bi bi-clipboard-check' }, 
+    { path: '/plan-action', label: "Plans d'action", icon: 'bi bi-list-check' }, 
+    { path: '/procedures', label: 'Procédures', icon: 'bi bi-file-earmark-text' }, 
+    { path: '/indicateurs', label: 'Indicateurs', icon: 'bi bi-bar-chart-line' } ] 
+// ============================================================ // Référentiels // ============================================================ 
+const referentielsItems: MenuItem[] = [ 
+    { path: '/backoffice/departements', label: 'Départements', icon: 'bi bi-building' }, 
+    { path: '/backoffice/services', label: 'Services', icon: 'bi bi-diagram-3' }, 
+    { path: '/backoffice/postes', label: 'Postes', icon: 'bi bi-briefcase' }, 
+    { path: '/backoffice/roles', label: 'Rôles', icon: 'bi bi-person-badge' }, 
+    { path: '/backoffice/types-activite', label: "Types d'activité", icon: 'bi bi-tags' }, 
+    { path: '/backoffice/sites', label: 'Sites', icon: 'bi bi-geo-alt' }, 
+    { path: '/priorites', label: 'Priorités', icon: 'bi bi-flag' }, 
+    { path: '/statuts', label: 'Statuts', icon: 'bi bi-circle-half' } 
+] 
+// ============================================================ // Administration // ============================================================ 
+const adminItems: MenuItem[] = [ 
+    { path: '/permissions', label: 'Permissions', icon: 'bi bi-shield-check' }, 
+    { path: '/parametres', label: 'Paramètres', icon: 'bi bi-sliders' } 
 ]
 
 // --- Computed ---
