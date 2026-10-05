@@ -24,4 +24,6 @@ public interface PrioriteRepository extends JpaRepository<Priorite, Integer> {
             nativeQuery = true)
     List<OptionRow> findOptionsActives();
 
+    List<Priorite> findByActifTrue();
+
 }

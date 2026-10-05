@@ -36,4 +36,6 @@ public interface StatutRepository extends JpaRepository<Statut, Integer> {
 
     Optional<Statut> findByCode(String code);
 
+    List<Statut> findByActifTrue();
+
 }

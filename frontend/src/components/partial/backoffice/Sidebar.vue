@@ -3,12 +3,14 @@
 
         <nav class="back-sidebar__nav">
             <ul class="back-sidebar__list">
+
                 <!-- PRINCIPAL -->
                 <li class="back-sidebar__item">
                     <span class="back-sidebar__label">Principal</span>
                 </li>
                 <li v-for="item in principalItems" :key="item.path" class="back-sidebar__item">
-                    <router-link class="back-sidebar__link" :to="item.path" :class="{ active: isActive(item.path) }"
+                    <router-link class="back-sidebar__link" :to="item.path"
+                        :class="{ active: isActive(item.path) }"
                         :title="isCollapsed ? item.label : ''">
                         <i :class="item.icon"></i>
                         <span class="back-sidebar__link-text">{{ item.label }}</span>
@@ -20,7 +22,8 @@
                     <span class="back-sidebar__label">Gestion</span>
                 </li>
                 <li v-for="item in gestionItems" :key="item.path" class="back-sidebar__item">
-                    <router-link class="back-sidebar__link" :to="item.path" :class="{ active: isActive(item.path) }"
+                    <router-link class="back-sidebar__link" :to="item.path"
+                        :class="{ active: isActive(item.path) }"
                         :title="isCollapsed ? item.label : ''">
                         <i :class="item.icon"></i>
                         <span class="back-sidebar__link-text">{{ item.label }}</span>
@@ -32,24 +35,53 @@
                     <span class="back-sidebar__label">Référentiels</span>
                 </li>
                 <li v-for="item in referentielsItems" :key="item.path" class="back-sidebar__item">
-                    <router-link class="back-sidebar__link" :to="item.path" :class="{ active: isActive(item.path) }"
+                    <router-link class="back-sidebar__link" :to="item.path"
+                        :class="{ active: isActive(item.path) }"
                         :title="isCollapsed ? item.label : ''">
                         <i :class="item.icon"></i>
                         <span class="back-sidebar__link-text">{{ item.label }}</span>
                     </router-link>
                 </li>
 
-                <!-- ADMINISTRATION -->
+                <!-- AUTORISATIONS -->
                 <li class="back-sidebar__item">
-                    <span class="back-sidebar__label">Administration</span>
+                    <span class="back-sidebar__label">Autorisations</span>
                 </li>
-                <li v-for="item in adminItems" :key="item.path" class="back-sidebar__item">
-                    <router-link class="back-sidebar__link" :to="item.path" :class="{ active: isActive(item.path) }"
+                <li v-for="item in autorisationsItems" :key="item.path" class="back-sidebar__item">
+                    <router-link class="back-sidebar__link" :to="item.path"
+                        :class="{ active: isActive(item.path) }"
                         :title="isCollapsed ? item.label : ''">
                         <i :class="item.icon"></i>
                         <span class="back-sidebar__link-text">{{ item.label }}</span>
                     </router-link>
                 </li>
+
+                <!-- CONFIGURATION -->
+                <li class="back-sidebar__item">
+                    <span class="back-sidebar__label">Configuration</span>
+                </li>
+                <li v-for="item in configurationItems" :key="item.path" class="back-sidebar__item">
+                    <router-link class="back-sidebar__link" :to="item.path"
+                        :class="{ active: isActive(item.path) }"
+                        :title="isCollapsed ? item.label : ''">
+                        <i :class="item.icon"></i>
+                        <span class="back-sidebar__link-text">{{ item.label }}</span>
+                    </router-link>
+                </li>
+
+                <!-- SUPERVISION -->
+                <li class="back-sidebar__item">
+                    <span class="back-sidebar__label">Supervision</span>
+                </li>
+                <li v-for="item in supervisionItems" :key="item.path" class="back-sidebar__item">
+                    <router-link class="back-sidebar__link" :to="item.path"
+                        :class="{ active: isActive(item.path) }"
+                        :title="isCollapsed ? item.label : ''">
+                        <i :class="item.icon"></i>
+                        <span class="back-sidebar__link-text">{{ item.label }}</span>
+                    </router-link>
+                </li>
+
             </ul>
         </nav>
     </aside>
@@ -82,29 +114,59 @@ const emit = defineEmits<{
 // --- Router ---
 const route = useRoute()
 
-const principalItems: MenuItem[] = [ { path: '/dashboard', label: 'Tableau de bord', icon: 'bi bi-grid-1x2' } ] 
-// ============================================================ // Gestion // ============================================================ 
-const gestionItems: MenuItem[] = [ 
-    { path: '/utilisateurs', label: 'Utilisateurs', icon: 'bi bi-people' }, 
-    { path: '/activites', label: 'Activités', icon: 'bi bi-clipboard-check' }, 
-    { path: '/plan-action', label: "Plans d'action", icon: 'bi bi-list-check' }, 
-    { path: '/procedures', label: 'Procédures', icon: 'bi bi-file-earmark-text' }, 
-    { path: '/indicateurs', label: 'Indicateurs', icon: 'bi bi-bar-chart-line' } ] 
-// ============================================================ // Référentiels // ============================================================ 
-const referentielsItems: MenuItem[] = [ 
-    { path: '/backoffice/departements', label: 'Départements', icon: 'bi bi-building' }, 
-    { path: '/backoffice/services', label: 'Services', icon: 'bi bi-diagram-3' }, 
-    { path: '/backoffice/postes', label: 'Postes', icon: 'bi bi-briefcase' }, 
-    { path: '/backoffice/roles', label: 'Rôles', icon: 'bi bi-person-badge' }, 
-    { path: '/backoffice/types-activite', label: "Types d'activité", icon: 'bi bi-tags' }, 
-    { path: '/backoffice/sites', label: 'Sites', icon: 'bi bi-geo-alt' }, 
-    { path: '/priorites', label: 'Priorités', icon: 'bi bi-flag' }, 
-    { path: '/statuts', label: 'Statuts', icon: 'bi bi-circle-half' } 
-] 
-// ============================================================ // Administration // ============================================================ 
-const adminItems: MenuItem[] = [ 
-    { path: '/backoffice/permissions', label: 'Permissions', icon: 'bi bi-shield-check' }, 
-    { path: '/parametres', label: 'Paramètres', icon: 'bi bi-sliders' } 
+/* ============================================================
+   PRINCIPAL
+   ============================================================ */
+const principalItems: MenuItem[] = [
+    { path: '/backoffice/dashboard', label: 'Tableau de bord', icon: 'bi bi-grid-1x2' },
+]
+
+/* ============================================================
+   GESTION
+   ============================================================ */
+const gestionItems: MenuItem[] = [
+    { path: '/backoffice/utilisateurs', label: 'Utilisateurs', icon: 'bi bi-people' },
+]
+
+/* ============================================================
+   RÉFÉRENTIELS
+   ============================================================ */
+const referentielsItems: MenuItem[] = [
+    { path: '/backoffice/departements',   label: 'Départements',    icon: 'bi bi-building' },
+    { path: '/backoffice/services',       label: 'Services',        icon: 'bi bi-diagram-3' },
+    { path: '/backoffice/postes',         label: 'Postes',          icon: 'bi bi-briefcase' },
+    { path: '/backoffice/roles',          label: 'Rôles',           icon: 'bi bi-person-badge' },
+    { path: '/backoffice/types-activite', label: "Types d'activité", icon: 'bi bi-tags' },
+    { path: '/backoffice/sites',          label: 'Sites',           icon: 'bi bi-geo-alt' },
+    { path: '/backoffice/priorites',      label: 'Priorités',       icon: 'bi bi-flag' },
+    { path: '/backoffice/statuts',        label: 'Statuts',         icon: 'bi bi-circle-half' },
+]
+
+/* ============================================================
+   AUTORISATIONS
+   ============================================================ */
+const autorisationsItems: MenuItem[] = [
+    { path: '/backoffice/permissions', label: 'Permissions', icon: 'bi bi-shield-check' },
+]
+
+/* ============================================================
+   CONFIGURATION
+   ============================================================ */
+const configurationItems: MenuItem[] = [
+    // ⚠️ Pages à créer (hors périmètre phases 1 à 5)
+    { path: '/backoffice/procedures',          label: 'Procédures',           icon: 'bi bi-file-earmark-text' },
+    { path: '/backoffice/etapes-validation',   label: 'Étapes de validation', icon: 'bi bi-list-ol' },
+    { path: '/backoffice/parametres',          label: 'Paramètres',           icon: 'bi bi-sliders' },
+]
+
+/* ============================================================
+   SUPERVISION
+   ============================================================ */
+const supervisionItems: MenuItem[] = [
+    // ⚠️ Pages à créer (hors périmètre phases 1 à 5)
+    { path: '/backoffice/activites',    label: 'Activités',      icon: 'bi bi-clipboard-check' },
+    { path: '/backoffice/plans-action', label: "Plans d'action", icon: 'bi bi-list-check' },
+    { path: '/backoffice/indicateurs',  label: 'Indicateurs',    icon: 'bi bi-bar-chart-line' },
 ]
 
 // --- Computed ---
@@ -298,13 +360,8 @@ const closeSidebar = () => {
 }
 
 @keyframes dtsFadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
+    from { opacity: 0; }
+    to   { opacity: 1; }
 }
 
 /* --- Responsive --- */
@@ -320,7 +377,6 @@ const closeSidebar = () => {
         box-shadow: var(--dts-shadow-lg);
     }
 
-    /* Neutralise l'état « replié » du mode bureau */
     .back-sidebar.collapsed {
         width: var(--dts-sidebar-w) !important;
     }

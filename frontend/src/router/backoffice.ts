@@ -100,6 +100,89 @@ export const backofficeRoutes: RouteRecordRaw[] = [
                 name: 'backoffice-postes-permissions',
                 component: () => import('@/views/backoffice/postes/Permission.vue'),
             },
+            /* ------------------ RÔLES ------------------ */
+            {
+                path: 'roles',
+                name: 'backoffice-roles',
+                component: () => import('@/views/backoffice/roles/List.vue'),
+            },
+            {
+                path: 'roles/nouveau',
+                name: 'backoffice-roles-nouveau',
+                component: () => import('@/views/backoffice/roles/Form.vue'),
+            },
+            {
+                path: 'roles/:id/modifier',
+                name: 'backoffice-roles-modifier',
+                component: () => import('@/views/backoffice/roles/Form.vue'),
+            },
+            {
+                path: 'roles/:id',
+                name: 'backoffice-roles-detail',
+                component: () => import('@/views/backoffice/roles/Show.vue'),
+            },
+            /* ------------------ TYPES D'ACTIVITÉ ------------------ */
+            {
+                path: 'types-activite',
+                name: 'backoffice-types-activite',
+                component: () => import('@/views/backoffice/types-activite/List.vue'),
+            },
+            {
+                path: 'types-activite/nouveau',
+                name: 'backoffice-types-activite-nouveau',
+                component: () => import('@/views/backoffice/types-activite/Form.vue'),
+            },
+            {
+                path: 'types-activite/:id/modifier',
+                name: 'backoffice-types-activite-modifier',
+                component: () => import('@/views/backoffice/types-activite/Form.vue'),
+            },
+            {
+                path: 'types-activite/:id',
+                name: 'backoffice-types-activite-detail',
+                component: () => import('@/views/backoffice/types-activite/Show.vue'),
+            },
+            /* ------------------ SITES ------------------ */
+            {
+                path: 'sites',
+                name: 'backoffice-sites',
+                component: () => import('@/views/backoffice/sites/List.vue'),
+            },
+            {
+                path: 'sites/nouveau',
+                name: 'backoffice-sites-nouveau',
+                component: () => import('@/views/backoffice/sites/Form.vue'),
+            },
+            {
+                path: 'sites/:id/modifier',
+                name: 'backoffice-sites-modifier',
+                component: () => import('@/views/backoffice/sites/Form.vue'),
+            },
+            {
+                path: 'sites/:id',
+                name: 'backoffice-sites-detail',
+                component: () => import('@/views/backoffice/sites/Show.vue'),
+            },
+
+            /* ------------------ PRIORITÉS (lecture seule) ------------------ */
+            {
+                path: 'priorites',
+                name: 'backoffice-priorites',
+                component: () => import('@/views/backoffice/priorites/List.vue'),
+            },
+
+            /* ------------------ STATUTS (lecture seule) ------------------ */
+            {
+                path: 'statuts',
+                name: 'backoffice-statuts',
+                component: () => import('@/views/backoffice/statuts/List.vue'),
+            },
+            /* ------------------ PARAMÈTRES ------------------ */
+            {
+                path: 'parametres',
+                name: 'backoffice-parametres',
+                component: () => import('@/views/backoffice/parametres/List.vue'),
+            },
         ],
     },
 ]

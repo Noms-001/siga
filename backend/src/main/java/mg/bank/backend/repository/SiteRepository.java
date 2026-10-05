@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import mg.bank.backend.model.Site;
+import mg.bank.backend.model.Statut;
 import mg.bank.backend.repository.projection.OptionRow;
 
 public interface SiteRepository extends JpaRepository<Site, Integer> {
@@ -23,5 +24,12 @@ public interface SiteRepository extends JpaRepository<Site, Integer> {
             """,
             nativeQuery = true)
     List<OptionRow> findOptionsActives();
+
+    List<Site> findByActifTrue();
+
+    boolean existsByNom(String nom);
+
+    boolean existsByNomAndIdSiteNot(String nom, Integer idSite);
+
 
 }
