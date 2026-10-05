@@ -32,6 +32,7 @@ import {
     type SousActiviteDetail,
     type Trimestre,
     type VueActivite,
+    type ValidationActiviteResponse,
 } from '@/types/activite'
 
 /** Annee proposee par defaut a l'ouverture de la page. */
@@ -166,36 +167,6 @@ export async function listerActivitesBrouillon(
 }
 
 /**
- * Liste des activites en attente de decision.
- *
- * Meme endpoint et meme page que les brouillons, avec EN_ATTENTE_VALIDATION
- * impose et SANS annee ni periode, pour la meme raison qu eux : une activite
- * soumise appartient a son exercice, mais la page qui la valide ne suit pas un
- * exercice -- elle vide une file d'attente. La restreindre a ANNEE_DEFAUT la
- * ferait disparaitre de la page depuis laquelle on la traite, ce qui est
- * exactement l'activite qu'il ne faut pas perdre de vue.
- *
- * Les filtres de recherche restent : avec plusieurs exercices en cours, on
- * cherche un code, pas une annee.
- */
-export async function listerActivitesAValider(
-    filtres: ActiviteFiltres,
-    vue: VueActivite,
-    page: number,
-    size: number
-) {
-    const aValider: ActiviteFiltres = {
-        ...filtres,
-        annee: 0,
-        trimestre: null,
-        dateDebut: '',
-        dateFin: '',
-    }
-
-    return listerActivites(aValider, vue, EN_ATTENTE_VALIDATION, page, size)
-}
-
-/**
  * Decider du sort d'une activite soumise (POST /api/activites/{id}/decision).
  *
  * Le statut resultant n'est PAS envoye par le client : il se deduit de la
@@ -234,9 +205,19 @@ export async function deciderValidation(
  * n'est pas une panne : la page doit le dire et retirer la carte.
  */
 export async function soumettreValidation(
-    id: number
+    id: number,
+    commentaire?: string | null
 ): Promise<ApiResponse<SoumissionResultat>> {
-    return post<SoumissionResultat>(`/activites/${id}/soumettre-validation`, null)
+    const params = new URLSearchParams()
+    if (commentaire?.trim()) {
+        params.set('commentaire', commentaire.trim())
+    }
+    const qs = params.toString()
+
+    return post<SoumissionResultat>(
+        `/activites/${id}/soumettre-validation${qs ? `?${qs}` : ''}`,
+        null
+    )
 }
 
 /**
@@ -469,7 +450,7 @@ export async function ajouterFichiersLivrable(
 
     return postForm(
         `/activites/${idActivite}/sous-activites/${idSousActivite}`
-            + `/livrables/${idLivrable}/fichiers`,
+        + `/livrables/${idLivrable}/fichiers`,
         corps
     )
 }
@@ -482,6 +463,89 @@ export async function telechargerFichier(
     return getBlob(
         `/activites/${idActivite}/sous-activites/${idSousActivite}/fichiers/${idFichier}`
     )
+}
+
+/**
+ * Liste des activités en attente de validation, groupées par étape.
+ *
+ * Endpoint dédié (POST /activites/a-valider) et non la liste standard : la
+ * structure de réponse diffère. Chaque activité porte son étape courante, sa
+ * précédente et sa suivante — ce qui permet à l'écran de proposer "soumettre
+ * à l'étape précédente" sans relire le circuit.
+ *
+ * Pas de pagination : le backend renvoie tout le circuit en une fois, et la
+ * file est par nature courte (les décisions sont prises au fil de l'eau).
+ *
+ * La réponse est une liste de Maps à UNE clé : la désignation de l'étape de
+ * validation. La page aplatit cette structure.
+ */
+export async function listerActivitesAValider(): Promise<
+    ApiResponse<PageResult<Record<string, ActiviteListItem>>>
+> {
+    return get<PageResult<Record<string, ActiviteListItem>>>('/activites/a-valider')
+}
+
+/**
+ * Valider ou rejeter une activité soumise.
+ *
+ * UN SEUL ENDPOINT, DEUX ISSUES : `rejeter` à false publie l'activité au
+ * suivi, à true la sort définitivement du circuit. Un endpoint dédié par
+ * issue aurait dupliqué toute la mécanique de verrou et de périmètre côté
+ * backend, pour un booléen qui suffit.
+ *
+ * Le motif n'est requis que pour le rejet — valider n'a rien à justifier.
+ *
+ * 404 si l'activité n'existe pas, 403 hors périmètre, 409 si elle n'attend
+ * plus de décision (deux validateurs ouverts sur la même file).
+ */
+export async function validerActivite(
+    id: number,
+    rejeter: boolean,
+    commentaire?: string | null
+): Promise<ApiResponse<ValidationActiviteResponse>> {
+    const params = new URLSearchParams()
+    params.set('rejeter', String(rejeter))
+    if (commentaire?.trim()) {
+        params.set('commentaire', commentaire.trim())
+    }
+
+    return post<ValidationActiviteResponse>(
+        `/activites/${id}/valider?${params.toString()}`,
+        null
+    )
+}
+
+/**
+ * Renvoyer une activité à l'étape précédente (retour pour modification).
+ *
+ * `retour=true` et non `false` : c'est l'option qui remet l'activité en
+ * rédaction, plutôt que de la faire avancer. Distinct de `/valider` parce
+ * que le sens de l'écriture est inverse — un endpoint par direction reste
+ * plus lisible qu'un paramètre sur la même route.
+ *
+ * Un motif est attendu — le backend le rend facultatif, mais renvoyer sans
+ * dire pourquoi laisserait l'auteur sans rien à corriger.
+ */
+export async function soumettreValidationRetour(
+    id: number,
+    commentaire?: string | null
+): Promise<ApiResponse<ValidationActiviteResponse>> {
+    const params = new URLSearchParams()
+    params.set('retour', 'true')
+    if (commentaire?.trim()) {
+        params.set('commentaire', commentaire.trim())
+    }
+
+    return post<ValidationActiviteResponse>(
+        `/activites/${id}/soumettre-validation?${params.toString()}`,
+        null
+    )
+}
+
+export async function listerActivitesASoumettre(): Promise<
+    ApiResponse<PageResult<ActiviteListItem>>
+> {
+    return get<PageResult<ActiviteListItem>>('/activites/a-soumettre')
 }
 
 export type { Trimestre }

@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import mg.bank.backend.model.Activite;
 
 /**
  * Ligne de la liste des activites.
@@ -60,5 +61,67 @@ public class ActiviteListItemDTO {
      * sous-activite. 0 si l'activite n'a pas de sous-activite.
      */
     private Double avancement;
+
+    private ReferenceDTO etapeCourante;
+    private ReferenceDTO etapeSuivante;
+    private ReferenceDTO etapePrecedente;
+
+    private ValidationActiviteResponse derniereValidation;
+
+
+    public ActiviteListItemDTO(Activite activite) {
+        this.id = activite.getIdActivite();
+        this.code = activite.getCode();
+        this.reference = activite.getReference();
+        this.designation = activite.getDesignation();
+
+        this.dateDebutPrevue = activite.getDateDebutPrevue();
+        this.dateFinPrevue = activite.getDateFinPrevue();
+        this.dateDebutReelle = activite.getDateDebutReelle();
+        this.dateFinReelle = activite.getDateFinReelle();
+
+        // Objectif spécifique
+        this.objectifSpecifique = activite.getObjectifSpecifique() != null
+                ? ReferenceDTO.builder()
+                        .id(activite.getObjectifSpecifique().getIdObjectifSpecifique())
+                        .code(activite.getObjectifSpecifique().getCode())
+                        .libelle(activite.getObjectifSpecifique().getDesignation())
+                        .annee(activite.getObjectifSpecifique().getAnnee())
+                        .build()
+                : null;
+
+        // Service
+        this.service = activite.getService() != null
+                ? ReferenceDTO.builder()
+                        .id(activite.getService().getIdService())
+                        .libelle(activite.getService().getNom())
+                        .build()
+                : null;
+
+        // Type activité
+        this.typeActivite = activite.getTypeActivite() != null
+                ? ReferenceDTO.builder()
+                        .id(activite.getTypeActivite().getIdTypeActivite())
+                        .libelle(activite.getTypeActivite().getDesignation())
+                        .build()
+                : null;
+
+        // Site
+        this.site = activite.getSite() != null
+                ? ReferenceDTO.builder()
+                        .id(activite.getSite().getIdSite())
+                        .libelle(activite.getSite().getNom())
+                        .build()
+                : null;
+
+        // Priorité
+        this.priorite = activite.getPriorite() != null
+                ? ReferenceDTO.builder()
+                        .id(activite.getPriorite().getIdPriorite())
+                        .code(activite.getPriorite().getCode())
+                        .libelle(activite.getPriorite().getLibelle())
+                        .build()
+                : null;
+    }
 
 }

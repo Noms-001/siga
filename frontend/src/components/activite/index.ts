@@ -7,4 +7,4 @@
 // donc ici, et seule celle avec extension fonctionne.
 export { default as FichiersModal } from './FichiersModal.vue'
 export { default as LivrableModal } from './LivrableModal.vue'
-export { default as RejetActiviteModal } from './RejetActiviteModal.vue'
+export { default as DecisionActiviteModal } from './DecisionActiviteModal.vue'

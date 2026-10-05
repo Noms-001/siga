@@ -48,6 +48,26 @@ export interface ActiviteListItem {
 
     /** 0 a 100, calcule en base. */
     avancement: number
+
+    /**
+     * Etape du circuit de validation atteinte par l'activite.
+     *
+     * Renseignees uniquement par /activites/a-valider : sur la liste de
+     * suivi standard, ces trois champs restent absents du DTO. Le typage
+     * les declare optionnels pour que la meme interface serve les deux
+     * endpoints -- ce qui evite de dupliquer ActiviteListItem en
+     * ActiviteListItemAValider, et de faire diverger les deux au premier
+     * champ ajoute.
+     *
+     * Cote a-valider, `etapeCourante` est TOUJOURS renseignee : le backend
+     * indexe sa reponse par la designation de l'etape, donc une activite
+     * sans etape n'y figurerait pas. Les deux autres peuvent etre null --
+     * premiere etape du circuit, ou derniere.
+     */
+    etapeCourante?: ActiviteReference | null
+    etapeSuivante?: ActiviteReference | null
+    etapePrecedente?: ActiviteReference | null
+    derniereValidation?: ValidationActiviteResponse | null
 }
 
 /** Compteurs des cards. */
@@ -610,4 +630,29 @@ export interface ActiviteFormulaire {
     statut: string
     sousActivites: SousActiviteFormulaire[]
     resultatsIntermediaires: ResultatIntermediaireFormulaire[]
+}
+
+/**
+ * Accusé d'une décision de validation (POST /{id}/valider ou
+ * POST /{id}/soumettre-validation?retour=true).
+ *
+ * Ce que le backend a réellement enregistré : décision, statut obtenu,
+ * étape franchie. La page ne relit pas l'activité pour vérifier — elle
+ * retire la ligne et fait confiance au verdict.
+ */
+export interface ValidationActiviteResponse {
+    idValidationActivite: number
+    decision: DecisionValidation
+    /** Décision de la validation qui précède celle-ci, en clair. Null si aucune. */
+    derniereDecision: string | null
+    commentaire: string | null
+    dateDemande: string | null
+    dateDecision: string | null
+    idActivite: number
+    idEtapeValidation: number
+    designationEtape: string
+    niveau: number
+    obligatoire: boolean | null
+    idDemandeur: number
+    idDecideur: number | null
 }

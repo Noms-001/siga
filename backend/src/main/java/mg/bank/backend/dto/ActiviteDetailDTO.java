@@ -7,6 +7,7 @@ import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import mg.bank.backend.model.Activite;
 
 /**
  * Detail complet d une activite.
@@ -40,7 +41,9 @@ public class ActiviteDetailDTO {
 
     private LocalDate dateFinReelle;
 
-    /** Premiere entree d historique : l activite ne porte pas sa date de creation. */
+    /**
+     * Premiere entree d historique : l activite ne porte pas sa date de creation.
+     */
     private LocalDateTime dateCreation;
 
     /**
@@ -62,7 +65,10 @@ public class ActiviteDetailDTO {
 
     private ReferenceDTO priorite;
 
-    /** Statut courant, reconstruit depuis l historique. Null si l historique est vide. */
+    /**
+     * Statut courant, reconstruit depuis l historique. Null si l historique est
+     * vide.
+     */
     private ReferenceDTO statut;
 
     /** Moyenne des derniers avancements des sous-activites, 0 si aucune ne suit. */
@@ -79,8 +85,6 @@ public class ActiviteDetailDTO {
     private boolean enRetard;
 
     private List<SousActiviteDetailDTO> sousActivites;
-
-    private List<ValidationActiviteDTO> validations;
 
     private List<IndicateurDetailDTO> indicateurs;
 

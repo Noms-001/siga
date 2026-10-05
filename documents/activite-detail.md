@@ -50,8 +50,6 @@ Il faut savoir pourquoi, car c'est contre-intuitif.
 | `affectation_sous_activite` | aucune | responsables |
 | `livrable_sous_activite` | aucune | livrables |
 | `fichier_sous_activite` | aucune | fichiers déposés |
-| `validation_activite` | aucune | passages en validation |
-| `etape_validation` | aucune | étapes du circuit |
 | `activite_indicateur` | aucune | jointure indicateur ↔ activité |
 | `indicateur` | aucune | définition d'un indicateur |
 | `valeur_indicateur` | aucune | mesures d'un indicateur |
@@ -75,27 +73,35 @@ page affiche.
 
 ---
 
-## 3. Deux tables à ne pas confondre
+## 3. Le statut : une seule table à lire
 
-C'est le piège principal de ce module.
+`activite` ne porte aucune colonne de statut. L'état d'une activité se lit dans
+`historique_activite`, et la ligne qui fait foi est la plus récente :
 
-| | `historique_activite.id_statut` | `validation_activite.decision` |
-|---|---|---|
-| Table | `statut` | enum PostgreSQL `decision_validation` |
-| Valeurs | `BROUILLON`, `EN_ATTENTE_VALIDATION`, `VALIDEE`, `EN_COURS`, `TERMINEE`, `SUSPENDUE`, `ANNULEE`, `REPORTEE` | `EN_ATTENTE_VALIDATION`, `VALIDE`, `REJETE`, `RETOUR_MODIFICATION` |
-| Rôle | l'**état** de l'activité | la **décision** d'une étape |
+```sql
+SELECT sta.code
+FROM historique_activite h
+JOIN statut sta ON sta.id_statut = h.id_statut
+WHERE h.id_activite = :id
+ORDER BY h.date_changement DESC, h.id_historique_activite DESC
+LIMIT 1
+```
 
-Deux différences à noter :
+Le second critère de tri n'est pas décoratif : deux changements peuvent
+partager la même date au ticks près, et c'est alors la plus grande clé qui fixe
+l'ordre. Sans lui, la ligne portant le statut courant pourrait changer de place
+d'une requête à l'autre.
 
-1. Le statut s'écrit `VALIDEE`, la décision s'écrit `VALIDE` — **pas le même
-   suffixe**. L'enum Java `DecisionValidation` le documente explicitement.
-2. Une activité peut être validée par une étape tout en restant `EN_COURS`
-   dans son historique. Les deux notions ne se rejoignent pas.
+Il n'existe qu'une seule notion d'état, et une seule table qui l'exprime. La
+table `validation_activite` et son enum `decision_validation` décrivent un
+circuit d'examen qui n'est plus implémenté : aucun chemin de code n'écrit dans
+cette table, et le détail ne la lit plus.
 
-`DecisionValidation` est le seul enum Java du projet lu directement depuis un
-type enum PostgreSQL, dans une requête native. Les tests le vérifient en
-convertissant la valeur reçue par l'enum : une valeur inattendue ferait échouer
-le test au lieu de passer inaperçue dans la réponse.
+Le tableau des statuts reste nonetheless plus large que les statuts que le
+backend écrit. Seul `BROUILLON` est produit aujourd'hui ; `EN_ATTENTE_VALIDATION`,
+`VALIDEE` et `REJETE` subsistent dans la table `statut` parce que le jeu de
+données de démonstration en contient — et parce que `SQL_NON_PUBLIEES` doit
+continuer à les masquer dans la liste (voir `activites-liste.md`).
 
 ---
 
@@ -154,13 +160,12 @@ distinction est visible par l'utilisateur, donc elle est conservée.
 | 4 | affectations | toutes, groupées par sous-activité |
 | 5 | livrables | tous, groupés par sous-activité |
 | 6 | fichiers | tous, groupés par livrable |
-| 7 | validations + étapes | toutes |
-| 8 | indicateurs | tous |
-| 9 | valeurs d'indicateurs | toutes, groupées par indicateur |
-| 10 | résultats intermédiaires | tous |
-| 11 | historique | toutes |
+| 7 | indicateurs | tous |
+| 8 | valeurs d'indicateurs | toutes, groupées par indicateur |
+| 9 | résultats intermédiaires | tous |
+| 10 | historique | toutes |
 
-**11 requêtes, quel que soit le contenu de l'activité.**
+**10 requêtes, quel que soit le contenu de l'activité.**
 
 Chaque requête enfant est un `JOIN` depuis `activite`, jamais une requête par
 identifiant parent. C'est ce qui rend la propriété vraie.
@@ -262,7 +267,7 @@ le disque du serveur.
 
 ### Aucune collection n'est `null`
 
-Toutes les listes — `sousActivites`, `validations`, `indicateurs`,
+Toutes les listes — `sousActivites`, `indicateurs`,
 `resultatsIntermediaires`, `historique`, et les listes imbriquées — sont jamais
 nulles. Une activité sans indicateur expose `[]`, ce qui permet au front de
 distinguer « rien à afficher » d'« information manquante » sans tester `null`.
@@ -290,7 +295,6 @@ qui se limite au nom.
 | `valeurs` (indicateur) | `periode_fin` décroissante | la période la plus récente d'abord |
 | `sousActivites` | `date_debut_prevue`, puis `code` | ordre de planning, stable |
 | `affectations` | `date_affectation` décroissante | le responsable actuel d'abord |
-| `validations` | `niveau` d'étape croissant | **ordre du circuit**, pas de consultation |
 | `livrables` | `designation` | ordre de lecture stable |
 | `fichiers` | `nom_original`, puis `version` décroissante | versions de la plus récente à la plus ancienne |
 | `indicateurs` | `code` | `code` est unique, donc l'ordre est total |
@@ -299,10 +303,6 @@ qui se limite au nom.
 Aucun de ces ordres n'est fourni par le client, et aucun ne dépend de l'ordre
 physique des lignes en base. Les seconds critères de tri existent pour les
 listes où le premier n'est pas total.
-
-`validations` est le seul cas où l'ordre croissant est choisi : l'historique
-décroissant n'y aurait aucun sens, le lecteur suit un circuit de validation
-du premier au dernier niveau.
 
 ### Le statut est nullable
 
@@ -346,11 +346,14 @@ une référence à moitié vide.
 **Le détail n'applique pas la règle des activités « non publiées ».**
 
 La liste masque les activités dont le statut courant est `EN_ATTENTE_VALIDATION`,
-`VALIDEE` ou `REJETE` (`SQL_NON_PUBLIEES` dans `ActiviteRepository`), au motif
-qu'un travail encore en cours de validation ne doit pas être exposé dans un
-suivi. Le détail, lui, renvoie le contenu complet de toute activité située
-dans le périmètre de l'appelant, y compris une activité encore en validation,
-**si son identifiant est connu**.
+`VALIDEE` ou `REJETE` (`SQL_NON_PUBLIEES` dans `ActiviteRepository`). Le détail,
+lui, renvoie le contenu complet de toute activité située dans le périmètre de
+l'appelant, y compris une activité à l'un de ces statuts, **si son identifiant
+est connu**.
+
+Ces trois statuts sont aujourd'hui des données de démonstration : aucun chemin
+de code ne les produit (voir §3). La question se posera de nouveau le jour où
+une activité pourra à nouveau quitter le brouillon.
 
 Ce n'est pas une fuite au sens du périmètre : l'activité reste dans le service
 de l'appelant. Mais c'est une divergence de visibilité entre la liste et le
@@ -360,8 +363,8 @@ travail non publié, ce qui s'applique aussi à une page de détail.
 Aucune des deux options n'a été retenue ici, parce qu'elles ont des
 conséquences opposées :
 
-- **l'appliquer** interdirait d'ouvrir le détail d'une activité que l'on vient
-  de soumettre, pour un utilisateur autorisé à la voir ;
+- **l'appliquer** interdirait d'ouvrir le détail d'une activité que la liste
+  vient de cacher, pour un utilisateur autorisé à la voir ;
 - **ne pas l'appliquer** laisse accessible en direct une activité que la liste
   cache.
 
@@ -375,13 +378,13 @@ touche à rien d'autre.
 
 ## 10. Tests
 
-`ActiviteDetailIntegrationTests` — 13 tests, exécutés sur la base de
+`ActiviteDetailIntegrationTests` — 12 tests, exécutés sur la base de
 développement, pas sur une base simulée.
 
 > **Pourquoi la vraie base ?** Le comportement à vérifier est justement ce qu'une
-> base en mémoire ne reproduirait pas : le type enum `decision_validation`, les
-> tuples de comparaison, les contraintes de périmètre. Un test sur H2 passerait
-> puis le code échouerait en production.
+> base en mémoire ne reproduirait pas : les tuples de comparaison, le `LEFT JOIN
+> LATERAL` du statut courant, les contraintes de périmètre. Un test sur H2
+> passerait puis le code échouerait en production.
 
 L'authentification passe par `@WithMockUser` : le service lit l'identité dans le
 contexte de sécurité, et c'est exactement ce que le test doit reproduire. Aucun
@@ -406,7 +409,6 @@ vide parce que le jeu de données a changé est un test qui ne teste plus rien.
 | `historiqueDecroissantEtStatutCoherent` | tri décroissant, un seul `etatActuel`, égal au statut de l'activité |
 | `avancementGlobalCoherent` | l'avancement calculé hors Java vaut celui renvoyé |
 | `sousActiviteSansReleve` | `avancementCourant` est `null`, pas `0` |
-| `decisionsValides` | chaque décision se parse en `DecisionValidation` |
 | `pasDeNPlusUn` | même nombre de requêtes avec 1 ou 2 livrables |
 
 ---

@@ -32,20 +32,23 @@ import mg.bank.backend.model.Activite;
 import mg.bank.backend.model.Livrable;
 import mg.bank.backend.model.ObjectifSpecifique;
 import mg.bank.backend.model.Priorite;
+import mg.bank.backend.model.Procedure;
+import mg.bank.backend.model.Parametre;
 import mg.bank.backend.model.ResultatIntermediaire;
 import mg.bank.backend.model.Site;
 import mg.bank.backend.model.SousActivite;
 import mg.bank.backend.model.TypeActivite;
 import mg.bank.backend.model.Utilisateur;
 import mg.bank.backend.repository.ActiviteRepository;
-import mg.bank.backend.repository.ObjectifSpecifiqueRepository;
 import mg.bank.backend.repository.LivrableRepository;
+import mg.bank.backend.repository.ObjectifSpecifiqueRepository;
 import mg.bank.backend.repository.PrioriteRepository;
 import mg.bank.backend.repository.ResultatIntermediaireRepository;
 import mg.bank.backend.repository.ServiceRepository;
 import mg.bank.backend.repository.SiteRepository;
 import mg.bank.backend.repository.SousActiviteRepository;
 import mg.bank.backend.repository.TypeActiviteRepository;
+import mg.bank.backend.repository.ParametreRepository;
 import mg.bank.backend.repository.projection.StatutCourantRow;
 
 /**
@@ -55,8 +58,8 @@ import mg.bank.backend.repository.projection.StatutCourantRow;
  *
  * Creer une activite, toujours en brouillon, et modifier une activite qui n est
  * pas sortie du brouillon. Aucune suppression d activite, aucun changement de
- * statut, aucun avancement : ces operations relevent du suivi et de la
- * validation, pas de la redaction.
+ * statut, aucun avancement : ces operations relevent du suivi, pas de la
+ * redaction.
  *
  * LES PERMISSIONS NE SONT PAS VERIFIEES
  *
@@ -73,9 +76,8 @@ import mg.bank.backend.repository.projection.StatutCourantRow;
  *
  * LE VERROU EST PRIS AVANT LA RELECTURE DU STATUT
  *
- * Comme pour la soumission : verifier le statut puis ecrire sans verrou
- * ouvrirait une fenetre ou deux onglets modifient le meme brouillon en
- * simultaneite.
+ * Verifier le statut puis ecrire sans verrou ouvrirait une fenetre ou deux
+ * onglets modifient le meme brouillon en simultaneite.
  *
  * LES SOUS-ACTIVITES SONT SYNCHRONISEES, PAS RECREEES
  *
@@ -110,6 +112,8 @@ public class ActiviteEcritureService {
     private final ServiceRepository serviceRepository;
 
     private final ActiviteService activiteService;
+
+    private final ParametreRepository parametreRepository;
 
     @Transactional(readOnly = true)
     public ActiviteFormulaireDTO formulaire(Integer idActivite) {
@@ -197,7 +201,13 @@ public class ActiviteEcritureService {
         ObjectifSpecifique objectif = resoudreObjectif(request);
 
         String reference = resoudreReference(request);
-
+        TypeActivite typeActivite = resoudreTypeActivite(request.getIdTypeActivite());
+        Optional<Parametre> id_procedure;
+        if(objectif != null) {
+                id_procedure = parametreRepository.findByCodeAndActifTrue("ID_PROCEDURE_PTA");
+        } else {
+                id_procedure = parametreRepository.findByCodeAndActifTrue("ID_PROCEDURE_NON_PTA");
+        }
         // Unicite du code verifiee avant l'insert : UNIQUE(code) sur activite
         // est global, et une violation remonterait en 500.
         if (activiteRepository.existsByCodeIgnoreCase(request.getCode().trim())) {
@@ -213,11 +223,20 @@ public class ActiviteEcritureService {
                 .dateDebutPrevue(request.getDateDebutPrevue())
                 .dateFinPrevue(request.getDateFinPrevue())
                 .objectifSpecifique(objectif)
-                .typeActivite(resoudreTypeActivite(request.getIdTypeActivite()))
+                .typeActivite(typeActivite)
                 .site(resoudreSite(request.getIdSite()))
                 .priorite(resoudrePriorite(request.getIdPriorite()))
                 .service(resoudreService(perimetre, request.getIdService()))
                 .build());
+
+        if(id_procedure.isPresent()) {
+                int id = Integer.parseInt(id_procedure.get().getValeur());
+            activite.setProcedure(Procedure.builder().idProcedure(id).build());
+        } else {
+            throw new ApiException(
+                    "Impossible de trouver la procédure pour le type d'activité",
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
 
         // Premiere entree d historique : c'est elle qui cree le statut
         // courant, puisque activite n'en porte pas. Sans cette ligne,

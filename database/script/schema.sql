@@ -96,9 +96,17 @@ CREATE TABLE poste(
    date_creation TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
    date_modification TIMESTAMP,
    date_desactivation TIMESTAMP,
+   is_metier BOOLEAN NOT NULL DEFAULT TRUE,
    PRIMARY KEY(id_poste),
    CONSTRAINT chk_poste_effectif_prevu CHECK (effectif_prevu >= 0),
    CONSTRAINT chk_poste_effectif_reel CHECK (effectif_reel IS NULL OR effectif_reel >= 0)
+);
+
+CREATE TABLE "procedure"(
+   id_procedure SERIAL,
+   designation VARCHAR(255)  NOT NULL,
+   description TEXT,
+   PRIMARY KEY(id_procedure)
 );
 
 CREATE TABLE activite(
@@ -115,6 +123,7 @@ CREATE TABLE activite(
    id_site INTEGER,
    id_priorite INTEGER NOT NULL,
    id_service INTEGER NOT NULL,
+   id_procedure INTEGER,
    PRIMARY KEY(id_activite),
    UNIQUE(code),
    FOREIGN KEY(id_objectif_specifique) REFERENCES objectif_specifique(id_objectif_specifique),
@@ -122,6 +131,7 @@ CREATE TABLE activite(
    FOREIGN KEY(id_site) REFERENCES site(id_site),
    FOREIGN KEY(id_priorite) REFERENCES priorite(id_priorite),
    FOREIGN KEY(id_service) REFERENCES service(id_service),
+   FOREIGN KEY(id_procedure) REFERENCES "procedure"(id_procedure),
    CONSTRAINT chk_activite_dates_prevues CHECK (
        date_fin_prevue IS NULL OR date_fin_prevue >= date_debut_prevue
    ),
@@ -257,13 +267,6 @@ CREATE TABLE affectation_sous_activite(
 CREATE INDEX ix_affectation_sous_activite_sous
 ON affectation_sous_activite (id_sous_activite, date_affectation DESC);
 
-CREATE TABLE "procedure"(
-   id_procedure SERIAL,
-   designation VARCHAR(255)  NOT NULL,
-   description TEXT,
-   PRIMARY KEY(id_procedure)
-);
-
 CREATE TABLE etape_validation(
    id_etape_validation SERIAL,
    designation VARCHAR(255)  NOT NULL,
@@ -273,9 +276,18 @@ CREATE TABLE etape_validation(
    actif BOOLEAN NOT NULL,
    date_desactivation TIMESTAMP,
    id_procedure INTEGER NOT NULL,
+   retour BOOLEAN NOT NULL DEFAULT FALSE,
    PRIMARY KEY(id_etape_validation),
    FOREIGN KEY(id_procedure) REFERENCES "procedure"(id_procedure),
    CONSTRAINT chk_etape_validation_niveau CHECK (niveau > 0)
+);
+
+CREATE TABLE etape_validation_decideur(
+   id_etape_validation INTEGER NOT NULL,
+   id_poste INTEGER NOT NULL,
+   PRIMARY KEY(id_etape_validation, id_poste),
+   FOREIGN KEY(id_etape_validation) REFERENCES etape_validation(id_etape_validation),
+   FOREIGN KEY(id_poste) REFERENCES poste(id_poste)
 );
 
 CREATE TABLE validation_activite(
@@ -287,7 +299,7 @@ CREATE TABLE validation_activite(
    id_activite INTEGER NOT NULL,
    id_etape_validation INTEGER NOT NULL,
    id_demandeur INTEGER NOT NULL,
-   id_decideur INTEGER NOT NULL,
+   id_decideur INTEGER,
    PRIMARY KEY(id_validation_activite),
    FOREIGN KEY(id_activite) REFERENCES activite(id_activite),
    FOREIGN KEY(id_etape_validation) REFERENCES etape_validation(id_etape_validation),
@@ -413,7 +425,7 @@ CREATE TABLE validation_plan_action(
    id_plan_action INTEGER NOT NULL,
    id_etape_validation INTEGER NOT NULL,
    id_demandeur INTEGER NOT NULL,
-   id_decideur INTEGER NOT NULL,
+   id_decideur INTEGER,
    PRIMARY KEY(id_validation_plan_action),
    FOREIGN KEY(id_plan_action) REFERENCES plan_action(id_plan_action),
    FOREIGN KEY(id_etape_validation) REFERENCES etape_validation(id_etape_validation),

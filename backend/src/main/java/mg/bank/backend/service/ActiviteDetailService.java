@@ -18,7 +18,6 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.ActiviteDetailDTO;
 import mg.bank.backend.dto.AffectationDetailDTO;
 import mg.bank.backend.dto.AvancementDetailDTO;
-import mg.bank.backend.dto.EtapeValidationDTO;
 import mg.bank.backend.dto.FichierDetailDTO;
 import mg.bank.backend.dto.FichierTelechargeable;
 import mg.bank.backend.dto.HistoriqueActiviteDTO;
@@ -29,7 +28,6 @@ import mg.bank.backend.dto.ReferenceDTO;
 import mg.bank.backend.dto.ResultatIntermediaireDTO;
 import mg.bank.backend.dto.SousActiviteDetailDTO;
 import mg.bank.backend.dto.UtilisateurResumeDTO;
-import mg.bank.backend.dto.ValidationActiviteDTO;
 import mg.bank.backend.dto.ValeurIndicateurDTO;
 import mg.bank.backend.enums.StatutActiviteEnum;
 import mg.bank.backend.exception.ApiException;
@@ -44,7 +42,6 @@ import mg.bank.backend.repository.projection.IndicateurDetailRow;
 import mg.bank.backend.repository.projection.LivrableDetailRow;
 import mg.bank.backend.repository.projection.ResultatIntermediaireRow;
 import mg.bank.backend.repository.projection.SousActiviteDetailRow;
-import mg.bank.backend.repository.projection.ValidationActiviteRow;
 import mg.bank.backend.repository.projection.ValeurIndicateurRow;
 
 /**
@@ -64,8 +61,8 @@ import mg.bank.backend.repository.projection.ValeurIndicateurRow;
  * Le detail execute un nombre FIXE de requetes, independant du contenu de
  * l activite : une pour l activite, puis une par type de donnee enfant, jamais
  * une par sous-activite ni par livrable. Les sous-activites, affectations,
- * avancements, livrables, fichiers, validations, indicateurs, mesures,
- * resultats et historique sont donc lus en dix requetes, quel que soit le
+ * avancements, livrables, fichiers, indicateurs, mesures,
+ * resultats et historique sont donc lus en neuf requetes, quel que soit le
  * nombre de sous-activites. Le regroupement se fait ensuite en memoire, par
  * identifiant de parent.
  *
@@ -100,7 +97,7 @@ public class ActiviteDetailService {
 
     /**
      * Detail d une activite, avec ses sous-activites, livrables, fichiers,
-     * validations, indicateurs, resultats et historique.
+     * indicateurs, resultats et historique.
      */
     @Transactional(readOnly = true)
     public ActiviteDetailDTO detail(Integer id) {
@@ -452,9 +449,6 @@ public class ActiviteDetailService {
                                 livrables.getOrDefault(sa.getId(), List.of()),
                                 fichiers))
                         .toList())
-                .validations(activiteRepository.findValidations(id).stream()
-                        .map(this::validation)
-                        .toList())
                 .indicateurs(activiteRepository.findIndicateurs(id).stream()
                         .map(i -> indicateur(i, valeurs.getOrDefault(i.getId(), List.of())))
                         .toList())
@@ -584,32 +578,6 @@ public class ActiviteDetailService {
                         row.getUtilisateurId(),
                         row.getUtilisateurNom(),
                         row.getUtilisateurPrenom()))
-                .build();
-    }
-
-    private ValidationActiviteDTO validation(ValidationActiviteRow row) {
-        return ValidationActiviteDTO.builder()
-                .id(row.getId())
-                .decision(row.getDecision())
-                .commentaire(row.getCommentaire())
-                .dateDemande(row.getDateDemande())
-                .dateDecision(row.getDateDecision())
-                .etape(EtapeValidationDTO.builder()
-                        .id(row.getEtapeId())
-                        .designation(row.getEtapeDesignation())
-                        .description(row.getEtapeDescription())
-                        .niveau(row.getEtapeNiveau())
-                        .obligatoire(row.getEtapeObligatoire())
-                        .procedureLibelle(row.getEtapeProcedureLibelle())
-                        .build())
-                .demandeur(utilisateur(
-                        row.getDemandeurId(),
-                        row.getDemandeurNom(),
-                        row.getDemandeurPrenom()))
-                .decideur(utilisateur(
-                        row.getDecideurId(),
-                        row.getDecideurNom(),
-                        row.getDecideurPrenom()))
                 .build();
     }
 

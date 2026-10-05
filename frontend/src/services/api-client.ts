@@ -107,7 +107,7 @@ async function handleResponse<T>(
             status: response.status,
         }
     }
-
+        
     /*
         Un succes declare par le corps sur une reponse HTTP en echec --
         200 dans le corps contre 409 reel, par exemple -- doit rester un echec.

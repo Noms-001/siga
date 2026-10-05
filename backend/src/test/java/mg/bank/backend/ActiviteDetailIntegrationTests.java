@@ -25,8 +25,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
 
-import mg.bank.backend.enums.DecisionValidation;
-
 /**
  * Tests du detail d une activite, exerces sur la base de developpement.
  *
@@ -96,8 +94,7 @@ class ActiviteDetailIntegrationTests {
                 .andExpect(jsonPath("$.data.statut.code").isNotEmpty())
                 .andExpect(jsonPath("$.data.service.libelle").isNotEmpty())
                 .andExpect(jsonPath("$.data.historique").isArray())
-                .andExpect(jsonPath("$.data.sousActivites").isArray())
-                .andExpect(jsonPath("$.data.validations").isArray());
+                .andExpect(jsonPath("$.data.sousActivites").isArray());
     }
 
     @Test
@@ -333,38 +330,6 @@ class ActiviteDetailIntegrationTests {
 
         assertThat(cible).containsEntry("avancementCourant", null);
         assertThat((List<?>) cible.get("historiqueAvancement")).isEmpty();
-    }
-
-    @Test
-    @DisplayName("Les decisions de validation sont lues comme l enum DecisionValidation")
-    @WithMockUser(username = UTILISATEUR_SERVICE_DEUX)
-    void decisionsValides() throws Exception {
-
-        String corps = mockMvc.perform(
-                get("/api/activites/{id}", activiteDuService(2)))
-                .andExpect(status().isOk())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> validations =
-                (List<Map<String, Object>>) racine(corps).get("validations");
-
-        assertThat(validations).isNotEmpty();
-
-        for (Map<String, Object> validation : validations) {
-            String decision = (String) validation.get("decision");
-
-            // Parse par l enum : une valeur inattendue ferait echouer le test
-            // plutot que de passer en silence dans la reponse.
-            assertThat(DecisionValidation.valueOf(decision)).isNotNull();
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> etape = (Map<String, Object>) validation.get("etape");
-            assertThat(etape.get("designation")).isNotNull();
-            assertThat(etape.get("niveau")).isNotNull();
-        }
     }
 
     // ------------------------------------------------------------------

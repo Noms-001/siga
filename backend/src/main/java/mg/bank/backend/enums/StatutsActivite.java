@@ -22,25 +22,27 @@ public final class StatutsActivite {
     public static final String SUSPENDUE = "SUSPENDUE";
 
     /**
-     * Statut de redaction : l'activite existe mais n'a pas ete soumise.
+     * Statut de redaction : l'activite existe et n'a pas ete publiee.
      *
-     * Comme les trois codes suivants, il est absent de
-     * StatutActiviteEnum, mais pour une raison opposee : il n'est pas dans
-     * le circuit de validation, il en est le point de depart. C est le seul
-     * des quatre a etre visible dans la liste, et il se distingue des trois
-     * autres parce qu'il n'est pas dans SQL_NON_PUBLIEES : un brouillon doit
-     * rester trouvable, sinon son auteur ne pourrait plus le soumettre.
+     * Il est absent de StatutActiviteEnum parce qu'il n'est pas terminal, ce
+     * qui est une information, et non un oubli. C'est aussi le seul des quatre
+     * codes ci-dessous a figurer dans SQL_NON_PUBLIEES : il doit rester
+     * trouvable dans la liste, ou son auteur ne pourrait plus le relire.
      */
     public static final String BROUILLON = "BROUILLON";
 
     /**
-     * Statuts du circuit de validation, avant que l'activite ne soit
-     * publiee au suivi.
+     * Statuts du circuit de validation, avant publication au suivi.
      *
-     * Ces trois codes sont volontairement absents de StatutActiviteEnum :
-     * aucun n'est terminal au sens du suivi, et aucun ne doit apparaitre
-     * dans la liste. Ils sont regroupes ici pour que la regle
-     * "qu'est-ce qui est visible" tienne en un seul endroit.
+     * AUCUN CHEMIN DE CODE NE LES PRODUIT PLUS : le backend n'ecrit plus que
+     * BROUILLON, et un brouillon ne quitte plus cet etat. Les trois codes sont
+     * conserves pour une seule raison -- ils sont presents dans le jeu de
+     * donnees de database/script/data.sql, et SQL_NON_PUBLIEES doit continuer
+     * a les masquer dans la liste et l'autocomplete. Les retirer ferait
+     * reapparaitre dans le suivi des activites de demonstration.
+     *
+     * Ils sont absents de StatutActiviteEnum : aucun n'est terminal au sens du
+     * suivi.
      */
     public static final String EN_ATTENTE_VALIDATION = "EN_ATTENTE_VALIDATION";
     public static final String VALIDEE = "VALIDEE";

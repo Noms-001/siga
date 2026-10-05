@@ -11,48 +11,67 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 
 import AValider from '@/views/frontoffice/activites/AValider.vue'
 import * as activiteService from '@/services/activite'
+
 /*
     Chaque composant monte est demonte apres son test : BaseConfirm et
-    RejetActiviteModal se teleportent dans document.body, donc une modale laissee
-    ouverte par un test anterior survivrait dans le body, et le test suivant
-    cliquerait sur une confirmation qui n'est pas la sienne.
+    RejetActiviteModal se teleportent dans document.body, donc une modale
+    laissee ouverte par un test anterior survivrait dans le body, et le test
+    suivant cliquerait sur une confirmation qui n'est pas la sienne.
 */
 enableAutoUnmount(afterEach)
 
 import type { ApiResponse } from '@/services/api-client'
 import type {
-    ActiviteAutocomplete,
     ActiviteListItem,
-    DecisionResultat,
+    DecisionValidation,
     PageResult,
+    ValidationActiviteResponse,
 } from '@/types/activite'
 
 /**
  * Tests de la page des activites a valider.
  *
  * Le service est mocke : cette page ne contient aucune regle metier, elle ne
- * fait qu'afficher une liste et appeler une ecriture. Ce qui est teste ici est
- * donc ce qui lui appartient : la liste forcee sur le bon statut, le sort d'une
- * carte apres decision, et le parcours de rejet -- qui est le seul a deux
- * etapes, parce qu'il demande un choix puis un motif.
+ * fait qu'afficher une liste et appeler une ecriture. Ce qui est teste ici
+ * est donc ce qui lui appartient : la liste chargee depuis le bon endpoint,
+ * le sort d'une ligne apres decision, et le parcours de rejet -- qui est le
+ * seul a deux etapes, parce qu'il demande un motif.
+ *
+ * LE CONTRAT DE /a-valider EST UNE LISTE GROUPEE
+ *
+ * La reponse est un tableau d'objets a UNE cle : la designation de l'etape.
+ * Le mock doit donc renvoyer cette forme, et non une liste plate -- sinon
+ * les tests passeraient sur une structure que le backend ne produit pas, et
+ * la page serait cassee des la premiere reponse reelle.
  */
 vi.mock('@/services/activite', () => ({
     listerActivitesAValider: vi.fn<
-        () => Promise<ApiResponse<PageResult<ActiviteListItem>>>
+        () => Promise<ApiResponse<PageResult<Record<string, ActiviteListItem>>>>
     >(),
-    deciderValidation: vi.fn<
-        (id: number, decision: string, commentaire: string | null) => Promise<
-            ApiResponse<DecisionResultat>
+    validerActivite: vi.fn<
+        (id: number, rejeter: boolean, commentaire?: string | null) => Promise<
+            ApiResponse<ValidationActiviteResponse>
         >
     >(),
-    autocompleterActivites: vi.fn<
-        (q: string) => Promise<ApiResponse<ActiviteAutocomplete[]>>
-    >().mockResolvedValue({ success: true, data: [] }),
+    soumettreValidationRetour: vi.fn<
+        (id: number, commentaire?: string | null) => Promise<
+            ApiResponse<ValidationActiviteResponse>
+        >
+    >(),
 }))
 
 const mockLister = vi.mocked(activiteService.listerActivitesAValider)
-const mockDecider = vi.mocked(activiteService.deciderValidation)
+const mockValider = vi.mocked(activiteService.validerActivite)
+const mockRetour = vi.mocked(activiteService.soumettreValidationRetour)
 
+/**
+ * Fixture d'activite.
+ *
+ * Les trois etapes sont portees dans le DTO : sur /a-valider, le backend
+ * les renseigne toutes les trois -- etapeSuivante et etapePrecedente
+ * peuvent etre null aux deux bouts du circuit, mais etapeCourante est
+ * toujours presente. Les fixtures la gardent donc non nulle par defaut.
+ */
 function activite(overrides: Partial<ActiviteListItem> = {}): ActiviteListItem {
     return {
         id: 1,
@@ -75,21 +94,35 @@ function activite(overrides: Partial<ActiviteListItem> = {}): ActiviteListItem {
             libelle: 'En attente de validation',
         },
         avancement: 0,
+        etapeCourante: { id: 3, libelle: 'Contrôle qualité' },
+        etapeSuivante: { id: 4, libelle: 'Validation finale' },
+        etapePrecedente: { id: 2, libelle: 'Préparation' },
         ...overrides,
     }
 }
 
+/**
+ * Reponse paginee pour /a-valider, dans la forme REELLE du backend.
+ *
+ * Chaque activite est enveloppee dans un objet a UNE cle -- la designation
+ * de son etape. Le groupement est fait cote backend pour que l'affichage
+ * puisse separer par etape sans re-parcourir ; le front aplatit ensuite.
+ *
+ * Le helper est volontairement le SEUL endroit ou cette forme est
+ * construite : si le contrat change, un seul helper a corriger.
+ */
 function page(
-    items: ActiviteListItem[],
-    totalElements = items.length
-): ApiResponse<PageResult<ActiviteListItem>> {
+    items: ActiviteListItem[]
+): ApiResponse<PageResult<Record<string, ActiviteListItem>>> {
     return {
         success: true,
         data: {
-            content: items,
+            content: items.map(item => ({
+                [item.etapeCourante?.libelle ?? 'Sans étape']: item,
+            })),
             page: 0,
             size: 9,
-            totalElements,
+            totalElements: items.length,
             totalPages: 1,
             first: true,
             last: true,
@@ -97,61 +130,112 @@ function page(
     }
 }
 
-/** Accuse de decision reussie. */
+/**
+ * Accuse d'une decision reussie.
+ *
+ * Le statut reflete ce qui a ete decide : le backend renvoie le statut
+ * APRES la decision, et c'est lui qui permet a la page de retirer la
+ * ligne sans relire l'activite.
+ */
 function decisionOk(
-    overrides: Partial<DecisionResultat> = {}
-): ApiResponse<DecisionResultat> {
+    overrides: Partial<ValidationActiviteResponse> = {}
+): ApiResponse<ValidationActiviteResponse> {
     return {
         success: true,
         data: {
-            idActivite: 1,
-            code: 'ACT-001',
-            decision: 'VALIDE',
-            statut: 'VALIDEE',
+            idValidationActivite: 1,
+            decision: 'VALIDE' as DecisionValidation,
+            commentaire: null,
+            dateDemande: '2027-01-15T09:00:00',
             dateDecision: '2027-02-01T10:00:00',
+            idActivite: 1,
+            idEtapeValidation: 3,
+            designationEtape: 'Contrôle qualité',
+            derniereDecision: 'RETOUR_MODIFICATION',
+            niveau: 3,
+            obligatoire: true,
+            idDemandeur: 5,
+            idDecideur: 7,
             ...overrides,
         },
     }
 }
 
 /**
- * findAll()[i] est undefined selon le type : on le traite comme une absence
- * reelle plutot que de le masquer par un !, sinon un test qui ne trouve plus
- * le bouton echouerait sur "cannot read trigger of undefined" au lieu de dire
- * ce qu'il cherche.
+ * Bouton de la barre d'outils (hors menu par ligne).
+ *
+ * Les libelles se contiennent les uns dans les autres -- "Valider" est un
+ * prefixe de "Valider la sélection" -- donc toute recherche doit etre
+ * restreinte a sa zone. Ici la barre de lot.
  */
-function bouton(wrapper: VueWrapper, texte: string) {
-    const trouve = wrapper.findAll('button').find(b => b.text().includes(texte))
+function boutonToolbar(wrapper: VueWrapper, texte: string) {
+    const toolbar = wrapper.find('.lot')
+
+    if (!toolbar.exists()) {
+        throw new Error("Barre de lot absente -- aucune sélection en cours ?")
+    }
+
+    const trouve = toolbar.findAll('button').find(b => b.text().includes(texte))
 
     if (!trouve) {
-        throw new Error(`Bouton "${texte}" introuvable`)
+        throw new Error(`Bouton "${texte}" introuvable dans la barre de lot`)
+    }
+
+    return trouve
+}
+
+/** Localise la ligne du tableau portant ce code. */
+function ligne(wrapper: VueWrapper, code: string) {
+    const trouve = wrapper
+        .findAll('.tableau__tr')
+        .find(tr => tr.text().includes(code))
+
+    if (!trouve) {
+        throw new Error(`Ligne ${code} introuvable`)
     }
 
     return trouve
 }
 
 /**
- * Bouton d'UNE card, cherche dans cette card seulement.
+ * Ouvre le menu d'actions d'une ligne et rend sa racine.
  *
- * Indispensable ici : les libelles se contiennent les uns dans les autres --
- * "Valider la sélection" contient "Valider". Une recherche sur toute la page
- * renverrait le bouton groupe, qui n'agit pas sur la card visee et ne ferait
- * rien du tout quand rien n'est coche.
+ * Le clic sur le bouton stop la propagation (voir le composant) : le
+ * listener document qui ferme le menu ne s'en mele pas. L'appel reste
+ * neanmoins asynchrone pour laisser Vue basculer l'etat.
  */
-function boutonCard(wrapper: VueWrapper, code: string, texte: string) {
-    const carte = wrapper.findAll('.carte').find(c => c.text().includes(code))
+async function ouvrirMenu(wrapper: VueWrapper, code: string) {
+    const tr = ligne(wrapper, code)
+    const toggle = tr.find('.menu__toggle')
 
-    if (!carte) {
-        throw new Error(`Card ${code} introuvable`)
+    if (!toggle.exists()) {
+        throw new Error(`Bouton de menu introuvable sur ${code}`)
     }
 
-    const trouve = carte.findAll('button').find(b => b.text().includes(texte))
+    await toggle.trigger('click')
+    await flushPromises()
 
-    if (!trouve) {
-        throw new Error(`Bouton "${texte}" introuvable sur ${code}`)
+    const menu = tr.find('.menu')
+
+    if (!menu.exists()) {
+        throw new Error(`Menu de ${code} non ouvert`)
     }
 
-    return trouve
+    return menu
+}
+
+/** Ouvre le menu d'une ligne et clique l'action nommee. */
+async function actionMenu(wrapper: VueWrapper, code: string, action: string) {
+    const menu = await ouvrirMenu(wrapper, code)
+
+    const item = menu.findAll('button').find(b => b.text().includes(action))
+
+    if (!item) {
+        throw new Error(`Action "${action}" introuvable pour ${code}`)
+    }
+
+    await item.trigger('click')
+    await flushPromises()
 }
 
 async function monter(items?: ActiviteListItem[]) {
@@ -175,9 +259,11 @@ async function monter(items?: ActiviteListItem[]) {
     await router.push('/activites/a-valider')
     await router.isReady()
 
-    // Sans liste en parametre, le mock pose par le test -- liste vide, panne
-    // reseau -- est conserve : le montage ne doit pas ecraser le scenario que
-    // le test met en place.
+    /*
+        Sans liste en parametre, le mock pose par le test -- liste vide,
+        panne reseau -- est conserve : le montage ne doit pas ecraser le
+        scenario que le test met en place.
+    */
     if (items) {
         mockLister.mockResolvedValue(page(items))
     }
@@ -189,8 +275,8 @@ async function monter(items?: ActiviteListItem[]) {
 }
 
 /**
- * Le dernier element correspondant : la modale ouverte est la plus recente,
- * et c'est elle que l'utilisateur vient de poser.
+ * Dernier element correspondant : la modale ouverte est la plus recente, et
+ * c'est elle que l'utilisateur vient de poser.
  */
 function dernier(selecteur: string): Element | undefined {
     const trouves = document.body.querySelectorAll(selecteur)
@@ -201,10 +287,11 @@ function dernier(selecteur: string): Element | undefined {
 /**
  * Valider la confirmation posee par la page.
  *
- * Le pied du bouton vit dans BaseModal, qui se teleporte dans le body : il se
- * cherche donc dans document.body. Le bouton se repere a son texte et non a sa
- * position : l'ordre des deux boutons du pied n'est pas une promesse, et
- * cliquer le mauvais reviendrait a annuler l'action qu'on veut prouver.
+ * Le pied du bouton vit dans BaseModal, qui se teleporte dans le body : il
+ * se cherche donc dans document.body. Le bouton se repere a son texte et
+ * non a sa position : l'ordre des deux boutons du pied n'est pas une
+ * promesse, et cliquer le mauvais reviendrait a annuler l'action qu'on veut
+ * prouver.
  */
 async function confirmer() {
     const pied = dernier('.confirmation .modal-footer')
@@ -222,10 +309,10 @@ async function confirmer() {
     cible.click()
 
     /*
-        La chaine est emit -> confirmer -> action asynchrone -> retrait de la
-        card. On attend que la modale soit partie, qui est sa derniere etape,
-        plutot qu'un nombre fixe de flush : celui-ci serait trop court pour une
-        action lente et inutile pour une rapide.
+        La chaine est emit -> confirmer -> action asynchrone -> retrait de
+        la ligne. On attend que la modale soit partie, qui est sa derniere
+        etape, plutot qu'un nombre fixe de flush : celui-ci serait trop
+        court pour une action lente et inutile pour une rapide.
     */
     for (let i = 0; i < 20 && dernier('.confirmation'); i++) {
         await flushPromises()
@@ -247,7 +334,7 @@ function annulerConfirmation() {
     cible.click()
 }
 
-/** La case a cocher de la card portant ce code. */
+/** La case a cocher de la ligne portant ce code. */
 function caseDe(wrapper: VueWrapper, code: string): DOMWrapper<HTMLInputElement> {
     const trouve = wrapper
         .findAll('input[type="checkbox"]')
@@ -261,59 +348,49 @@ function caseDe(wrapper: VueWrapper, code: string): DOMWrapper<HTMLInputElement>
 }
 
 /**
- * Remplir le motif et choisir une issue dans la modale de rejet.
+ * Remplir le motif dans la modale de rejet ou de retour.
  *
- * Les radios natifs sont coches via leur input et le modele est relu par
- * l'evenement change : c'est ce que fait un utilisateur, et surtout cela
- * evite de modifier l'etat interne du composant -- un test qui l'ecarterait
- * passerait sans que la page ne reponde reellement.
+ * La modale recoit desormais l'issue en prop : le groupe radio est cache,
+ * et la page a deja tranche en ouvrant. Ce helper ne coche donc plus
+ * d'issue -- il remplit le motif, ce qui est la seule chose qui reste a
+ * faire dans la modale.
  */
-async function choisirIssue(issue: 'REJETE' | 'RETOUR_MODIFICATION', motif: string) {
-    const modal = dernier('.rejet-activite')
+async function saisirMotif(motif: string) {
+    const modal = dernier('.rejet-activite') as HTMLElement | undefined
 
     if (!modal) {
         throw new Error('Modale de rejet introuvable')
     }
 
-    const radios = Array.from(
-        modal.querySelectorAll<HTMLInputElement>('input[type="radio"]')
-    )
+    const zone = modal.querySelector('textarea')
 
-    const radio = radios.find(r => r.getAttribute('value') === issue)
-
-    if (!radio) {
-        throw new Error(`Issue ${issue} introuvable dans la modale`)
+    if (!zone) {
+        throw new Error('Zone de motif introuvable')
     }
 
-    radio.checked = true
-    radio.dispatchEvent(new Event('change', { bubbles: true }))
+    zone.value = motif
+    zone.dispatchEvent(new Event('input', { bubbles: true }))
     await flushPromises()
-
-    if (motif) {
-        const zone = modal.querySelector('textarea')
-
-        if (!zone) {
-            throw new Error('Zone de motif introuvable')
-        }
-
-        zone.value = motif
-        zone.dispatchEvent(new Event('input', { bubbles: true }))
-        await flushPromises()
-    }
 
     return modal
 }
 
-/** Cliquer le bouton de rejet de la modale de rejet. */
-function validerRejet() {
-    const modal = dernier('.rejet-activite')
+/**
+ * Cliquer le bouton de confirmation de la modale de rejet ou de retour.
+ *
+ * Le libelle du bouton suit l'issue : "Rejeter" pour un rejet definitif,
+ * "Renvoyer" pour un retour. Un helper distinct de la recherche libre
+ * evite qu'un test confonde les deux -- le clic se fait sur le dernier
+ * bouton du pied, qui est toujours celui de l'action.
+ */
+function validerModale() {
+    const modal = dernier('.rejet-activite .modal-footer')
 
-    const cible = Array.from(modal?.querySelectorAll('button') ?? []).find(b =>
-        (b.textContent ?? '').includes('Rejeter')
-    )
+    const boutons = Array.from(modal?.querySelectorAll('button') ?? [])
+    const cible = boutons.find(b => !(b.textContent ?? '').includes('Annuler'))
 
     if (!cible) {
-        throw new Error('Bouton de rejet introuvable')
+        throw new Error('Bouton de confirmation introuvable dans la modale')
     }
 
     cible.click()
@@ -322,8 +399,8 @@ function validerRejet() {
 /**
  * Arguments du n-ieme appel a la liste, ou echec explicite.
  *
- * Un appel manquant doit se voir dans le message du test, pas dans une erreur
- * d'indexation qui ne dit rien de ce qui a ete cherche.
+ * Un appel manquant doit se voir dans le message du test, pas dans une
+ * erreur d'indexation qui ne dit rien de ce qui a ete cherche.
  */
 function appelLister(index: number): unknown[] {
     const args = mockLister.mock.calls[index]
@@ -335,17 +412,23 @@ function appelLister(index: number): unknown[] {
     return args
 }
 
-/**
- * Arguments du n-ieme appel a la decision, ou echec explicite.
- *
- * Un appel manquant doit se voir dans le message du test, pas dans une erreur
- * d'indexation qui ne dit rien de ce qui a ete cherche.
- */
-function appelDecision(index: number): unknown[] {
-    const args = mockDecider.mock.calls[index]
+/** Arguments du n-ieme appel a validerActivite, ou echec explicite. */
+function appelValider(index: number): unknown[] {
+    const args = mockValider.mock.calls[index]
 
     if (!args) {
-        throw new Error(`Le service n'a pas ete appele ${index + 1} fois`)
+        throw new Error(`validerActivite n'a pas ete appele ${index + 1} fois`)
+    }
+
+    return args
+}
+
+/** Arguments du n-ieme appel a soumettreValidationRetour, ou echec explicite. */
+function appelRetour(index: number): unknown[] {
+    const args = mockRetour.mock.calls[index]
+
+    if (!args) {
+        throw new Error(`soumettreValidationRetour n'a pas ete appele ${index + 1} fois`)
     }
 
     return args
@@ -355,12 +438,18 @@ describe('AValider', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         mockLister.mockResolvedValue(page([activite()]))
-        mockDecider.mockResolvedValue(decisionOk())
+        mockValider.mockResolvedValue(decisionOk())
+        mockRetour.mockResolvedValue(
+            decisionOk({
+                decision: 'RETOUR_MODIFICATION' as DecisionValidation,
+                commentaire: null,
+            })
+        )
     })
 
     /**
-     * Trois activites distinctes : la selection se juge sur des cartes
-     * multiples, sinon on ne verrait pas qu'une seule carte cochee suffit a
+     * Trois activites distinctes : la selection se juge sur des lignes
+     * multiples, sinon on ne verrait pas qu'une seule cochee suffit a
      * declencher une decision groupee.
      */
     const TROIS = () => [
@@ -377,33 +466,27 @@ describe('AValider', () => {
         it('affiche les activites en attente', async () => {
             const { wrapper } = await monter(TROIS())
 
-            expect(wrapper.findAll('.carte')).toHaveLength(3)
+            expect(wrapper.findAll('.tableau__tr')).toHaveLength(3)
             expect(wrapper.text()).toContain('ACT-001')
             expect(wrapper.text()).toContain('ACT-003')
         })
 
-        it("interroge le service de liste a valider, et non celui des brouillons", async () => {
+        it('interroge le service de la file a valider', async () => {
             await monter(TROIS())
 
             expect(mockLister).toHaveBeenCalledTimes(1)
         })
 
-        it('ne restreint pas la liste a une annee ni a une periode', async () => {
+        it("n'envoie aucun argument de filtre", async () => {
             await monter(TROIS())
 
-            const [filtres] = appelLister(0)
-
             /*
-                Une activite en attente appartient a son exercice, mais la page
-                qui la traite vide une file d'attente : la restreindre a une
-                annee ferait disparaitre de la page ce qu'on y cherche.
+                Le endpoint /a-valider ne prend rien : ni annee, ni vue, ni
+                page. Une activite en attente appartient a son exercice,
+                mais la page qui la traite vide une file -- la restreindre
+                ferait disparaitre de la page ce qu'on y cherche.
             */
-            expect(filtres).toMatchObject({
-                annee: 0,
-                trimestre: null,
-                dateDebut: '',
-                dateFin: '',
-            })
+            expect(appelLister(0)).toEqual([])
         })
 
         it("affiche un etat vide quand il n'y a rien a valider", async () => {
@@ -440,6 +523,95 @@ describe('AValider', () => {
             // alors qu'on ne sait pas.
             expect(wrapper.find('.vide').exists()).toBe(false)
         })
+
+        it('aplatit le groupement par etape du backend', async () => {
+            /*
+                Le backend renvoie un tableau de { designationEtape: activite }.
+                Deux activites a la meme etape doivent apparaitre comme deux
+                lignes distinctes, chacune avec son code.
+            */
+            const { wrapper } = await monter([
+                activite({ id: 1, code: 'ACT-001' }),
+                activite({ id: 2, code: 'ACT-002' }),
+            ])
+
+            expect(wrapper.findAll('.tableau__tr')).toHaveLength(2)
+            expect(wrapper.text()).toContain('ACT-001')
+            expect(wrapper.text()).toContain('ACT-002')
+        })
+
+        it('affiche les etapes courante et suivante', async () => {
+            const { wrapper } = await monter([activite()])
+
+            expect(wrapper.text()).toContain('Contrôle qualité')
+            expect(wrapper.text()).toContain('Validation finale')
+        })
+    })
+
+    // ------------------------------------------------------------------
+    // Menu d'actions
+    // ------------------------------------------------------------------
+
+    describe("Le menu d'actions", () => {
+        it("ne s'ouvre pas avant clic", async () => {
+            const { wrapper } = await monter(TROIS())
+
+            expect(wrapper.find('.menu').exists()).toBe(false)
+        })
+
+        it("s'ouvre au clic sur les trois points", async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await ouvrirMenu(wrapper, 'ACT-001')
+
+            const menu = ligne(wrapper, 'ACT-001').find('.menu')
+
+            expect(menu.exists()).toBe(true)
+            expect(menu.text()).toContain('Valider')
+            expect(menu.text()).toContain('Rejeter')
+            expect(menu.text()).toContain("Soumettre à l'étape précédente")
+        })
+
+        it("ne laisse qu'un menu ouvert a la fois", async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await ouvrirMenu(wrapper, 'ACT-001')
+            await ouvrirMenu(wrapper, 'ACT-002')
+
+            expect(wrapper.findAll('.menu')).toHaveLength(1)
+            expect(ligne(wrapper, 'ACT-002').find('.menu').exists()).toBe(true)
+        })
+
+        it('se referme au second clic sur les trois points', async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await ouvrirMenu(wrapper, 'ACT-001')
+            await ouvrirMenu(wrapper, 'ACT-001')
+
+            expect(wrapper.find('.menu').exists()).toBe(false)
+        })
+
+        it('se referme au clic ailleurs sur la page', async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await ouvrirMenu(wrapper, 'ACT-001')
+
+            document.body.click()
+            await flushPromises()
+
+            expect(wrapper.find('.menu').exists()).toBe(false)
+        })
+
+        it('se referme sur Echap', async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await ouvrirMenu(wrapper, 'ACT-001')
+
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+            await flushPromises()
+
+            expect(wrapper.find('.menu').exists()).toBe(false)
+        })
     })
 
     // ------------------------------------------------------------------
@@ -447,7 +619,7 @@ describe('AValider', () => {
     // ------------------------------------------------------------------
 
     describe('La selection', () => {
-        it('coche et decoche une card', async () => {
+        it('coche et decoche une ligne', async () => {
             const { wrapper } = await monter(TROIS())
 
             await caseDe(wrapper, 'ACT-001').setValue(true)
@@ -457,10 +629,11 @@ describe('AValider', () => {
             expect(wrapper.text()).toContain('0 / 3 sélectionnée(s)')
         })
 
-        it('selectionne toutes les cards affichees', async () => {
+        it('selectionne toutes les lignes affichees', async () => {
             const { wrapper } = await monter(TROIS())
 
-            await bouton(wrapper, 'Tout sélectionner').trigger('click')
+            await caseDe(wrapper, 'ACT-001').setValue(true)
+            await boutonToolbar(wrapper, 'Tout sélectionner').trigger('click')
 
             expect(wrapper.text()).toContain('3 / 3 sélectionnée(s)')
         })
@@ -468,24 +641,33 @@ describe('AValider', () => {
         it('decoche tout', async () => {
             const { wrapper } = await monter(TROIS())
 
-            await bouton(wrapper, 'Tout sélectionner').trigger('click')
-            await bouton(wrapper, 'Tout décocher').trigger('click')
+            await caseDe(wrapper, 'ACT-001').setValue(true)
+            await boutonToolbar(wrapper, 'Tout décocher').trigger('click')
 
             expect(wrapper.text()).toContain('0 / 3 sélectionnée(s)')
         })
 
-        it("desactive la validation groupee tant que rien n'est coche", async () => {
+        it("n'affiche pas la barre de lot tant que rien n'est coche", async () => {
             const { wrapper } = await monter(TROIS())
 
-            expect(bouton(wrapper, 'Valider la sélection').attributes('disabled')).toBeDefined()
+            expect(wrapper.find('.lot').exists()).toBe(false)
         })
 
-        it('active la validation groupee des la premiere coche', async () => {
+        it('affiche la barre de lot des la premiere coche', async () => {
             const { wrapper } = await monter(TROIS())
 
             await caseDe(wrapper, 'ACT-001').setValue(true)
 
-            expect(bouton(wrapper, 'Valider la sélection').attributes('disabled')).toBeUndefined()
+            expect(wrapper.find('.lot').exists()).toBe(true)
+        })
+
+        it('la case d en-tete coche toutes les lignes', async () => {
+            const { wrapper } = await monter(TROIS())
+
+            const entete = wrapper.find('.tableau__th--case input')
+            await entete.setValue(true)
+
+            expect(wrapper.text()).toContain('3 / 3 sélectionnée(s)')
         })
     })
 
@@ -497,45 +679,46 @@ describe('AValider', () => {
         it('demande confirmation avant de valider', async () => {
             const { wrapper } = await monter(TROIS())
 
-            await boutonCard(wrapper, 'ACT-001', 'Valider').trigger('click')
+            await actionMenu(wrapper, 'ACT-001', 'Valider')
 
             expect(dernier('.confirmation')).toBeDefined()
-            expect(mockDecider).not.toHaveBeenCalled()
+            expect(mockValider).not.toHaveBeenCalled()
         })
 
         it("n'envoie rien si la confirmation est annulee", async () => {
             const { wrapper } = await monter(TROIS())
 
-            await boutonCard(wrapper, 'ACT-001', 'Valider').trigger('click')
+            await actionMenu(wrapper, 'ACT-001', 'Valider')
             annulerConfirmation()
             await flushPromises()
 
-            expect(mockDecider).not.toHaveBeenCalled()
+            expect(mockValider).not.toHaveBeenCalled()
         })
 
-        it('valide l activite et retire sa card', async () => {
+        it('valide la ligne et la retire du tableau', async () => {
             const { wrapper } = await monter(TROIS())
 
-            await boutonCard(wrapper, 'ACT-001', 'Valider').trigger('click')
+            await actionMenu(wrapper, 'ACT-001', 'Valider')
             await confirmer()
 
-            expect(mockDecider).toHaveBeenCalledWith(1, 'VALIDE', null)
-            expect(wrapper.findAll('.carte')).toHaveLength(2)
+            expect(appelValider(0)).toEqual([1, false, null])
+            expect(wrapper.findAll('.tableau__tr')).toHaveLength(2)
         })
 
-        it('annonce la validation en nommant l activite', async () => {
+        it("annonce la validation en nommant l'activite", async () => {
             const { wrapper } = await monter(TROIS())
 
-            await boutonCard(wrapper, 'ACT-001', 'Valider').trigger('click')
+            await actionMenu(wrapper, 'ACT-001', 'Valider')
             await confirmer()
 
-            // Nommee, et non comptée : sur une seule card, un total n'apprend
-            // rien et l'utilisateur ne sait pas laquelle a ete traitee.
+            // Nommee, et non comptee : sur une seule ligne, un total
+            // n'apprend rien et l'utilisateur ne sait pas laquelle a ete
+            // traitee.
             expect(wrapper.text()).toContain('Activité ACT-001 validée')
         })
 
-        it('retire aussi la card sur un 409, car elle a deja ete tranchee', async () => {
-            mockDecider.mockResolvedValue({
+        it('retire aussi la ligne sur un 409, car elle a deja ete tranchee', async () => {
+            mockValider.mockResolvedValue({
                 success: false,
                 data: null,
                 error: 'Cette activité a déjà été tranchée',
@@ -544,15 +727,15 @@ describe('AValider', () => {
 
             const { wrapper } = await monter(TROIS())
 
-            await boutonCard(wrapper, 'ACT-001', 'Valider').trigger('click')
+            await actionMenu(wrapper, 'ACT-001', 'Valider')
             await confirmer()
 
             // Elle resterait avec une action qui echouera toujours.
-            expect(wrapper.findAll('.carte')).toHaveLength(2)
+            expect(wrapper.findAll('.tableau__tr')).toHaveLength(2)
         })
 
-        it('garde la card sur un autre refus', async () => {
-            mockDecider.mockResolvedValue({
+        it('garde la ligne sur un autre refus', async () => {
+            mockValider.mockResolvedValue({
                 success: false,
                 data: null,
                 error: 'Motif manquant',
@@ -561,160 +744,162 @@ describe('AValider', () => {
 
             const { wrapper } = await monter(TROIS())
 
-            await boutonCard(wrapper, 'ACT-001', 'Valider').trigger('click')
+            await actionMenu(wrapper, 'ACT-001', 'Valider')
             await confirmer()
 
             // L'utilisateur doit pouvoir corriger et reessayer.
-            expect(wrapper.findAll('.carte')).toHaveLength(3)
+            expect(wrapper.findAll('.tableau__tr')).toHaveLength(3)
             expect(wrapper.text()).toContain('Motif manquant')
         })
 
-        it('garde la card quand le serveur est injoignable', async () => {
-            mockDecider.mockRejectedValue(new Error('network'))
+        it('garde la ligne quand le serveur est injoignable', async () => {
+            mockValider.mockRejectedValue(new Error('network'))
 
             const { wrapper } = await monter(TROIS())
 
-            await boutonCard(wrapper, 'ACT-001', 'Valider').trigger('click')
+            await actionMenu(wrapper, 'ACT-001', 'Valider')
             await confirmer()
 
             // Rien n'a ete decide : l'effacer ferait croire le contraire.
-            expect(wrapper.findAll('.carte')).toHaveLength(3)
+            expect(wrapper.findAll('.tableau__tr')).toHaveLength(3)
             expect(wrapper.text()).toContain('Connexion au serveur impossible')
         })
     })
 
     // ------------------------------------------------------------------
-    // Rejet
+    // Rejet (issue imposee REJETE)
     // ------------------------------------------------------------------
 
     describe('Le rejet', () => {
-        it('ouvre la modale de rejet et ne decide de rien sans confirmation', async () => {
+        it('ouvre la modale sur l\'issue "Rejeter"', async () => {
             const { wrapper } = await monter(TROIS())
 
-            await boutonCard(wrapper, 'ACT-001', 'Rejeter').trigger('click')
+            await actionMenu(wrapper, 'ACT-001', 'Rejeter')
 
-            expect(dernier('.rejet-activite')).toBeDefined()
-            expect(mockDecider).not.toHaveBeenCalled()
-            expect(wrapper.findAll('.carte')).toHaveLength(3)
+            const modal = dernier('.rejet-activite')
+            expect(modal).toBeDefined()
+            expect(modal?.textContent).toContain("Rejeter l'activité")
         })
 
-        it('desactive la validation du rejet tant qu il n y a ni issue ni motif', async () => {
+        it("n'affiche pas le choix d'issue, deja tranche par le menu", async () => {
             const { wrapper } = await monter(TROIS())
 
-            await boutonCard(wrapper, 'ACT-001', 'Rejeter').trigger('click')
+            await actionMenu(wrapper, 'ACT-001', 'Rejeter')
+
             const modal = dernier('.rejet-activite') as HTMLElement
 
-            const rejeter = Array.from(modal.querySelectorAll('button')).find(b =>
+            /*
+                Le menu a deja choisi "Rejeter" : reproposer le choix serait
+                redondant, et dangereux -- un utilisateur qui a clique
+                "Rejeter" ne s'attend pas a pouvoir renvoyer par megarde.
+            */
+            expect(modal.querySelector('input[type="radio"]')).toBeNull()
+        })
+
+        it('desactive le bouton tant que le motif est vide', async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await actionMenu(wrapper, 'ACT-001', 'Rejeter')
+
+            const pied = dernier('.rejet-activite .modal-footer') as HTMLElement
+
+            const bouton = Array.from(pied.querySelectorAll('button')).find(b =>
                 (b.textContent ?? '').includes('Rejeter')
             )
 
-            expect(rejeter?.hasAttribute('disabled')).toBe(true)
+            // Sans motif, un refus n'est pas opposable a l'auteur.
+            expect(bouton?.hasAttribute('disabled')).toBe(true)
         })
 
-        it('accepte une issue sans motif', async () => {
+        it('active le bouton des que le motif est saisi', async () => {
             const { wrapper } = await monter(TROIS())
 
-            await boutonCard(wrapper, 'ACT-001', 'Rejeter').trigger('click')
+            await actionMenu(wrapper, 'ACT-001', 'Rejeter')
+            await saisirMotif('Budget incoherent')
 
-            const modal = dernier('.rejet-activite') as HTMLElement
-            const radios = Array.from(modal.querySelectorAll('input[type="radio"]'))
-            const premier = radios[0] as HTMLInputElement
+            const pied = dernier('.rejet-activite .modal-footer') as HTMLElement
 
-            premier.checked = true
-            premier.dispatchEvent(new Event('change', { bubbles: true }))
-            await flushPromises()
-
-            const rejeter = Array.from(modal.querySelectorAll('button')).find(b =>
+            const bouton = Array.from(pied.querySelectorAll('button')).find(b =>
                 (b.textContent ?? '').includes('Rejeter')
             )
 
-            // Sans motif, le refus n'est pas opposable a l'auteur.
-            expect(rejeter?.hasAttribute('disabled')).toBe(true)
+            expect(bouton?.hasAttribute('disabled')).toBe(false)
         })
 
-        it('envoie le rejet definitif avec son motif', async () => {
+        it('pose une confirmation apres le motif, pas avant', async () => {
             const { wrapper } = await monter(TROIS())
 
-            await caseDe(wrapper, 'ACT-001').setValue(true)
-            await boutonCard(wrapper, 'ACT-001', 'Rejeter').trigger('click')
-            await choisirIssue('REJETE', 'Budget incoherent')
-            validerRejet()
+            await actionMenu(wrapper, 'ACT-001', 'Rejeter')
+            await saisirMotif('Budget incoherent')
+
+            // Pas encore de confirmation tant que la modale n'a pas ete
+            // validee : la confirmation ne confirme que ce qui est saisi.
+            expect(dernier('.confirmation')).toBeUndefined()
+
+            validerModale()
+            await flushPromises()
+
+            expect(dernier('.confirmation')).toBeDefined()
+        })
+
+        it('envoie le rejet avec son motif', async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await actionMenu(wrapper, 'ACT-001', 'Rejeter')
+            await saisirMotif('Budget incoherent')
+            validerModale()
             await flushPromises()
             await confirmer()
 
-            expect(appelDecision(0)).toEqual([1, 'REJETE', 'Budget incoherent'])
+            expect(appelValider(0)).toEqual([1, true, 'Budget incoherent'])
         })
 
-        it('envoie le retour pour modification quand il est choisi', async () => {
-            const { wrapper } = await monter(TROIS())
-
-            await caseDe(wrapper, 'ACT-001').setValue(true)
-            await boutonCard(wrapper, 'ACT-001', 'Rejeter').trigger('click')
-            await choisirIssue('RETOUR_MODIFICATION', 'Dates a corriger')
-            validerRejet()
-            await flushPromises()
-            await confirmer()
-
-            expect(appelDecision(0)).toEqual([1, 'RETOUR_MODIFICATION', 'Dates a corriger'])
-        })
-
-        it('rappelle la consequence de l issue choisie', async () => {
-            const { wrapper } = await monter(TROIS())
-
-            await boutonCard(wrapper, 'ACT-001', 'Rejeter').trigger('click')
-            await choisirIssue('RETOUR_MODIFICATION', 'Dates a corriger')
-
-            expect(dernier('.rejet-activite')?.textContent).toContain(
-                'redevient modifiable'
-            )
-        })
-
-        it('retire la card rejetee', async () => {
-            mockDecider.mockResolvedValue(
-                decisionOk({ decision: 'REJETE', statut: 'REJETE' })
+        it('retire la ligne rejetee', async () => {
+            mockValider.mockResolvedValue(
+                decisionOk({ decision: 'REJETE' as DecisionValidation })
             )
 
             const { wrapper } = await monter(TROIS())
 
-            await caseDe(wrapper, 'ACT-001').setValue(true)
-            await boutonCard(wrapper, 'ACT-001', 'Rejeter').trigger('click')
-            await choisirIssue('REJETE', 'Hors perimetre')
-            validerRejet()
+            await actionMenu(wrapper, 'ACT-001', 'Rejeter')
+            await saisirMotif('Hors perimetre')
+            validerModale()
             await flushPromises()
             await confirmer()
 
-            expect(wrapper.findAll('.carte')).toHaveLength(2)
+            expect(wrapper.findAll('.tableau__tr')).toHaveLength(2)
         })
 
         it("n'envoie rien si la confirmation finale est annulee", async () => {
             const { wrapper } = await monter(TROIS())
 
-            await caseDe(wrapper, 'ACT-001').setValue(true)
-            await boutonCard(wrapper, 'ACT-001', 'Rejeter').trigger('click')
-            await choisirIssue('REJETE', 'Hors perimetre')
-            validerRejet()
+            await actionMenu(wrapper, 'ACT-001', 'Rejeter')
+            await saisirMotif('Hors perimetre')
+            validerModale()
             await flushPromises()
             annulerConfirmation()
             await flushPromises()
 
-            expect(mockDecider).not.toHaveBeenCalled()
+            expect(mockValider).not.toHaveBeenCalled()
         })
 
         it('repart de zero a chaque ouverture', async () => {
             const { wrapper } = await monter(TROIS())
 
-            await boutonCard(wrapper, 'ACT-001', 'Rejeter').trigger('click')
-            await choisirIssue('REJETE', 'Premier motif')
+            await actionMenu(wrapper, 'ACT-001', 'Rejeter')
+            await saisirMotif('Premier motif')
 
-            // L'utilisateur annule puis rouvre sur une autre card.
-            const fermer = dernier('.rejet-activite .close-btn') as HTMLElement
-            fermer.click()
+            // L'utilisateur annule, puis rouvre sur la meme ligne.
+            const annuler = Array.from(
+                dernier('.rejet-activite .modal-footer')?.querySelectorAll('button') ?? []
+            ).find(b => (b.textContent ?? '').includes('Annuler')) as HTMLButtonElement | undefined
+
+            annuler?.click()
             await flushPromises()
 
-            await boutonCard(wrapper, 'ACT-001', 'Rejeter').trigger('click')
+            await actionMenu(wrapper, 'ACT-001', 'Rejeter')
 
-            const modal = dernier('.rejet-activite') as HTMLElement
-            const zone = modal.querySelector('textarea') as HTMLTextAreaElement
+            const zone = dernier('.rejet-activite textarea') as HTMLTextAreaElement
 
             // Un motif pre-rempli pour une activite sans rapport.
             expect(zone.value).toBe('')
@@ -722,35 +907,115 @@ describe('AValider', () => {
     })
 
     // ------------------------------------------------------------------
-    // Lot
+    // Retour a l'etape precedente (issue imposee RETOUR_MODIFICATION)
     // ------------------------------------------------------------------
 
-    describe('Les decisions groupees', () => {
-        it('valide les activites cochees dans l ordre de la selection', async () => {
+    describe("Le retour à l'étape précédente", () => {
+        it('ouvre la modale sur l\'issue "Renvoyer"', async () => {
             const { wrapper } = await monter(TROIS())
 
+            await actionMenu(wrapper, 'ACT-001', "Soumettre à l'étape précédente")
+
+            const modal = dernier('.rejet-activite')
+            expect(modal).toBeDefined()
+            expect(modal?.textContent).toContain("Renvoyer l'activité")
+        })
+
+        it("n'affiche pas le choix d'issue", async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await actionMenu(wrapper, 'ACT-001', "Soumettre à l'étape précédente")
+
+            const modal = dernier('.rejet-activite') as HTMLElement
+            expect(modal.querySelector('input[type="radio"]')).toBeNull()
+        })
+
+        it("affiche le libelle du bouton aligne sur l'issue", async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await actionMenu(wrapper, 'ACT-001', "Soumettre à l'étape précédente")
+
+            const pied = dernier('.rejet-activite .modal-footer') as HTMLElement
+
+            const bouton = Array.from(pied.querySelectorAll('button')).find(b =>
+                (b.textContent ?? '').includes('Renvoyer')
+            )
+
+            expect(bouton).toBeDefined()
+        })
+
+        it("appelle soumettreValidationRetour, pas validerActivite", async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await actionMenu(wrapper, 'ACT-001', "Soumettre à l'étape précédente")
+            await saisirMotif('Dates a corriger')
+            validerModale()
+            await flushPromises()
+            await confirmer()
+
+            // Le sens de l'ecriture est inverse : un endpoint par direction
+            // reste plus lisible qu'un parametre sur la meme route.
+            expect(appelRetour(0)).toEqual([1, 'Dates a corriger'])
+            expect(mockValider).not.toHaveBeenCalled()
+        })
+
+        it('retire la ligne renvoyee', async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await actionMenu(wrapper, 'ACT-001', "Soumettre à l'étape précédente")
+            await saisirMotif('Dates a corriger')
+            validerModale()
+            await flushPromises()
+            await confirmer()
+
+            expect(wrapper.findAll('.tableau__tr')).toHaveLength(2)
+        })
+
+        it("annonce le renvoi en nommant l'activite", async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await actionMenu(wrapper, 'ACT-001', "Soumettre à l'étape précédente")
+            await saisirMotif('Dates a corriger')
+            validerModale()
+            await flushPromises()
+            await confirmer()
+
+            expect(wrapper.text()).toContain("ACT-001")
+            expect(wrapper.text()).toContain('renvoyée')
+        })
+    })
+
+    // ------------------------------------------------------------------
+    // Decisions groupees
+    // ------------------------------------------------------------------
+
+    describe('Les décisions groupées', () => {
+        it('valide les lignes cochees, une requete par ligne', async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await caseDe(wrapper, 'ACT-001').setValue(true)
             await caseDe(wrapper, 'ACT-002').setValue(true)
-            await caseDe(wrapper, 'ACT-003').setValue(true)
-            await bouton(wrapper, 'Valider la sélection').trigger('click')
+            await boutonToolbar(wrapper, 'Valider').trigger('click')
             await confirmer()
 
-            expect(mockDecider).toHaveBeenCalledTimes(2)
-            expect(appelDecision(0)[0]).toBe(2)
-            expect(appelDecision(1)[0]).toBe(3)
+            expect(mockValider).toHaveBeenCalledTimes(2)
+            expect(appelValider(0)[0]).toBe(1)
+            expect(appelValider(1)[0]).toBe(2)
         })
 
-        it('vide la page apres un lot entierement reussi', async () => {
+        it('vide le tableau apres un lot entierement reussi', async () => {
             const { wrapper } = await monter(TROIS())
 
-            await bouton(wrapper, 'Tout sélectionner').trigger('click')
-            await bouton(wrapper, 'Valider la sélection').trigger('click')
+            await caseDe(wrapper, 'ACT-001').setValue(true)
+            await boutonToolbar(wrapper, 'Tout sélectionner').trigger('click')
+            await boutonToolbar(wrapper, 'Valider').trigger('click')
             await confirmer()
 
-            expect(wrapper.findAll('.carte')).toHaveLength(0)
+            expect(wrapper.findAll('.tableau__tr')).toHaveLength(0)
         })
 
-        it("n'annule pas les decisions deja prises quand une card echoue", async () => {
-            mockDecider
+        it("n'annule pas les decisions deja prises quand une ligne echoue", async () => {
+            mockValider
                 .mockResolvedValueOnce(decisionOk({ idActivite: 1 }))
                 .mockResolvedValueOnce({
                     success: false,
@@ -763,28 +1028,30 @@ describe('AValider', () => {
 
             await caseDe(wrapper, 'ACT-001').setValue(true)
             await caseDe(wrapper, 'ACT-002').setValue(true)
-            await bouton(wrapper, 'Valider la sélection').trigger('click')
+            await boutonToolbar(wrapper, 'Valider').trigger('click')
             await confirmer()
 
             // Chaque requete est sa propre transaction : les reussies restent.
-            expect(wrapper.findAll('.carte')).toHaveLength(1)
-            expect(mockDecider).toHaveBeenCalledTimes(2)
+            expect(wrapper.findAll('.tableau__tr')).toHaveLength(1)
+            expect(mockValider).toHaveBeenCalledTimes(2)
         })
 
-        it('interrompt le lot si la connexion tombe, et garde la selection', async () => {
-            mockDecider
+        it('interrompt le lot si la connexion tombe', async () => {
+            mockValider
                 .mockResolvedValueOnce(decisionOk({ idActivite: 1 }))
                 .mockRejectedValueOnce(new Error('network'))
 
-            const { wrapper } = await monterEtVider(TROIS())
+            const { wrapper } = await monter(TROIS())
 
-            await bouton(wrapper, 'Tout sélectionner').trigger('click')
-            await bouton(wrapper, 'Valider la sélection').trigger('click')
+            await caseDe(wrapper, 'ACT-001').setValue(true)
+            await caseDe(wrapper, 'ACT-002').setValue(true)
+            await caseDe(wrapper, 'ACT-003').setValue(true)
+            await boutonToolbar(wrapper, 'Valider').trigger('click')
             await confirmer()
 
             // Le reste partirait sur une connexion morte.
-            expect(mockDecider).toHaveBeenCalledTimes(2)
-            expect(wrapper.findAll('.carte')).toHaveLength(2)
+            expect(mockValider).toHaveBeenCalledTimes(2)
+            expect(wrapper.findAll('.tableau__tr')).toHaveLength(2)
         })
 
         it('rejette toute la selection avec un seul motif', async () => {
@@ -792,27 +1059,42 @@ describe('AValider', () => {
 
             await caseDe(wrapper, 'ACT-001').setValue(true)
             await caseDe(wrapper, 'ACT-002').setValue(true)
-            await bouton(wrapper, 'Rejeter la sélection').trigger('click')
-            await choisirIssue('REJETE', 'Meme motif pour les deux')
-            validerRejet()
+            await boutonToolbar(wrapper, 'Rejeter').trigger('click')
+            await saisirMotif('Meme motif pour les deux')
+            validerModale()
             await flushPromises()
             await confirmer()
 
-            expect(appelDecision(0)).toEqual([1, 'REJETE', 'Meme motif pour les deux'])
-            expect(appelDecision(1)).toEqual([2, 'REJETE', 'Meme motif pour les deux'])
+            expect(appelValider(0)).toEqual([1, true, 'Meme motif pour les deux'])
+            expect(appelValider(1)).toEqual([2, true, 'Meme motif pour les deux'])
+        })
+
+        it('renvoie toute la selection a l etape precedente', async () => {
+            const { wrapper } = await monter(TROIS())
+
+            await caseDe(wrapper, 'ACT-001').setValue(true)
+            await caseDe(wrapper, 'ACT-002').setValue(true)
+            await boutonToolbar(wrapper, "Soumettre").trigger('click')
+            await saisirMotif('Corriger les dates')
+            validerModale()
+            await flushPromises()
+            await confirmer()
+
+            expect(appelRetour(0)).toEqual([1, 'Corriger les dates'])
+            expect(appelRetour(1)).toEqual([2, 'Corriger les dates'])
         })
 
         it('desactive les actions groupees pendant une decision', async () => {
             const { wrapper } = await monter(TROIS())
 
             await caseDe(wrapper, 'ACT-001').setValue(true)
-            await bouton(wrapper, 'Valider la sélection').trigger('click')
+            await boutonToolbar(wrapper, 'Valider').trigger('click')
+
+            // La ligne decidee a quitte la page et la selection avec elle :
+            // la barre disparait -- il ne reste rien a decisionner.
             await confirmer()
 
-            // La carte decidee a quitte la page et la selection avec elle :
-            // il ne reste rien a decisionner, donc plus rien a confirmer.
-            expect(wrapper.text()).toContain('0 / 2 sélectionnée(s)')
-            expect(bouton(wrapper, 'Valider la sélection').attributes('disabled')).toBeDefined()
+            expect(wrapper.find('.lot').exists()).toBe(false)
         })
     })
 
@@ -821,15 +1103,10 @@ describe('AValider', () => {
     // ------------------------------------------------------------------
 
     describe('La navigation', () => {
-        it('ouvre le detail au clic sur la card', async () => {
+        it('ouvre le detail au clic sur le titre de la ligne', async () => {
             const { wrapper, router } = await monter(TROIS())
 
-            const lien = wrapper.findAll('.carte__lien')[0]
-
-            if (!lien) {
-                throw new Error('Lien de la card introuvable')
-            }
-
+            const lien = ligne(wrapper, 'ACT-001').find('.activite__lien')
             await lien.trigger('click')
             await flushPromises()
 
@@ -838,18 +1115,3 @@ describe('AValider', () => {
         })
     })
 })
-
-/**
- * Variante de monter() qui attend la resolution de toutes les promesses en
- * cours, pour les tests dont la chaine emit -> action asynchrone doit etre
- * videe avant d'observer l'etat.
- */
-async function monterEtVider(items?: ActiviteListItem[]) {
-    const { wrapper, router } = await monter(items)
-
-    for (let i = 0; i < 10; i++) {
-        await flushPromises()
-    }
-
-    return { wrapper, router }
-}

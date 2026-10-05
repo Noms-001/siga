@@ -64,18 +64,17 @@ import mg.bank.backend.repository.projection.SousActiviteDetailRow;
  *
  * Refuser le depot en BROUILLON rendrait la regle absurde dans les deux sens :
  * on ne pourrait pas joindre de livrable a la sous-activite qu on vient de
- * creer, et une sous-activite d une activite jamais soumise n en accepte
- * jamais. Le brouillon est aussi un etat durable : rien dans le code ne
- * ramene une activite vers BROUILLON apres sa creation, la soumission
- * ERRONEUMENT etant le seul passage possible vers l avant. Ce n est donc pas
- * un etat transitoire a traiter comme un detail.
+ * creer, et une sous-activite d une activite dont le statut a change n en
+ * accepterait plus jamais. Le brouillon est aussi un etat durable : rien dans
+ * le code ne ramene une activite vers BROUILLON apres sa creation, et rien ne
+ * l en fait sortir non plus.
  *
  * CE QUI RESTE REFUSE : tout ce qui clot ou fige la vie de l activite
- * (TERMINEE, ANNULEE, REPORTEE), les etats de validation (EN_ATTENTE_VALIDATION,
- * REJETE, VALIDEE) et son report (EN_RETARD), plus la suspension et l absence
- * de statut courant. Une activite sans historique n a pas de statut : le depot
- * est refuse, defaut prudent, l inverse autoriserait un depot sur une activite
- * dont on ignore l etat.
+ * (TERMINEE, ANNULEE, REPORTEE), les statuts non publies
+ * (EN_ATTENTE_VALIDATION, REJETE, VALIDEE) et son report (EN_RETARD), plus la
+ * suspension et l absence de statut courant. Une activite sans historique n a
+ * pas de statut : le depot est refuse, defaut prudent, l inverse autoriserait
+ * un depot sur une activite dont on ignore l etat.
  *
  * Le controle porte sur le statut courant lu dans l historique, sous verrou, et
  * non sur une valeur venue avec la requete : celle-ci serait forgeable, et le

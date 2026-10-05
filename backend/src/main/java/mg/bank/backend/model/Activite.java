@@ -82,6 +82,10 @@ public class Activite {
     private ObjectifSpecifique objectifSpecifique;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_procedure")
+    private Procedure procedure;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_type_activite")
     private TypeActivite typeActivite;
 

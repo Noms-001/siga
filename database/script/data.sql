@@ -88,22 +88,24 @@ INSERT INTO type_token (code, libelle, description) VALUES
 ('ACTIVATION_COMPTE', 'Activation de compte', 'Token utilisé pour activer un nouveau compte utilisateur.'),
 ('AUTHENTIFICATION', 'Authentification', 'Token de session après authentification réussie.');
 
+
 -- 1.9 Procédure de validation (indépendante)
 INSERT INTO "procedure" (designation, description) VALUES
 ('Procédure de validation des activités TSS',
  'Procédure standard de validation des activités du département TSS : validation par le chef de service puis par le chef de département.');
 
 -- 1.10 Étapes de validation (référence à "procedure" via sous-requête)
-INSERT INTO etape_validation (designation, description, niveau, obligatoire, actif, date_desactivation, id_procedure)
+INSERT INTO etape_validation (designation, description, niveau, obligatoire, actif, date_desactivation, id_procedure, retour)
 SELECT 'Validation Chef de service',
-       'Validation de l''activité par le chef de service concerné.',
-       1, TRUE, TRUE, NULL, p.id_procedure
+    'Validation de l''activité par le chef de service concerné.',
+    1, TRUE, TRUE, NULL, p.id_procedure, FALSE
 FROM "procedure" p WHERE p.designation = 'Procédure de validation des activités TSS';
 
-INSERT INTO etape_validation (designation, description, niveau, obligatoire, actif, date_desactivation, id_procedure)
+
+INSERT INTO etape_validation (designation, description, niveau, obligatoire, actif, date_desactivation, id_procedure, retour)
 SELECT 'Validation Chef de département',
-       'Validation finale de l''activité par le chef de département TSS.',
-       2, TRUE, TRUE, NULL, p.id_procedure
+    'Validation finale de l''activité par le chef de département TSS.',
+    2, TRUE, TRUE, NULL, p.id_procedure,TRUE
 FROM "procedure" p WHERE p.designation = 'Procédure de validation des activités TSS';
 
 -- 1.11 Objectifs spécifiques (indépendants)
@@ -121,16 +123,40 @@ INSERT INTO objectif_specifique (code, designation, annee, date_creation) VALUES
 ('BCT/10', 'Améliorer et renforcer les systèmes de sécurité en fonction des besoins et des risques identifiés', 2027, '2027-01-05 08:00:00');
 
 -- 1.12 Postes (indépendants)
-INSERT INTO poste (nom, effectif_prevu, effectif_reel, actif, date_creation, date_modification, date_desactivation) VALUES
-('Chef de département TSS', 1, 1, TRUE, '2020-01-15 08:00:00', NULL, NULL),
-('Chef de service — Gestion des Risques et Procédures', 1, 1, TRUE, '2020-01-15 08:00:00', NULL, NULL),
-('Chef de service — Gestion des Systèmes de Sécurité', 1, 1, TRUE, '2020-01-15 08:00:00', NULL, NULL),
-('Gestionnaire risques sûreté/sécurité', 2, 2, TRUE, '2020-01-15 08:00:00', NULL, NULL),
-('Chargé procédures sûreté/sécurité', 2, 2, TRUE, '2020-01-15 08:00:00', NULL, NULL),
-('Superviseur installation systèmes de sécurité', 1, 1, TRUE, '2020-01-15 08:00:00', NULL, NULL),
-('Technicien spécialisé systèmes de sécurité', 4, 4, TRUE, '2020-01-15 08:00:00', NULL, NULL),
-('Gestionnaire systèmes sécurité', 2, 2, TRUE, '2020-01-15 08:00:00', NULL, NULL),
-('Administrateur', 1, 1, TRUE, '2020-01-15 08:00:00', NULL, NULL);
+INSERT INTO poste (nom, effectif_prevu, effectif_reel, actif, date_creation, date_modification, date_desactivation, is_metier) VALUES
+('Chef de département TSS', 1, 1, TRUE, '2020-01-15 08:00:00', NULL, NULL, TRUE),
+('Chef de service — Gestion des Risques et Procédures', 1, 1, TRUE, '2020-01-15 08:00:00', NULL, NULL, TRUE),
+('Chef de service — Gestion des Systèmes de Sécurité', 1, 1, TRUE, '2020-01-15 08:00:00', NULL, NULL, TRUE),
+('Gestionnaire risques sûreté/sécurité', 2, 2, TRUE, '2020-01-15 08:00:00', NULL, NULL, TRUE),
+('Chargé procédures sûreté/sécurité', 2, 2, TRUE, '2020-01-15 08:00:00', NULL, NULL, TRUE),
+('Superviseur installation systèmes de sécurité', 1, 1, TRUE, '2020-01-15 08:00:00', NULL, NULL, TRUE),
+('Technicien spécialisé systèmes de sécurité', 4, 4, TRUE, '2020-01-15 08:00:00', NULL, NULL, TRUE),
+('Gestionnaire systèmes sécurité', 2, 2, TRUE, '2020-01-15 08:00:00', NULL, NULL, TRUE),
+('Administrateur', 1, 1, TRUE, '2020-01-15 08:00:00', NULL, NULL, FALSE);
+
+-- Mapping étape de validation ↔ poste décideur.
+--
+-- On référence par designation d'étape et par nom de poste, jamais par
+-- identifiant : les séquences SERIAL ne sont pas renseignées dans ce
+-- fichier (elles sont repositionnées en fin de chargement), donc un
+-- identifiant écrit à la main n'a aucune garantie d'être celui attendu
+-- au moment de l'exécution.
+--
+-- La jointure par VALUES + JOIN suit le schéma du reste du fichier :
+-- c'est la même construction que pour poste_utilisateur, poste_permission
+-- ou type_activite_service, ce qui évite d'inventer une seconde manière
+-- de faire la même chose.
+INSERT INTO etape_validation_decideur (id_etape_validation, id_poste)
+SELECT ev.id_etape_validation, p.id_poste
+FROM (VALUES
+    -- Niveau 1 : le chef de service (Risques et Procédures) valide.
+    ('Validation Chef de service', 'Chef de service — Gestion des Risques et Procédures'),
+    -- Niveau 2 : le chef de département valide en dernier ressort.
+    ('Validation Chef de département', 'Chef de département TSS')
+) AS v(etape_designation, poste_nom)
+JOIN etape_validation ev ON ev.designation = v.etape_designation
+JOIN poste p ON p.nom = v.poste_nom;
+
 
 -- 1.13 Permissions (indépendantes)
 INSERT INTO permission (designation, description, ressource, action, actif, date_desactivation) VALUES
@@ -349,84 +375,85 @@ WHERE
 -- reference = <code objectif>_<n° activité>                             ex. BCT/1_1
 -- On référence les FK via sous-requêtes sur les codes/noms.
 
-INSERT INTO activite (code, reference, designation, date_debut_prevue, date_fin_prevue, date_debut_reelle, date_fin_reelle, id_objectif_specifique, id_type_activite, id_site, id_priorite, id_service)
+INSERT INTO activite (code, reference, designation, date_debut_prevue, date_fin_prevue, date_debut_reelle, date_fin_reelle, id_objectif_specifique, id_type_activite, id_site, id_priorite, id_service, id_procedure)
 SELECT v.code, v.reference, v.designation, v.dd, v.df, v.ddr, v.dfr,
        (SELECT id_objectif_specifique FROM objectif_specifique WHERE code = v.os_code),
        (SELECT id_type_activite FROM type_activite WHERE designation = v.type_designation),
        (SELECT id_site FROM site WHERE nom = v.site_nom),
        (SELECT id_priorite FROM priorite WHERE code = v.priorite_code),
-       (SELECT id_service FROM service WHERE nom = v.service_nom)
+       (SELECT id_service FROM service WHERE nom = v.service_nom),
+       (SELECT id_procedure FROM "procedure" WHERE designation = v.procedure_designation)
 FROM (VALUES
 -- BCT/1
-('A-2027-01-01', 'BCT/1_1', 'Audit d''évaluation des risques de sûreté du siège BFM', DATE '2027-01-10', DATE '2027-02-28', DATE '2027-01-12', DATE '2027-02-25', 'BCT/1', 'Étude', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures'),
-('A-2027-01-02', 'BCT/1_2', 'Analyse des risques liés aux accès non autorisés sur le site technique', DATE '2027-02-01', DATE '2027-03-31', DATE '2027-02-05', NULL, 'BCT/1', 'Étude', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Risques et Procédures'),
-('A-2027-01-03', 'BCT/1_3', 'Évaluation des risques de défaillance des systèmes d''alarme du centre de stockage', DATE '2027-03-01', DATE '2027-04-30', NULL, NULL, 'BCT/1', 'Étude', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-01-04', 'BCT/1_4', 'Diagnostic des risques de sûreté du bâtiment administratif du Lac', DATE '2027-04-01', DATE '2027-05-31', NULL, NULL, 'BCT/1', 'Étude', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-01-05', 'BCT/1_5', 'Étude de vulnérabilité des sites face aux intrusions', DATE '2027-05-01', DATE '2027-06-30', NULL, NULL, 'BCT/1', 'Étude', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures'),
+('A-2027-01-01', 'BCT/1_1', 'Audit d''évaluation des risques de sûreté du siège BFM', DATE '2027-01-10', DATE '2027-02-28', DATE '2027-01-12', DATE '2027-02-25', 'BCT/1', 'Étude', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-01-02', 'BCT/1_2', 'Analyse des risques liés aux accès non autorisés sur le site technique', DATE '2027-02-01', DATE '2027-03-31', DATE '2027-02-05', NULL, 'BCT/1', 'Étude', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-01-03', 'BCT/1_3', 'Évaluation des risques de défaillance des systèmes d''alarme du centre de stockage', DATE '2027-03-01', DATE '2027-04-30', NULL, NULL, 'BCT/1', 'Étude', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-01-04', 'BCT/1_4', 'Diagnostic des risques de sûreté du bâtiment administratif du Lac', DATE '2027-04-01', DATE '2027-05-31', NULL, NULL, 'BCT/1', 'Étude', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-01-05', 'BCT/1_5', 'Étude de vulnérabilité des sites face aux intrusions', DATE '2027-05-01', DATE '2027-06-30', NULL, NULL, 'BCT/1', 'Étude', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
 
 -- BCT/2
-('A-2027-02-01', 'BCT/2_1', 'Mise à jour de la procédure de contrôle d''accès des visiteurs', DATE '2027-01-15', DATE '2027-02-28', DATE '2027-01-20', DATE '2027-02-20', 'BCT/2', 'Procédure', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures'),
-('A-2027-02-02', 'BCT/2_2', 'Rédaction de la procédure de gestion des incidents de sécurité', DATE '2027-02-01', DATE '2027-03-31', DATE '2027-02-10', NULL, 'BCT/2', 'Procédure', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures'),
-('A-2027-02-03', 'BCT/2_3', 'Actualisation de la procédure de ronde et de surveillance des sites', DATE '2027-03-01', DATE '2027-04-30', NULL, NULL, 'BCT/2', 'Procédure', 'Agence BFM — Sfax', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-02-04', 'BCT/2_4', 'Diffusion et formation sur la nouvelle procédure d''évacuation d''urgence', DATE '2027-04-01', DATE '2027-05-31', NULL, NULL, 'BCT/2', 'Procédure', 'Siège BFM — Tunis', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-02-05', 'BCT/2_5', 'Révision de la procédure de gestion des clés et badges d''accès', DATE '2027-05-01', DATE '2027-06-30', NULL, NULL, 'BCT/2', 'Procédure', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Risques et Procédures'),
+('A-2027-02-01', 'BCT/2_1', 'Mise à jour de la procédure de contrôle d''accès des visiteurs', DATE '2027-01-15', DATE '2027-02-28', DATE '2027-01-20', DATE '2027-02-20', 'BCT/2', 'Procédure', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-02-02', 'BCT/2_2', 'Rédaction de la procédure de gestion des incidents de sécurité', DATE '2027-02-01', DATE '2027-03-31', DATE '2027-02-10', NULL, 'BCT/2', 'Procédure', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-02-03', 'BCT/2_3', 'Actualisation de la procédure de ronde et de surveillance des sites', DATE '2027-03-01', DATE '2027-04-30', NULL, NULL, 'BCT/2', 'Procédure', 'Agence BFM — Sfax', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-02-04', 'BCT/2_4', 'Diffusion et formation sur la nouvelle procédure d''évacuation d''urgence', DATE '2027-04-01', DATE '2027-05-31', NULL, NULL, 'BCT/2', 'Procédure', 'Siège BFM — Tunis', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-02-05', 'BCT/2_5', 'Révision de la procédure de gestion des clés et badges d''accès', DATE '2027-05-01', DATE '2027-06-30', NULL, NULL, 'BCT/2', 'Procédure', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
 
 -- BCT/3
-('A-2027-03-01', 'BCT/3_1', 'Suivi trimestriel des risques identifiés au siège BFM', DATE '2027-01-05', DATE '2027-03-31', DATE '2027-01-10', DATE '2027-03-28', 'BCT/3', 'Inspection', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures'),
-('A-2027-03-02', 'BCT/3_2', 'Contrôle de la maîtrise des risques sur l''agence d''Ariana', DATE '2027-02-01', DATE '2027-04-30', DATE '2027-02-15', NULL, 'BCT/3', 'Inspection', 'Agence BFM — Ariana', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-03-03', 'BCT/3_3', 'Vérification des mesures de maîtrise des risques au centre de stockage', DATE '2027-03-01', DATE '2027-05-31', NULL, NULL, 'BCT/3', 'Inspection', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-03-04', 'BCT/3_4', 'Audit de suivi des risques sur le site technique de Ben Arous', DATE '2027-04-01', DATE '2027-06-30', NULL, NULL, 'BCT/3', 'Inspection', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Risques et Procédures'),
-('A-2027-03-05', 'BCT/3_5', 'Évaluation semestrielle de l''efficacité des mesures de maîtrise des risques', DATE '2027-05-01', DATE '2027-07-31', NULL, NULL, 'BCT/3', 'Inspection', 'Siège BFM — Tunis', 'NORMALE', 'Gestion des Risques et Procédures'),
+('A-2027-03-01', 'BCT/3_1', 'Suivi trimestriel des risques identifiés au siège BFM', DATE '2027-01-05', DATE '2027-03-31', DATE '2027-01-10', DATE '2027-03-28', 'BCT/3', 'Inspection', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-03-02', 'BCT/3_2', 'Contrôle de la maîtrise des risques sur l''agence d''Ariana', DATE '2027-02-01', DATE '2027-04-30', DATE '2027-02-15', NULL, 'BCT/3', 'Inspection', 'Agence BFM — Ariana', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-03-03', 'BCT/3_3', 'Vérification des mesures de maîtrise des risques au centre de stockage', DATE '2027-03-01', DATE '2027-05-31', NULL, NULL, 'BCT/3', 'Inspection', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-03-04', 'BCT/3_4', 'Audit de suivi des risques sur le site technique de Ben Arous', DATE '2027-04-01', DATE '2027-06-30', NULL, NULL, 'BCT/3', 'Inspection', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-03-05', 'BCT/3_5', 'Évaluation semestrielle de l''efficacité des mesures de maîtrise des risques', DATE '2027-05-01', DATE '2027-07-31', NULL, NULL, 'BCT/3', 'Inspection', 'Siège BFM — Tunis', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
 
 -- BCT/4
-('A-2027-04-01', 'BCT/4_1', 'Élaboration du plan d''action de réduction des risques d''intrusion au siège', DATE '2027-01-20', DATE '2027-03-15', DATE '2027-01-25', DATE '2027-03-10', 'BCT/4', 'Amélioration', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures'),
-('A-2027-04-02', 'BCT/4_2', 'Mise en œuvre du plan d''action de sécurisation de l''agence de Sfax', DATE '2027-02-15', DATE '2027-05-31', DATE '2027-02-20', NULL, 'BCT/4', 'Amélioration', 'Agence BFM — Sfax', 'HAUTE', 'Gestion des Risques et Procédures'),
-('A-2027-04-03', 'BCT/4_3', 'Suivi du plan d''action de réduction des risques au bâtiment administratif', DATE '2027-03-15', DATE '2027-06-30', NULL, NULL, 'BCT/4', 'Amélioration', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-04-04', 'BCT/4_4', 'Plan d''action de renforcement de la sûreté du centre de stockage', DATE '2027-04-15', DATE '2027-07-31', NULL, NULL, 'BCT/4', 'Amélioration', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Risques et Procédures'),
-('A-2027-04-05', 'BCT/4_5', 'Évaluation et ajustement des plans d''action de réduction des risques', DATE '2027-06-01', DATE '2027-08-31', NULL, NULL, 'BCT/4', 'Amélioration', 'Siège BFM — Tunis', 'NORMALE', 'Gestion des Risques et Procédures'),
+('A-2027-04-01', 'BCT/4_1', 'Élaboration du plan d''action de réduction des risques d''intrusion au siège', DATE '2027-01-20', DATE '2027-03-15', DATE '2027-01-25', DATE '2027-03-10', 'BCT/4', 'Amélioration', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-04-02', 'BCT/4_2', 'Mise en œuvre du plan d''action de sécurisation de l''agence de Sfax', DATE '2027-02-15', DATE '2027-05-31', DATE '2027-02-20', NULL, 'BCT/4', 'Amélioration', 'Agence BFM — Sfax', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-04-03', 'BCT/4_3', 'Suivi du plan d''action de réduction des risques au bâtiment administratif', DATE '2027-03-15', DATE '2027-06-30', NULL, NULL, 'BCT/4', 'Amélioration', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-04-04', 'BCT/4_4', 'Plan d''action de renforcement de la sûreté du centre de stockage', DATE '2027-04-15', DATE '2027-07-31', NULL, NULL, 'BCT/4', 'Amélioration', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-04-05', 'BCT/4_5', 'Évaluation et ajustement des plans d''action de réduction des risques', DATE '2027-06-01', DATE '2027-08-31', NULL, NULL, 'BCT/4', 'Amélioration', 'Siège BFM — Tunis', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
 
 -- BCT/5
-('A-2027-05-01', 'BCT/5_1', 'Contrôle de l''application de la procédure de contrôle d''accès au siège', DATE '2027-01-10', DATE '2027-03-31', DATE '2027-01-15', DATE '2027-03-25', 'BCT/5', 'Inspection', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures'),
-('A-2027-05-02', 'BCT/5_2', 'Inspection de l''application de la procédure de ronde sur l''agence de Sousse', DATE '2027-02-01', DATE '2027-04-30', DATE '2027-02-10', NULL, 'BCT/5', 'Inspection', 'Agence BFM — Sousse', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-05-03', 'BCT/5_3', 'Audit de conformité des procédures de sécurité au site technique', DATE '2027-03-01', DATE '2027-05-31', NULL, NULL, 'BCT/5', 'Inspection', 'Site technique BFM — Ben Arous', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-05-04', 'BCT/5_4', 'Contrôle du respect des procédures de gestion des clés et badges', DATE '2027-04-01', DATE '2027-06-30', NULL, NULL, 'BCT/5', 'Inspection', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-05-05', 'BCT/5_5', 'Proposition de mesures d''amélioration suite aux contrôles de procédures', DATE '2027-05-01', DATE '2027-07-31', NULL, NULL, 'BCT/5', 'Inspection', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures'),
+('A-2027-05-01', 'BCT/5_1', 'Contrôle de l''application de la procédure de contrôle d''accès au siège', DATE '2027-01-10', DATE '2027-03-31', DATE '2027-01-15', DATE '2027-03-25', 'BCT/5', 'Inspection', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-05-02', 'BCT/5_2', 'Inspection de l''application de la procédure de ronde sur l''agence de Sousse', DATE '2027-02-01', DATE '2027-04-30', DATE '2027-02-10', NULL, 'BCT/5', 'Inspection', 'Agence BFM — Sousse', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-05-03', 'BCT/5_3', 'Audit de conformité des procédures de sécurité au site technique', DATE '2027-03-01', DATE '2027-05-31', NULL, NULL, 'BCT/5', 'Inspection', 'Site technique BFM — Ben Arous', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-05-04', 'BCT/5_4', 'Contrôle du respect des procédures de gestion des clés et badges', DATE '2027-04-01', DATE '2027-06-30', NULL, NULL, 'BCT/5', 'Inspection', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-05-05', 'BCT/5_5', 'Proposition de mesures d''amélioration suite aux contrôles de procédures', DATE '2027-05-01', DATE '2027-07-31', NULL, NULL, 'BCT/5', 'Inspection', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
 
 -- BCT/6
-('A-2027-06-01', 'BCT/6_1', 'Vérification du bon fonctionnement du système de vidéosurveillance du siège', DATE '2027-01-05', DATE '2027-02-28', DATE '2027-01-08', DATE '2027-02-22', 'BCT/6', 'Maintenance préventive', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-06-02', 'BCT/6_2', 'Contrôle de la disponibilité du système d''alarme de l''agence d''Ariana', DATE '2027-02-01', DATE '2027-03-31', DATE '2027-02-05', NULL, 'BCT/6', 'Maintenance préventive', 'Agence BFM — Ariana', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-06-03', 'BCT/6_3', 'Test de bon fonctionnement du contrôle d''accès du bâtiment administratif', DATE '2027-03-01', DATE '2027-04-30', NULL, NULL, 'BCT/6', 'Maintenance préventive', 'Bâtiment administratif BFM — Lac', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-06-04', 'BCT/6_4', 'Vérification de la disponibilité des systèmes de sécurité du centre de stockage', DATE '2027-04-01', DATE '2027-05-31', NULL, NULL, 'BCT/6', 'Maintenance préventive', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-06-05', 'BCT/6_5', 'Audit de disponibilité des systèmes de sécurité sur l''ensemble des sites', DATE '2027-05-01', DATE '2027-06-30', NULL, NULL, 'BCT/6', 'Maintenance préventive', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
+('A-2027-06-01', 'BCT/6_1', 'Vérification du bon fonctionnement du système de vidéosurveillance du siège', DATE '2027-01-05', DATE '2027-02-28', DATE '2027-01-08', DATE '2027-02-22', 'BCT/6', 'Maintenance préventive', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-06-02', 'BCT/6_2', 'Contrôle de la disponibilité du système d''alarme de l''agence d''Ariana', DATE '2027-02-01', DATE '2027-03-31', DATE '2027-02-05', NULL, 'BCT/6', 'Maintenance préventive', 'Agence BFM — Ariana', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-06-03', 'BCT/6_3', 'Test de bon fonctionnement du contrôle d''accès du bâtiment administratif', DATE '2027-03-01', DATE '2027-04-30', NULL, NULL, 'BCT/6', 'Maintenance préventive', 'Bâtiment administratif BFM — Lac', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-06-04', 'BCT/6_4', 'Vérification de la disponibilité des systèmes de sécurité du centre de stockage', DATE '2027-04-01', DATE '2027-05-31', NULL, NULL, 'BCT/6', 'Maintenance préventive', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-06-05', 'BCT/6_5', 'Audit de disponibilité des systèmes de sécurité sur l''ensemble des sites', DATE '2027-05-01', DATE '2027-06-30', NULL, NULL, 'BCT/6', 'Maintenance préventive', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
 
 -- BCT/7
-('A-2027-07-01', 'BCT/7_1', 'Maintenance préventive du système de vidéosurveillance du siège BFM', DATE '2027-01-15', DATE '2027-03-15', DATE '2027-01-20', DATE '2027-03-10', 'BCT/7', 'Maintenance préventive', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-07-02', 'BCT/7_2', 'Maintenance préventive des caméras de l''agence de Sfax', DATE '2027-02-01', DATE '2027-04-15', DATE '2027-02-10', NULL, 'BCT/7', 'Maintenance préventive', 'Agence BFM — Sfax', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-07-03', 'BCT/7_3', 'Maintenance préventive du système d''alarme du site technique', DATE '2027-03-01', DATE '2027-05-15', NULL, NULL, 'BCT/7', 'Maintenance préventive', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-07-04', 'BCT/7_4', 'Maintenance préventive des lecteurs de badges du bâtiment administratif', DATE '2027-04-01', DATE '2027-06-15', NULL, NULL, 'BCT/7', 'Maintenance préventive', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-07-05', 'BCT/7_5', 'Maintenance préventive annuelle des équipements de sécurité du centre de stockage', DATE '2027-05-01', DATE '2027-07-15', NULL, NULL, 'BCT/7', 'Maintenance préventive', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
+('A-2027-07-01', 'BCT/7_1', 'Maintenance préventive du système de vidéosurveillance du siège BFM', DATE '2027-01-15', DATE '2027-03-15', DATE '2027-01-20', DATE '2027-03-10', 'BCT/7', 'Maintenance préventive', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-07-02', 'BCT/7_2', 'Maintenance préventive des caméras de l''agence de Sfax', DATE '2027-02-01', DATE '2027-04-15', DATE '2027-02-10', NULL, 'BCT/7', 'Maintenance préventive', 'Agence BFM — Sfax', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-07-03', 'BCT/7_3', 'Maintenance préventive du système d''alarme du site technique', DATE '2027-03-01', DATE '2027-05-15', NULL, NULL, 'BCT/7', 'Maintenance préventive', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-07-04', 'BCT/7_4', 'Maintenance préventive des lecteurs de badges du bâtiment administratif', DATE '2027-04-01', DATE '2027-06-15', NULL, NULL, 'BCT/7', 'Maintenance préventive', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-07-05', 'BCT/7_5', 'Maintenance préventive annuelle des équipements de sécurité du centre de stockage', DATE '2027-05-01', DATE '2027-07-15', NULL, NULL, 'BCT/7', 'Maintenance préventive', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
 
 -- BCT/8
-('A-2027-08-01', 'BCT/8_1', 'Intervention curative sur la caméra défaillante du hall principal', DATE '2027-01-20', DATE '2027-01-25', DATE '2027-01-20', DATE '2027-01-24', 'BCT/8', 'Maintenance curative', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-08-02', 'BCT/8_2', 'Réparation du lecteur de badge défectueux de l''entrée du personnel', DATE '2027-02-10', DATE '2027-02-15', DATE '2027-02-10', DATE '2027-02-14', 'BCT/8', 'Maintenance curative', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-08-03', 'BCT/8_3', 'Rétablissement du système d''alarme après panne au centre de stockage', DATE '2027-03-05', DATE '2027-03-12', NULL, NULL, 'BCT/8', 'Maintenance curative', 'Centre de stockage BFM — Mornag', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-08-04', 'BCT/8_4', 'Remplacement d''un équipement de contrôle d''accès défaillant à Sousse', DATE '2027-04-10', DATE '2027-04-20', NULL, NULL, 'BCT/8', 'Maintenance curative', 'Agence BFM — Sousse', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-08-05', 'BCT/8_5', 'Intervention curative sur le système de détection d''intrusion du site technique', DATE '2027-05-05', DATE '2027-05-15', NULL, NULL, 'BCT/8', 'Maintenance curative', 'Site technique BFM — Ben Arous', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
+('A-2027-08-01', 'BCT/8_1', 'Intervention curative sur la caméra défaillante du hall principal', DATE '2027-01-20', DATE '2027-01-25', DATE '2027-01-20', DATE '2027-01-24', 'BCT/8', 'Maintenance curative', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-08-02', 'BCT/8_2', 'Réparation du lecteur de badge défectueux de l''entrée du personnel', DATE '2027-02-10', DATE '2027-02-15', DATE '2027-02-10', DATE '2027-02-14', 'BCT/8', 'Maintenance curative', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-08-03', 'BCT/8_3', 'Rétablissement du système d''alarme après panne au centre de stockage', DATE '2027-03-05', DATE '2027-03-12', NULL, NULL, 'BCT/8', 'Maintenance curative', 'Centre de stockage BFM — Mornag', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-08-04', 'BCT/8_4', 'Remplacement d''un équipement de contrôle d''accès défaillant à Sousse', DATE '2027-04-10', DATE '2027-04-20', NULL, NULL, 'BCT/8', 'Maintenance curative', 'Agence BFM — Sousse', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-08-05', 'BCT/8_5', 'Intervention curative sur le système de détection d''intrusion du site technique', DATE '2027-05-05', DATE '2027-05-15', NULL, NULL, 'BCT/8', 'Maintenance curative', 'Site technique BFM — Ben Arous', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
 
 -- BCT/9
-('A-2027-09-01', 'BCT/9_1', 'Inventaire des équipements de sécurité du siège BFM', DATE '2027-01-10', DATE '2027-02-28', DATE '2027-01-15', DATE '2027-02-25', 'BCT/9', 'Inventaire', 'Siège BFM — Tunis', 'NORMALE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-09-02', 'BCT/9_2', 'Suivi de l''évolution des installations de sécurité de l''agence d''Ariana', DATE '2027-02-01', DATE '2027-03-31', DATE '2027-02-10', NULL, 'BCT/9', 'Inventaire', 'Agence BFM — Ariana', 'NORMALE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-09-03', 'BCT/9_3', 'Recensement des équipements de sécurité du bâtiment administratif', DATE '2027-03-01', DATE '2027-04-30', NULL, NULL, 'BCT/9', 'Inventaire', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-09-04', 'BCT/9_4', 'Suivi des installations de sécurité du centre de stockage', DATE '2027-04-01', DATE '2027-05-31', NULL, NULL, 'BCT/9', 'Inventaire', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-09-05', 'BCT/9_5', 'Mise à jour du registre des équipements de sécurité de tous les sites', DATE '2027-05-01', DATE '2027-06-30', NULL, NULL, 'BCT/9', 'Inventaire', 'Siège BFM — Tunis', 'NORMALE', 'Gestion des Systèmes de Sécurité'),
+('A-2027-09-01', 'BCT/9_1', 'Inventaire des équipements de sécurité du siège BFM', DATE '2027-01-10', DATE '2027-02-28', DATE '2027-01-15', DATE '2027-02-25', 'BCT/9', 'Inventaire', 'Siège BFM — Tunis', 'NORMALE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-09-02', 'BCT/9_2', 'Suivi de l''évolution des installations de sécurité de l''agence d''Ariana', DATE '2027-02-01', DATE '2027-03-31', DATE '2027-02-10', NULL, 'BCT/9', 'Inventaire', 'Agence BFM — Ariana', 'NORMALE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-09-03', 'BCT/9_3', 'Recensement des équipements de sécurité du bâtiment administratif', DATE '2027-03-01', DATE '2027-04-30', NULL, NULL, 'BCT/9', 'Inventaire', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-09-04', 'BCT/9_4', 'Suivi des installations de sécurité du centre de stockage', DATE '2027-04-01', DATE '2027-05-31', NULL, NULL, 'BCT/9', 'Inventaire', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-09-05', 'BCT/9_5', 'Mise à jour du registre des équipements de sécurité de tous les sites', DATE '2027-05-01', DATE '2027-06-30', NULL, NULL, 'BCT/9', 'Inventaire', 'Siège BFM — Tunis', 'NORMALE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
 
 -- BCT/10
-('A-2027-10-01', 'BCT/10_1', 'Renforcement du système de vidéosurveillance du siège par ajout de caméras', DATE '2027-01-15', DATE '2027-04-30', DATE '2027-01-20', NULL, 'BCT/10', 'Amélioration', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-10-02', 'BCT/10_2', 'Amélioration du contrôle d''accès de l''agence de Sfax par technologie biométrique', DATE '2027-02-01', DATE '2027-05-31', DATE '2027-02-05', NULL, 'BCT/10', 'Amélioration', 'Agence BFM — Sfax', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-10-03', 'BCT/10_3', 'Mise à niveau du système d''alarme du site technique de Ben Arous', DATE '2027-03-01', DATE '2027-06-30', NULL, NULL, 'BCT/10', 'Amélioration', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-10-04', 'BCT/10_4', 'Renforcement de la sûreté périmétrique du centre de stockage', DATE '2027-04-01', DATE '2027-07-31', NULL, NULL, 'BCT/10', 'Amélioration', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-10-05', 'BCT/10_5', 'Étude d''amélioration des systèmes de sécurité sur l''ensemble des sites', DATE '2027-06-01', DATE '2027-08-31', NULL, NULL, 'BCT/10', 'Amélioration', 'Siège BFM — Tunis', 'NORMALE', 'Gestion des Systèmes de Sécurité')
-) AS v(code, reference, designation, dd, df, ddr, dfr, os_code, type_designation, site_nom, priorite_code, service_nom);
+('A-2027-10-01', 'BCT/10_1', 'Renforcement du système de vidéosurveillance du siège par ajout de caméras', DATE '2027-01-15', DATE '2027-04-30', DATE '2027-01-20', NULL, 'BCT/10', 'Amélioration', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-10-02', 'BCT/10_2', 'Amélioration du contrôle d''accès de l''agence de Sfax par technologie biométrique', DATE '2027-02-01', DATE '2027-05-31', DATE '2027-02-05', NULL, 'BCT/10', 'Amélioration', 'Agence BFM — Sfax', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-10-03', 'BCT/10_3', 'Mise à niveau du système d''alarme du site technique de Ben Arous', DATE '2027-03-01', DATE '2027-06-30', NULL, NULL, 'BCT/10', 'Amélioration', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-10-04', 'BCT/10_4', 'Renforcement de la sûreté périmétrique du centre de stockage', DATE '2027-04-01', DATE '2027-07-31', NULL, NULL, 'BCT/10', 'Amélioration', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-10-05', 'BCT/10_5', 'Étude d''amélioration des systèmes de sécurité sur l''ensemble des sites', DATE '2027-06-01', DATE '2027-08-31', NULL, NULL, 'BCT/10', 'Amélioration', 'Siège BFM — Tunis', 'NORMALE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS')
+) AS v(code, reference, designation, dd, df, ddr, dfr, os_code, type_designation, site_nom, priorite_code, service_nom, procedure_designation);
 
 -- =============================================================================
 -- 7. ACTIVITÉS NON PTA (50 activités — id_objectif_specifique = NULL)
@@ -434,66 +461,72 @@ FROM (VALUES
 -- code = A-<année>-<n° d'activité> (A-2027-01 .. A-2027-50)
 -- reference = NULL (aucun objectif spécifique rattaché)
 -- La numérotation continue après celle des activités PTA (A-2027-01-01 .. A-2027-10-05).
+--
+-- La procédure est la même que pour les activités PTA : une NON PTA n'est pas
+-- rattachée à un objectif, mais elle passe bien par le circuit de validation.
+-- Sans id_procedure, elle resterait orpheline du circuit, et le calcul de
+-- l'étape suivante échouerait à la soumission (voir getPremiereEtape).
 
-INSERT INTO activite (code, reference, designation, date_debut_prevue, date_fin_prevue, date_debut_reelle, date_fin_reelle, id_objectif_specifique, id_type_activite, id_site, id_priorite, id_service)
+INSERT INTO activite (code, reference, designation, date_debut_prevue, date_fin_prevue, date_debut_reelle, date_fin_reelle, id_objectif_specifique, id_type_activite, id_site, id_priorite, id_service, id_procedure)
 SELECT v.code, v.reference, v.designation, v.dd, v.df, v.ddr, v.dfr,
        NULL,
        (SELECT id_type_activite FROM type_activite WHERE designation = v.type_designation),
        (SELECT id_site FROM site WHERE nom = v.site_nom),
        (SELECT id_priorite FROM priorite WHERE code = v.priorite_code),
-       (SELECT id_service FROM service WHERE nom = v.service_nom)
+       (SELECT id_service FROM service WHERE nom = v.service_nom),
+       (SELECT id_procedure FROM "procedure" WHERE designation = v.procedure_designation)
 FROM (VALUES
-('A-2027-01', NULL, 'Intervention urgente suite à une alarme intrusion déclenchée au siège', DATE '2027-01-05', DATE '2027-01-06', DATE '2027-01-05', DATE '2027-01-05', 'Intervention urgente', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-02', NULL, 'Remplacement d''une caméra défectueuse à l''entrée principale de l''agence d''Ariana', DATE '2027-01-12', DATE '2027-01-15', DATE '2027-01-12', DATE '2027-01-14', 'Maintenance curative', 'Agence BFM — Ariana', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-03', NULL, 'Dépannage du lecteur de badge de l''accès parking du siège', DATE '2027-01-18', DATE '2027-01-20', DATE '2027-01-18', DATE '2027-01-19', 'Maintenance curative', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-04', NULL, 'Inspection ponctuelle des issues de secours du bâtiment administratif', DATE '2027-01-25', DATE '2027-01-27', DATE '2027-01-25', DATE '2027-01-26', 'Inspection', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-05', NULL, 'Vérification technique des extincteurs du centre de stockage', DATE '2027-02-01', DATE '2027-02-03', DATE '2027-02-01', DATE '2027-02-02', 'Inspection', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-06', NULL, 'Intervention après anomalie détectée sur le système d''alarme de Sfax', DATE '2027-02-05', DATE '2027-02-08', DATE '2027-02-05', DATE '2027-02-07', 'Maintenance curative', 'Agence BFM — Sfax', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-07', NULL, 'Sécurisation temporaire de l''accès au site technique suite à un incident', DATE '2027-02-10', DATE '2027-02-15', DATE '2027-02-10', DATE '2027-02-14', 'Intervention urgente', 'Site technique BFM — Ben Arous', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-08', NULL, 'Inventaire ponctuel des badges d''accès de l''agence de Sousse', DATE '2027-02-15', DATE '2027-02-17', DATE '2027-02-15', DATE '2027-02-16', 'Inventaire', 'Agence BFM — Sousse', 'FAIBLE', 'Gestion des Risques et Procédures'),
-('A-2027-09', NULL, 'Contrôle exceptionnel des caméras de la salle des coffres du siège', DATE '2027-02-20', DATE '2027-02-22', DATE '2027-02-20', DATE '2027-02-21', 'Inspection', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-10', NULL, 'Assistance technique pour la remise en service du portail automatique du siège', DATE '2027-02-25', DATE '2027-02-28', DATE '2027-02-25', DATE '2027-02-27', 'Maintenance curative', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-11', NULL, 'Intervention urgente suite à une coupure d''alimentation du système de sécurité', DATE '2027-03-01', DATE '2027-03-02', DATE '2027-03-01', DATE '2027-03-01', 'Intervention urgente', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-12', NULL, 'Remplacement d''un détecteur de mouvement défaillant à l''agence d''Ariana', DATE '2027-03-05', DATE '2027-03-08', DATE '2027-03-05', DATE '2027-03-07', 'Maintenance curative', 'Agence BFM — Ariana', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-13', NULL, 'Dépannage du système de vidéosurveillance du parking du bâtiment administratif', DATE '2027-03-10', DATE '2027-03-13', DATE '2027-03-10', DATE '2027-03-12', 'Maintenance curative', 'Bâtiment administratif BFM — Lac', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-14', NULL, 'Inspection ponctuelle des clôtures du centre de stockage', DATE '2027-03-15', DATE '2027-03-17', DATE '2027-03-15', DATE '2027-03-16', 'Inspection', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-15', NULL, 'Vérification technique du système d''extinction automatique du site technique', DATE '2027-03-20', DATE '2027-03-23', DATE '2027-03-20', DATE '2027-03-22', 'Inspection', 'Site technique BFM — Ben Arous', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-16', NULL, 'Intervention après détection d''un accès non autorisé à l''agence de Sfax', DATE '2027-03-25', DATE '2027-03-28', DATE '2027-03-25', DATE '2027-03-27', 'Intervention urgente', 'Agence BFM — Sfax', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-17', NULL, 'Sécurisation temporaire de l''entrée de service du siège', DATE '2027-04-01', DATE '2027-04-05', DATE '2027-04-01', DATE '2027-04-04', 'Intervention urgente', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-18', NULL, 'Inventaire ponctuel du matériel de sécurité de l''agence de Sousse', DATE '2027-04-05', DATE '2027-04-07', DATE '2027-04-05', DATE '2027-04-06', 'Inventaire', 'Agence BFM — Sousse', 'FAIBLE', 'Gestion des Risques et Procédures'),
-('A-2027-19', NULL, 'Contrôle exceptionnel des accès au centre de stockage', DATE '2027-04-10', DATE '2027-04-12', DATE '2027-04-10', DATE '2027-04-11', 'Inspection', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Risques et Procédures'),
-('A-2027-20', NULL, 'Assistance technique pour la réparation du système d''alarme du siège', DATE '2027-04-15', DATE '2027-04-18', DATE '2027-04-15', DATE '2027-04-17', 'Maintenance curative', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-21', NULL, 'Intervention urgente suite à un dysfonctionnement du contrôle d''accès', DATE '2027-04-20', DATE '2027-04-22', DATE '2027-04-20', DATE '2027-04-21', 'Intervention urgente', 'Agence BFM — Ariana', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-22', NULL, 'Remplacement d''un câble défectueux du système de vidéosurveillance', DATE '2027-04-25', DATE '2027-04-28', DATE '2027-04-25', DATE '2027-04-27', 'Maintenance curative', 'Agence BFM — Sfax', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-23', NULL, 'Dépannage du système de détection incendie du bâtiment administratif', DATE '2027-05-01', DATE '2027-05-04', DATE '2027-05-01', DATE '2027-05-03', 'Maintenance curative', 'Bâtiment administratif BFM — Lac', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-24', NULL, 'Inspection ponctuelle des éclairages de sécurité du site technique', DATE '2027-05-05', DATE '2027-05-07', DATE '2027-05-05', DATE '2027-05-06', 'Inspection', 'Site technique BFM — Ben Arous', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-25', NULL, 'Vérification technique des portails automatiques du centre de stockage', DATE '2027-05-10', DATE '2027-05-12', DATE '2027-05-10', DATE '2027-05-11', 'Inspection', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-26', NULL, 'Intervention après anomalie sur le système de contrôle d''accès de Sousse', DATE '2027-05-15', DATE '2027-05-18', DATE '2027-05-15', DATE '2027-05-17', 'Maintenance curative', 'Agence BFM — Sousse', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-27', NULL, 'Sécurisation temporaire du parking du siège suite à un incident', DATE '2027-05-20', DATE '2027-05-24', DATE '2027-05-20', DATE '2027-05-23', 'Intervention urgente', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-28', NULL, 'Inventaire ponctuel des équipements de sécurité de l''agence d''Ariana', DATE '2027-05-25', DATE '2027-05-27', DATE '2027-05-25', DATE '2027-05-26', 'Inventaire', 'Agence BFM — Ariana', 'FAIBLE', 'Gestion des Risques et Procédures'),
-('A-2027-29', NULL, 'Contrôle exceptionnel des caméras du site technique', DATE '2027-06-01', DATE '2027-06-03', DATE '2027-06-01', DATE '2027-06-02', 'Inspection', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-30', NULL, 'Assistance technique pour la remise en service du système d''alarme de Sfax', DATE '2027-06-05', DATE '2027-06-08', DATE '2027-06-05', DATE '2027-06-07', 'Maintenance curative', 'Agence BFM — Sfax', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-31', NULL, 'Intervention urgente suite à une panne du système de vidéosurveillance', DATE '2027-06-10', DATE '2027-06-12', DATE '2027-06-10', DATE '2027-06-11', 'Intervention urgente', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-32', NULL, 'Remplacement d''un module de communication défaillant du site technique', DATE '2027-06-15', DATE '2027-06-18', NULL, NULL, 'Maintenance curative', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-33', NULL, 'Dépannage du système de sonorisation d''évacuation du bâtiment administratif', DATE '2027-06-20', DATE '2027-06-23', NULL, NULL, 'Maintenance curative', 'Bâtiment administratif BFM — Lac', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-34', NULL, 'Inspection ponctuelle des dispositifs anti-intrusion du centre de stockage', DATE '2027-06-25', DATE '2027-06-27', NULL, NULL, 'Inspection', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-35', NULL, 'Vérification technique des systèmes de sécurité de l''agence de Sousse', DATE '2027-07-01', DATE '2027-07-03', NULL, NULL, 'Inspection', 'Agence BFM — Sousse', 'NORMALE', 'Gestion des Risques et Procédures'),
-('A-2027-36', NULL, 'Intervention après détection d''une anomalie sur le réseau de caméras', DATE '2027-07-05', DATE '2027-07-08', NULL, NULL, 'Maintenance curative', 'Agence BFM — Ariana', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-37', NULL, 'Sécurisation temporaire de l''accès principal de l''agence de Sfax', DATE '2027-07-10', DATE '2027-07-14', NULL, NULL, 'Intervention urgente', 'Agence BFM — Sfax', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-38', NULL, 'Inventaire ponctuel des clés et badges du siège', DATE '2027-07-15', DATE '2027-07-17', NULL, NULL, 'Inventaire', 'Siège BFM — Tunis', 'FAIBLE', 'Gestion des Risques et Procédures'),
-('A-2027-39', NULL, 'Contrôle exceptionnel du système d''alarme du bâtiment administratif', DATE '2027-07-20', DATE '2027-07-22', NULL, NULL, 'Inspection', 'Bâtiment administratif BFM — Lac', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-40', NULL, 'Assistance technique pour le remplacement d''un lecteur de badge', DATE '2027-07-25', DATE '2027-07-28', NULL, NULL, 'Maintenance curative', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-41', NULL, 'Intervention urgente suite à un déclenchement intempestif d''alarme', DATE '2027-08-01', DATE '2027-08-02', NULL, NULL, 'Intervention urgente', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-42', NULL, 'Remplacement d''une caméra endommagée au centre de stockage', DATE '2027-08-05', DATE '2027-08-08', NULL, NULL, 'Maintenance curative', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-43', NULL, 'Dépannage du système de contrôle d''accès du site technique', DATE '2027-08-10', DATE '2027-08-13', NULL, NULL, 'Maintenance curative', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-44', NULL, 'Inspection ponctuelle des caméras de l''agence de Sousse', DATE '2027-08-15', DATE '2027-08-17', NULL, NULL, 'Inspection', 'Agence BFM — Sousse', 'NORMALE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-45', NULL, 'Vérification technique des alarmes anti-intrusion de Sfax', DATE '2027-08-20', DATE '2027-08-22', NULL, NULL, 'Inspection', 'Agence BFM — Sfax', 'NORMALE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-46', NULL, 'Intervention après anomalie sur le système de détection incendie', DATE '2027-08-25', DATE '2027-08-28', NULL, NULL, 'Maintenance curative', 'Bâtiment administratif BFM — Lac', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-47', NULL, 'Sécurisation temporaire du centre de stockage après incident', DATE '2027-09-01', DATE '2027-09-05', NULL, NULL, 'Intervention urgente', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Systèmes de Sécurité'),
-('A-2027-48', NULL, 'Inventaire ponctuel des équipements de sécurité du site technique', DATE '2027-09-05', DATE '2027-09-07', NULL, NULL, 'Inventaire', 'Site technique BFM — Ben Arous', 'FAIBLE', 'Gestion des Risques et Procédures'),
-('A-2027-49', NULL, 'Contrôle exceptionnel des accès au bâtiment administratif', DATE '2027-09-10', DATE '2027-09-12', NULL, NULL, 'Inspection', 'Bâtiment administratif BFM — Lac', 'HAUTE', 'Gestion des Risques et Procédures'),
-('A-2027-50', NULL, 'Assistance technique pour la réparation du système de vidéosurveillance de Sousse', DATE '2027-09-15', DATE '2027-09-18', NULL, NULL, 'Maintenance curative', 'Agence BFM — Sousse', 'HAUTE', 'Gestion des Systèmes de Sécurité')
-) AS v(code, reference, designation, dd, df, ddr, dfr, type_designation, site_nom, priorite_code, service_nom);
+('A-2027-01', NULL, 'Intervention urgente suite à une alarme intrusion déclenchée au siège', DATE '2027-01-05', DATE '2027-01-06', DATE '2027-01-05', DATE '2027-01-05', 'Intervention urgente', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-02', NULL, 'Remplacement d''une caméra défectueuse à l''entrée principale de l''agence d''Ariana', DATE '2027-01-12', DATE '2027-01-15', DATE '2027-01-12', DATE '2027-01-14', 'Maintenance curative', 'Agence BFM — Ariana', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-03', NULL, 'Dépannage du lecteur de badge de l''accès parking du siège', DATE '2027-01-18', DATE '2027-01-20', DATE '2027-01-18', DATE '2027-01-19', 'Maintenance curative', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-04', NULL, 'Inspection ponctuelle des issues de secours du bâtiment administratif', DATE '2027-01-25', DATE '2027-01-27', DATE '2027-01-25', DATE '2027-01-26', 'Inspection', 'Bâtiment administratif BFM — Lac', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-05', NULL, 'Vérification technique des extincteurs du centre de stockage', DATE '2027-02-01', DATE '2027-02-03', DATE '2027-02-01', DATE '2027-02-02', 'Inspection', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-06', NULL, 'Intervention après anomalie détectée sur le système d''alarme de Sfax', DATE '2027-02-05', DATE '2027-02-08', DATE '2027-02-05', DATE '2027-02-07', 'Maintenance curative', 'Agence BFM — Sfax', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-07', NULL, 'Sécurisation temporaire de l''accès au site technique suite à un incident', DATE '2027-02-10', DATE '2027-02-15', DATE '2027-02-10', DATE '2027-02-14', 'Intervention urgente', 'Site technique BFM — Ben Arous', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-08', NULL, 'Inventaire ponctuel des badges d''accès de l''agence de Sousse', DATE '2027-02-15', DATE '2027-02-17', DATE '2027-02-15', DATE '2027-02-16', 'Inventaire', 'Agence BFM — Sousse', 'FAIBLE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-09', NULL, 'Contrôle exceptionnel des caméras de la salle des coffres du siège', DATE '2027-02-20', DATE '2027-02-22', DATE '2027-02-20', DATE '2027-02-21', 'Inspection', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-10', NULL, 'Assistance technique pour la remise en service du portail automatique du siège', DATE '2027-02-25', DATE '2027-02-28', DATE '2027-02-25', DATE '2027-02-27', 'Maintenance curative', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-11', NULL, 'Intervention urgente suite à une coupure d''alimentation du système de sécurité', DATE '2027-03-01', DATE '2027-03-02', DATE '2027-03-01', DATE '2027-03-01', 'Intervention urgente', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-12', NULL, 'Remplacement d''un détecteur de mouvement défaillant à l''agence d''Ariana', DATE '2027-03-05', DATE '2027-03-08', DATE '2027-03-05', DATE '2027-03-07', 'Maintenance curative', 'Agence BFM — Ariana', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-13', NULL, 'Dépannage du système de vidéosurveillance du parking du bâtiment administratif', DATE '2027-03-10', DATE '2027-03-13', DATE '2027-03-10', DATE '2027-03-12', 'Maintenance curative', 'Bâtiment administratif BFM — Lac', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-14', NULL, 'Inspection ponctuelle des clôtures du centre de stockage', DATE '2027-03-15', DATE '2027-03-17', DATE '2027-03-15', DATE '2027-03-16', 'Inspection', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-15', NULL, 'Vérification technique du système d''extinction automatique du site technique', DATE '2027-03-20', DATE '2027-03-23', DATE '2027-03-20', DATE '2027-03-22', 'Inspection', 'Site technique BFM — Ben Arous', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-16', NULL, 'Intervention après détection d''un accès non autorisé à l''agence de Sfax', DATE '2027-03-25', DATE '2027-03-28', DATE '2027-03-25', DATE '2027-03-27', 'Intervention urgente', 'Agence BFM — Sfax', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-17', NULL, 'Sécurisation temporaire de l''entrée de service du siège', DATE '2027-04-01', DATE '2027-04-05', DATE '2027-04-01', DATE '2027-04-04', 'Intervention urgente', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-18', NULL, 'Inventaire ponctuel du matériel de sécurité de l''agence de Sousse', DATE '2027-04-05', DATE '2027-04-07', DATE '2027-04-05', DATE '2027-04-06', 'Inventaire', 'Agence BFM — Sousse', 'FAIBLE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-19', NULL, 'Contrôle exceptionnel des accès au centre de stockage', DATE '2027-04-10', DATE '2027-04-12', DATE '2027-04-10', DATE '2027-04-11', 'Inspection', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-20', NULL, 'Assistance technique pour la réparation du système d''alarme du siège', DATE '2027-04-15', DATE '2027-04-18', DATE '2027-04-15', DATE '2027-04-17', 'Maintenance curative', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-21', NULL, 'Intervention urgente suite à un dysfonctionnement du contrôle d''accès', DATE '2027-04-20', DATE '2027-04-22', DATE '2027-04-20', DATE '2027-04-21', 'Intervention urgente', 'Agence BFM — Ariana', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-22', NULL, 'Remplacement d''un câble défectueux du système de vidéosurveillance', DATE '2027-04-25', DATE '2027-04-28', DATE '2027-04-25', DATE '2027-04-27', 'Maintenance curative', 'Agence BFM — Sfax', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-23', NULL, 'Dépannage du système de détection incendie du bâtiment administratif', DATE '2027-05-01', DATE '2027-05-04', DATE '2027-05-01', DATE '2027-05-03', 'Maintenance curative', 'Bâtiment administratif BFM — Lac', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-24', NULL, 'Inspection ponctuelle des éclairages de sécurité du site technique', DATE '2027-05-05', DATE '2027-05-07', DATE '2027-05-05', DATE '2027-05-06', 'Inspection', 'Site technique BFM — Ben Arous', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-25', NULL, 'Vérification technique des portails automatiques du centre de stockage', DATE '2027-05-10', DATE '2027-05-12', DATE '2027-05-10', DATE '2027-05-11', 'Inspection', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-26', NULL, 'Intervention après anomalie sur le système de contrôle d''accès de Sousse', DATE '2027-05-15', DATE '2027-05-18', DATE '2027-05-15', DATE '2027-05-17', 'Maintenance curative', 'Agence BFM — Sousse', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-27', NULL, 'Sécurisation temporaire du parking du siège suite à un incident', DATE '2027-05-20', DATE '2027-05-24', DATE '2027-05-20', DATE '2027-05-23', 'Intervention urgente', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-28', NULL, 'Inventaire ponctuel des équipements de sécurité de l''agence d''Ariana', DATE '2027-05-25', DATE '2027-05-27', DATE '2027-05-25', DATE '2027-05-26', 'Inventaire', 'Agence BFM — Ariana', 'FAIBLE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-29', NULL, 'Contrôle exceptionnel des caméras du site technique', DATE '2027-06-01', DATE '2027-06-03', DATE '2027-06-01', DATE '2027-06-02', 'Inspection', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-30', NULL, 'Assistance technique pour la remise en service du système d''alarme de Sfax', DATE '2027-06-05', DATE '2027-06-08', DATE '2027-06-05', DATE '2027-06-07', 'Maintenance curative', 'Agence BFM — Sfax', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-31', NULL, 'Intervention urgente suite à une panne du système de vidéosurveillance', DATE '2027-06-10', DATE '2027-06-12', DATE '2027-06-10', DATE '2027-06-11', 'Intervention urgente', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-32', NULL, 'Remplacement d''un module de communication défaillant du site technique', DATE '2027-06-15', DATE '2027-06-18', NULL, NULL, 'Maintenance curative', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-33', NULL, 'Dépannage du système de sonorisation d''évacuation du bâtiment administratif', DATE '2027-06-20', DATE '2027-06-23', NULL, NULL, 'Maintenance curative', 'Bâtiment administratif BFM — Lac', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-34', NULL, 'Inspection ponctuelle des dispositifs anti-intrusion du centre de stockage', DATE '2027-06-25', DATE '2027-06-27', NULL, NULL, 'Inspection', 'Centre de stockage BFM — Mornag', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-35', NULL, 'Vérification technique des systèmes de sécurité de l''agence de Sousse', DATE '2027-07-01', DATE '2027-07-03', NULL, NULL, 'Inspection', 'Agence BFM — Sousse', 'NORMALE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-36', NULL, 'Intervention après détection d''une anomalie sur le réseau de caméras', DATE '2027-07-05', DATE '2027-07-08', NULL, NULL, 'Maintenance curative', 'Agence BFM — Ariana', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-37', NULL, 'Sécurisation temporaire de l''accès principal de l''agence de Sfax', DATE '2027-07-10', DATE '2027-07-14', NULL, NULL, 'Intervention urgente', 'Agence BFM — Sfax', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-38', NULL, 'Inventaire ponctuel des clés et badges du siège', DATE '2027-07-15', DATE '2027-07-17', NULL, NULL, 'Inventaire', 'Siège BFM — Tunis', 'FAIBLE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-39', NULL, 'Contrôle exceptionnel du système d''alarme du bâtiment administratif', DATE '2027-07-20', DATE '2027-07-22', NULL, NULL, 'Inspection', 'Bâtiment administratif BFM — Lac', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-40', NULL, 'Assistance technique pour le remplacement d''un lecteur de badge', DATE '2027-07-25', DATE '2027-07-28', NULL, NULL, 'Maintenance curative', 'Siège BFM — Tunis', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-41', NULL, 'Intervention urgente suite à un déclenchement intempestif d''alarme', DATE '2027-08-01', DATE '2027-08-02', NULL, NULL, 'Intervention urgente', 'Siège BFM — Tunis', 'CRITIQUE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-42', NULL, 'Remplacement d''une caméra endommagée au centre de stockage', DATE '2027-08-05', DATE '2027-08-08', NULL, NULL, 'Maintenance curative', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-43', NULL, 'Dépannage du système de contrôle d''accès du site technique', DATE '2027-08-10', DATE '2027-08-13', NULL, NULL, 'Maintenance curative', 'Site technique BFM — Ben Arous', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-44', NULL, 'Inspection ponctuelle des caméras de l''agence de Sousse', DATE '2027-08-15', DATE '2027-08-17', NULL, NULL, 'Inspection', 'Agence BFM — Sousse', 'NORMALE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-45', NULL, 'Vérification technique des alarmes anti-intrusion de Sfax', DATE '2027-08-20', DATE '2027-08-22', NULL, NULL, 'Inspection', 'Agence BFM — Sfax', 'NORMALE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-46', NULL, 'Intervention après anomalie sur le système de détection incendie', DATE '2027-08-25', DATE '2027-08-28', NULL, NULL, 'Maintenance curative', 'Bâtiment administratif BFM — Lac', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-47', NULL, 'Sécurisation temporaire du centre de stockage après incident', DATE '2027-09-01', DATE '2027-09-05', NULL, NULL, 'Intervention urgente', 'Centre de stockage BFM — Mornag', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS'),
+('A-2027-48', NULL, 'Inventaire ponctuel des équipements de sécurité du site technique', DATE '2027-09-05', DATE '2027-09-07', NULL, NULL, 'Inventaire', 'Site technique BFM — Ben Arous', 'FAIBLE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-49', NULL, 'Contrôle exceptionnel des accès au bâtiment administratif', DATE '2027-09-10', DATE '2027-09-12', NULL, NULL, 'Inspection', 'Bâtiment administratif BFM — Lac', 'HAUTE', 'Gestion des Risques et Procédures', 'Procédure de validation des activités TSS'),
+('A-2027-50', NULL, 'Assistance technique pour la réparation du système de vidéosurveillance de Sousse', DATE '2027-09-15', DATE '2027-09-18', NULL, NULL, 'Maintenance curative', 'Agence BFM — Sousse', 'HAUTE', 'Gestion des Systèmes de Sécurité', 'Procédure de validation des activités TSS')
+) AS v(code, reference, designation, dd, df, ddr, dfr, type_designation, site_nom, priorite_code, service_nom, procedure_designation);
 
 -- =============================================================================
 -- 8. RÉSULTATS INTERMÉDIAIRES
@@ -1467,3 +1500,30 @@ SELECT COUNT(*) AS plans_sans_origine
 FROM plan_action pa
 LEFT JOIN plan_action_origine pao ON pao.id_plan_action = pa.id_plan_action
 WHERE pao.id_origine IS NULL;
+
+INSERT INTO parametre (code, designation, valeur, type_valeur, description, categorie, modifiable, actif, date_creation)
+VALUES
+(
+    'ID_PROCEDURE_PTA',
+    'Procédure de validation — activités PTA',
+    (SELECT id_procedure::text FROM "procedure"
+     WHERE designation = 'Procédure de validation des activités TSS'),
+    'INTEGER',
+    'Identifiant de la procédure de validation appliquée aux activités PTA (rattachées à un objectif spécifique).',
+    'VALIDATION',
+    TRUE,
+    TRUE,
+    '2027-01-05 08:00:00'::timestamp
+),
+(
+    'ID_PROCEDURE_NON_PTA',
+    'Procédure de validation — activités NON PTA',
+    (SELECT id_procedure::text FROM "procedure"
+     WHERE designation = 'Procédure de validation des activités TSS'),
+    'INTEGER',
+    'Identifiant de la procédure de validation appliquée aux activités NON PTA (sans objectif spécifique).',
+    'VALIDATION',
+    TRUE,
+    TRUE,
+    '2027-01-05 08:00:00'::timestamp
+);

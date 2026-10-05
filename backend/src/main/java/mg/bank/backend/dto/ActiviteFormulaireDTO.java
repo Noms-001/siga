@@ -11,7 +11,7 @@ import lombok.Getter;
  *
  * Alimenté par l endpoint de creation/modification lui-meme, et non par le
  * detail : le detail renvoie sous-activites, avancement, livrables,
- * fichiers, validations, indicateurs et historique, soit beaucoup plus que
+ * fichiers, indicateurs et historique, soit beaucoup plus que
  * ce que le formulaire edite. Un sous-ensemble dedie evite au front de
  * deviner quels champs sont editables.
  */

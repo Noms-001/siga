@@ -72,8 +72,17 @@ Trois statuts sont **invisibles** dans le suivi :
 - `VALIDEE`
 - `REJETE`
 
-Une activité encore dans le circuit de validation n'est pas publiée. La
-montrer dans une liste de suivi exposerait un travail en cours de validation.
+Ce sont les statuts du circuit de validation, ceux d'une activité qui n'est pas
+publiée au suivi. Les montrer exposerait un travail non publié.
+
+> **Aucun chemin de code ne produit plus ces trois statuts.** Le circuit de
+> soumission et de validation n'est pas implémenté : une activité créée est
+> `BROUILLON` et n'en sort plus. Les trois codes sont conservés dans
+> `StatutsActivite` parce que le jeu de données de démonstration en contient, et
+> que ce filtre doit continuer à les masquer. La règle est donc, aujourd'hui, un
+> filet de sécurité sur des données existantes plutôt qu'un comportement
+> observable — elle redeviendra living code le jour où une activité pourra
+> quitter le brouillon.
 
 La règle est écrite **une seule fois**, dans `ActiviteRepository` :
 

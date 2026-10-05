@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import mg.bank.backend.model.Statut;
 import mg.bank.backend.repository.projection.OptionRow;
+import java.util.Optional;
 
 public interface StatutRepository extends JpaRepository<Statut, Integer> {
 
@@ -32,5 +33,7 @@ public interface StatutRepository extends JpaRepository<Statut, Integer> {
             """,
             nativeQuery = true)
     List<OptionRow> findOptionsActifs();
+
+    Optional<Statut> findByCode(String code);
 
 }

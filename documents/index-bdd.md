@@ -114,9 +114,9 @@ contrôle explicite des dépendances (`compterDependances`, voir
 cascade, et l'index qui l'accompagnerait ne servirait à rien.
 
 Et l'inverse est vrai : `id_activite` est la colonne la plus consultée du
-projet, sur `historique_activite`, `sous_activite`, `validation_activite` et
-`resultat_intermediaire`. **Ce sont quatre index différents**, sur quatre
-tables différentes. Un seul n'aurait servi que le premier cas rencontré.
+projet, sur `historique_activite`, `sous_activite` et `resultat_intermediaire`.
+**Ce sont trois index différents**, sur trois tables différentes. Un seul
+n'aurait servi que le premier cas rencontré.
 
 ---
 
@@ -133,7 +133,6 @@ qu'il faut aller vérifier avant de supprimer l'index.
 | `ix_affectation_sous_activite_sous`<br>`(id_sous_activite, date_affectation DESC)` | `findAffectations` · `findAffectationsSousActivite` · `compterDependances` |
 | `ix_livrable_sous_activite_sous`<br>`(id_sous_activite, designation)` | `findLivrables` · `findLivrablesSousActivite` · `compterDependances` |
 | `ix_fichier_sous_activite_livrable`<br>`(id_livrable_sous_activite)` | `findFichiers` · `findFichiersSousActivite` |
-| `ix_validation_activite_activite`<br>`(id_activite)` | `findValidations` |
 | `ix_resultat_intermediaire_activite`<br>`(id_activite)` | `findResultatsIntermediaires` |
 | `ix_valeur_indicateur_indicateur`<br>`(id_indicateur)` | `findValeursIndicateurs`, qui passe par `activite_indicateur` |
 | `ix_utilisateur_email`<br>`(email)` | `findByEmail` — **appelé à chaque requête authentifiée**, via `CustomUserDetailsService` puis `ActiviteService.utilisateurCourant()` |
@@ -181,7 +180,7 @@ lecture d'historique. La dégradation serait invisible — d'où le commentaire.
 | `activite_indicateur` | Sa clé primaire est **déjà** `(id_activite, id_indicateur)`. Le `WHERE id_activite = :id` de `findIndicateurs` et `findValeursIndicateurs` est donc déjà couvert. Un index serait redondant. |
 | `site`, `priorite`, `type_activite`, `role`, `statut`, `poste`, `permission`, `departement` | Tables de référence jointes par clé primaire, de quelques lignes à quelques dizaines. `statut.code`, `role.code` et `priorite.code` sont déjà `UNIQUE`. Un seq scan sur 10 lignes est le plan le moins cher qui soit — un index ne serait jamais utilisé. |
 | `plan_action` et ses 6 tables filles, `notification`, `origine` | **Aucun repository du backend ne les interroge.** Elles sont dans le schéma parce qu'elles sont prévues, pas parce qu'elles sont lues. Indexer reviendrait à deviner un usage futur. |
-| `procedure`, `etape_validation` | Jointes par clé primaire depuis `validation_activite`, sans filtre. |
+| `validation_activite`, `procedure`, `etape_validation` | Le circuit de validation n'est pas implémenté : aucun repository ne lit ni n'écrit dans ces trois tables. L'index `ix_validation_activite_activite` reste dans le schéma, mais plus aucune requête ne s'en sert. Comme `plan_action`, elles sont prévues, pas lues. |
 | `poste_utilisateur`, `poste_permission`, `type_activite_service` | Clés primaires composites déjà indexées, et aucune requête ne les parcourt en dehors d'un chargement JPA par entité. |
 | `utilisateur.email` en `UNIQUE` | Le jeu de données respecte l'unicité, mais elle encode une règle métier qui n'est pas écrite dans le schéma. Un index simple a été posé ; passer en `UNIQUE` est une décision, pas une optimisation. |
 
