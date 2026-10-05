@@ -260,6 +260,11 @@ public class ActiviteService {
                                 .dateDemande(LocalDateTime.now())
                                 .commentaire(commentaire)
                                 .build();
+                changerStatut(activite, statutRepository.findByCode(StatutsActivite.EN_ATTENTE_VALIDATION)
+                                .orElseThrow(() -> new ApiException(
+                                        "Statut EN_ATTENTE_VALIDATION introuvable",
+                                        HttpStatus.INTERNAL_SERVER_ERROR)),
+                        utilisateur, commentaire);
                 return validationActiviteService.soumettre(validationActivite);
         }
 
