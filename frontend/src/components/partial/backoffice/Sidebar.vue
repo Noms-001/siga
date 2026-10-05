@@ -103,7 +103,7 @@ const referentielsItems: MenuItem[] = [
 ] 
 // ============================================================ // Administration // ============================================================ 
 const adminItems: MenuItem[] = [ 
-    { path: '/permissions', label: 'Permissions', icon: 'bi bi-shield-check' }, 
+    { path: '/backoffice/permissions', label: 'Permissions', icon: 'bi bi-shield-check' }, 
     { path: '/parametres', label: 'Paramètres', icon: 'bi bi-sliders' } 
 ]
 

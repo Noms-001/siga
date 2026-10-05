@@ -330,32 +330,148 @@ WHERE (p.nom = 'Chef de département TSS' AND u.email = 'karim.bensalah@bfm.tn')
    OR (p.nom = 'Gestionnaire systèmes sécurité' AND u.email IN ('walid.sassi@bfm.tn', 'faten.riahi@bfm.tn'))
    OR (p.nom = 'Administrateur' AND u.email = 'tarek.baccouche@bfm.tn');
 
--- =============================================================================
--- 4. PERMISSIONS PAR POSTE
--- =============================================================================
+INSERT INTO poste_permission (
+    id_poste,
+    id_permission,
+    portee
+)
+SELECT
+    p.id_poste,
+    perm.id_permission,
 
-INSERT INTO poste_permission (id_poste, id_permission)
-SELECT p.id_poste, perm.id_permission
-FROM poste p, permission perm
+    CASE
+        -- Chef de département
+        WHEN p.nom = 'Chef de département TSS'
+            THEN 'DEPARTEMENT'
+
+        -- Chefs de service
+        WHEN p.nom IN (
+            'Chef de service — Gestion des Risques et Procédures',
+            'Chef de service — Gestion des Systèmes de Sécurité'
+        )
+            THEN 'SERVICE'
+
+        -- Superviseur
+        WHEN p.nom = 'Superviseur installation systèmes de sécurité'
+            THEN 'SERVICE'
+
+        -- Administrateur
+        WHEN p.nom = 'Administrateur'
+            THEN 'TOUS'
+
+        -- Gestionnaire risques, chargé procédures,
+        -- techniciens, gestionnaire systèmes
+        ELSE 'UTILISATEUR'
+
+    END::portee_permission AS portee
+
+FROM poste p
+CROSS JOIN permission perm
+
 WHERE
-  -- Chef de département : supervision + validation finale
-  (p.nom = 'Chef de département TSS' AND perm.designation IN ('Consulter une activité', 'Valider une activité', 'Gérer les plans d''action', 'Consulter les indicateurs'))
-  -- Chef service 1 : gestion activités + validation niveau 1 + affectations
-  OR (p.nom = 'Chef de service — Gestion des Risques et Procédures' AND perm.designation IN ('Créer une activité', 'Modifier une activité', 'Consulter une activité', 'Valider une activité', 'Créer une sous-activité', 'Modifier une sous-activité', 'Affecter une sous-activité', 'Gérer les plans d''action', 'Consulter les indicateurs'))
-  -- Chef service 2 : idem
-  OR (p.nom = 'Chef de service — Gestion des Systèmes de Sécurité' AND perm.designation IN ('Créer une activité', 'Modifier une activité', 'Consulter une activité', 'Valider une activité', 'Créer une sous-activité', 'Modifier une sous-activité', 'Affecter une sous-activité', 'Gérer les plans d''action', 'Consulter les indicateurs'))
-  -- Gestionnaire risques
-  OR (p.nom = 'Gestionnaire risques sûreté/sécurité' AND perm.designation IN ('Créer une activité', 'Modifier une activité', 'Consulter une activité', 'Consulter les indicateurs', 'Saisir une valeur d''indicateur'))
-  -- Chargé procédures
-  OR (p.nom = 'Chargé procédures sûreté/sécurité' AND perm.designation IN ('Créer une activité', 'Modifier une activité', 'Consulter une activité', 'Consulter les indicateurs'))
-  -- Superviseur installation
-  OR (p.nom = 'Superviseur installation systèmes de sécurité' AND perm.designation IN ('Consulter une activité', 'Créer une sous-activité', 'Modifier une sous-activité', 'Affecter une sous-activité', 'Consulter les indicateurs'))
-  -- Techniciens
-  OR (p.nom = 'Technicien spécialisé systèmes de sécurité' AND perm.designation IN ('Consulter une activité', 'Saisir une valeur d''indicateur'))
-  -- Gestionnaire systèmes
-  OR (p.nom = 'Gestionnaire systèmes sécurité' AND perm.designation IN ('Consulter une activité', 'Créer une sous-activité', 'Modifier une sous-activité', 'Consulter les indicateurs', 'Saisir une valeur d''indicateur'))
-  -- Administrateur : toutes
-  OR (p.nom = 'Administrateur');
+    -- Chef de département
+    (
+        p.nom = 'Chef de département TSS'
+        AND perm.designation IN (
+            'Consulter une activité',
+            'Valider une activité',
+            'Gérer les plans d''action',
+            'Consulter les indicateurs'
+        )
+    )
+
+    -- Chef de service : Gestion des Risques et Procédures
+    OR (
+        p.nom = 'Chef de service — Gestion des Risques et Procédures'
+        AND perm.designation IN (
+            'Créer une activité',
+            'Modifier une activité',
+            'Consulter une activité',
+            'Valider une activité',
+            'Créer une sous-activité',
+            'Modifier une sous-activité',
+            'Affecter une sous-activité',
+            'Gérer les plans d''action',
+            'Consulter les indicateurs'
+        )
+    )
+
+    -- Chef de service : Gestion des Systèmes de Sécurité
+    OR (
+        p.nom = 'Chef de service — Gestion des Systèmes de Sécurité'
+        AND perm.designation IN (
+            'Créer une activité',
+            'Modifier une activité',
+            'Consulter une activité',
+            'Valider une activité',
+            'Créer une sous-activité',
+            'Modifier une sous-activité',
+            'Affecter une sous-activité',
+            'Gérer les plans d''action',
+            'Consulter les indicateurs'
+        )
+    )
+
+    -- Gestionnaire risques
+    OR (
+        p.nom = 'Gestionnaire risques sûreté/sécurité'
+        AND perm.designation IN (
+            'Créer une activité',
+            'Modifier une activité',
+            'Consulter une activité',
+            'Consulter les indicateurs',
+            'Saisir une valeur d''indicateur'
+        )
+    )
+
+    -- Chargé procédures
+    OR (
+        p.nom = 'Chargé procédures sûreté/sécurité'
+        AND perm.designation IN (
+            'Créer une activité',
+            'Modifier une activité',
+            'Consulter une activité',
+            'Consulter les indicateurs'
+        )
+    )
+
+    -- Superviseur installation
+    OR (
+        p.nom = 'Superviseur installation systèmes de sécurité'
+        AND perm.designation IN (
+            'Consulter une activité',
+            'Créer une sous-activité',
+            'Modifier une sous-activité',
+            'Affecter une sous-activité',
+            'Consulter les indicateurs'
+        )
+    )
+
+    -- Technicien
+    OR (
+        p.nom = 'Technicien spécialisé systèmes de sécurité'
+        AND perm.designation IN (
+            'Consulter une activité',
+            'Saisir une valeur d''indicateur'
+        )
+    )
+
+    -- Gestionnaire systèmes
+    OR (
+        p.nom = 'Gestionnaire systèmes sécurité'
+        AND perm.designation IN (
+            'Consulter une activité',
+            'Créer une sous-activité',
+            'Modifier une sous-activité',
+            'Consulter les indicateurs',
+            'Saisir une valeur d''indicateur'
+        )
+    )
+
+    -- Administrateur : toutes les permissions
+    OR (
+        p.nom = 'Administrateur'
+    );
 
 -- =============================================================================
 -- 5. TYPES D'ACTIVITÉ PAR SERVICE

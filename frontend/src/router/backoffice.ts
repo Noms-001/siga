@@ -63,6 +63,43 @@ export const backofficeRoutes: RouteRecordRaw[] = [
                 name: 'backoffice-services-detail',
                 component: () => import('@/views/backoffice/services/Show.vue'),
             },
+            /* ------------------ PERMISSIONS ------------------ */
+            {
+                path: 'permissions',
+                name: 'backoffice-permissions',
+                component: () => import('@/views/backoffice/permissions/List.vue'),
+            },
+            {
+                path: 'permissions/:id',
+                name: 'backoffice-permissions-detail',
+                component: () => import('@/views/backoffice/permissions/Show.vue'),
+            },
+            /* ------------------ POSTES ------------------ */
+            {
+                path: 'postes',
+                name: 'backoffice-postes',
+                component: () => import('@/views/backoffice/postes/List.vue'),
+            },
+            {
+                path: 'postes/nouveau',
+                name: 'backoffice-postes-nouveau',
+                component: () => import('@/views/backoffice/postes/Form.vue'),
+            },
+            {
+                path: 'postes/:id/modifier',
+                name: 'backoffice-postes-modifier',
+                component: () => import('@/views/backoffice/postes/Form.vue'),
+            },
+            {
+                path: 'postes/:id',
+                name: 'backoffice-postes-detail',
+                component: () => import('@/views/backoffice/postes/Show.vue'),
+            },
+            {
+                path: 'postes/:id/permissions',
+                name: 'backoffice-postes-permissions',
+                component: () => import('@/views/backoffice/postes/Permission.vue'),
+            },
         ],
     },
 ]

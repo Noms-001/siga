@@ -548,9 +548,17 @@ CREATE TABLE poste_utilisateur(
    FOREIGN KEY(id_utilisateur) REFERENCES utilisateur(id_utilisateur)
 );
 
+CREATE TYPE portee_permission AS ENUM (
+    'UTILISATEUR',
+    'SERVICE',
+    'DEPARTEMENT',
+    'TOUS'
+);
+
 CREATE TABLE poste_permission(
    id_poste INTEGER,
    id_permission INTEGER,
+   portee portee_permission,
    PRIMARY KEY(id_poste, id_permission),
    FOREIGN KEY(id_poste) REFERENCES poste(id_poste),
    FOREIGN KEY(id_permission) REFERENCES permission(id_permission)
