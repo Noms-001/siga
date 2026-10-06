@@ -59,7 +59,7 @@ public class Utilisateur {
     @Column(name = "telephone")
     private String telephone;
 
-    @Column(name = "mot_de_passe", nullable = false)
+    @Column(name = "mot_de_passe")
     private String motDePasse;
 
     @Column(name = "actif", nullable = false)

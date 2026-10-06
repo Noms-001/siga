@@ -29,6 +29,12 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
     },
 
     {
+        path: '/activation',
+        name: 'activation',
+        component: () => import('@/views/frontoffice/Activation.vue'),
+    },
+
+    {
         path: '/',
         component: () => import('@/layouts/FrontLayout.vue'),
         meta: {

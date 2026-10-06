@@ -99,3 +99,33 @@ export function changePassword(
 ): Promise<ApiResponse<null>> {
   return post<null>('/utilisateur/me/mot-de-passe', data)
 }
+
+/**
+ * Vérification de la validité du token d'activation.
+ *
+ * Utile pour afficher un message clair avant même de proposer le
+ * formulaire si le lien est expiré ou déjà consommé.
+ */
+export function verifyActivationToken(
+    token: string
+): Promise<ApiResponse<null>> {
+    return get<null>(
+        `/auth/activation/verify?token=${encodeURIComponent(token)}`
+    )
+}
+
+/**
+ * Activation du compte : consomme le token d'activation et définit
+ * le mot de passe initial.
+ */
+export function activateAccount(
+    token: string,
+    password: string,
+    confirmPassword: string
+): Promise<ApiResponse<null>> {
+    return post<null>('/auth/activation', {
+        token,
+        password,
+        confirmPassword,
+    })
+}

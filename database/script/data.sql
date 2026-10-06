@@ -1617,13 +1617,26 @@ FROM plan_action pa
 LEFT JOIN plan_action_origine pao ON pao.id_plan_action = pa.id_plan_action
 WHERE pao.id_origine IS NULL;
 
-INSERT INTO parametre (code, designation, valeur, type_valeur, description, categorie, modifiable, actif, date_creation)
+INSERT INTO parametre (
+    code,
+    designation,
+    valeur,
+    type_valeur,
+    description,
+    categorie,
+    modifiable,
+    actif,
+    date_creation
+)
 VALUES
 (
     'ID_PROCEDURE_PTA',
     'Procédure de validation — activités PTA',
-    (SELECT id_procedure::text FROM "procedure"
-     WHERE designation = 'Procédure de validation des activités TSS'),
+    (
+        SELECT id_procedure::text
+        FROM "procedure"
+        WHERE designation = 'Procédure de validation des activités TSS'
+    ),
     'INTEGER',
     'Identifiant de la procédure de validation appliquée aux activités PTA (rattachées à un objectif spécifique).',
     'VALIDATION',
@@ -1634,11 +1647,36 @@ VALUES
 (
     'ID_PROCEDURE_NON_PTA',
     'Procédure de validation — activités NON PTA',
-    (SELECT id_procedure::text FROM "procedure"
-     WHERE designation = 'Procédure de validation des activités TSS'),
+    (
+        SELECT id_procedure::text
+        FROM "procedure"
+        WHERE designation = 'Procédure de validation des activités TSS'
+    ),
     'INTEGER',
     'Identifiant de la procédure de validation appliquée aux activités NON PTA (sans objectif spécifique).',
     'VALIDATION',
+    TRUE,
+    TRUE,
+    '2027-01-05 08:00:00'::timestamp
+),
+(
+    'DUREE_TOKEN_ACTIVATION_COMPTE',
+    'Durée du token d''activation du compte',
+    '1440',
+    'INTEGER',
+    'Durée de validité du token permettant l''activation d''un compte utilisateur, exprimée en heures.',
+    'AUTHENTIFICATION',
+    TRUE,
+    TRUE,
+    '2027-01-05 08:00:00'::timestamp
+),
+(
+    'DUREE_TOKEN_RESET_MOT_DE_PASSE',
+    'Durée du token de réinitialisation du mot de passe',
+    '10',
+    'INTEGER',
+    'Durée de validité du token permettant la réinitialisation du mot de passe, exprimée en minutes.',
+    'AUTHENTIFICATION',
     TRUE,
     TRUE,
     '2027-01-05 08:00:00'::timestamp

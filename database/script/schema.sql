@@ -198,7 +198,7 @@ CREATE TABLE utilisateur(
    prenom VARCHAR(250)  NOT NULL,
    email VARCHAR(100)  NOT NULL,
    telephone VARCHAR(20),
-   mot_de_passe VARCHAR(255)  NOT NULL,
+   mot_de_passe VARCHAR(255),
    actif BOOLEAN NOT NULL,
    date_creation TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
    date_desactivation TIMESTAMP,

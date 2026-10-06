@@ -183,6 +183,22 @@ export const backofficeRoutes: RouteRecordRaw[] = [
                 name: 'backoffice-parametres',
                 component: () => import('@/views/backoffice/parametres/List.vue'),
             },
+            /* ------------------ UTILISATEURS ------------------ */
+            {
+                path: 'utilisateurs',
+                name: 'backoffice-utilisateurs',
+                component: () => import('@/views/backoffice/utilisateurs/List.vue'),
+            },
+            {
+                path: 'utilisateurs/nouveau',
+                name: 'backoffice-utilisateurs-nouveau',
+                component: () => import('@/views/backoffice/utilisateurs/Form.vue'),
+            },
+            {
+                path: 'utilisateurs/:id',
+                name: 'backoffice-utilisateurs-detail',
+                component: () => import('@/views/backoffice/utilisateurs/Show.vue'),
+            },
         ],
     },
 ]

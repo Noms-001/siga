@@ -6,13 +6,8 @@
                 <i class="bi bi-list"></i>
             </button>
 
-            <button class="back-nav__icon-btn d-none d-lg-inline-flex" @click="toggleSidebar" type="button"
-                aria-label="Réduire le menu latéral">
-                <i class="bi bi-layout-sidebar-inset"></i>
-            </button>
-
             <div class="back-nav__brand">
-                <span class="back-nav__brand-mark">
+                <span class="back-nav__brand-mark" @click="toggleSidebar">
                     <i class="bi bi-shield-check"></i>
                 </span>
                 <span class="back-nav__brand-text">
@@ -23,11 +18,6 @@
         </div>
 
         <div class="back-nav__right">
-            <!-- Barre de recherche -->
-            <div class="back-nav__search">
-                <i class="bi bi-search"></i>
-                <input type="text" placeholder="Rechercher..." v-model="searchQuery" @keyup.enter="handleSearch">
-            </div>
 
             <!-- Notifications -->
             <div class="back-nav__notif-wrapper">

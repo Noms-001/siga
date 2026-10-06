@@ -3,11 +3,12 @@ package mg.bank.backend.service;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.ModifierProfilRequest;
 import mg.bank.backend.dto.UtilisateurRequest;
@@ -169,4 +170,86 @@ public class UtilisateurService {
 
         return utilisateurRepository.save(utilisateur);
     }
+
+    /* -------------------- lecture Backoffice -------------------- */
+
+        @Transactional(readOnly = true)
+        public List<mg.bank.backend.dto.backoffice.UtilisateurResponse> lister(
+                Boolean actif,
+                Integer idDepartement,
+                Integer idService) {
+
+        return utilisateurRepository.rechercher(actif, idDepartement, idService)
+                .stream()
+                .map(mg.bank.backend.mapper.UtilisateurMapper::toResponse)
+                .toList();
+        }
+
+        @Transactional(readOnly = true)
+        public mg.bank.backend.dto.backoffice.UtilisateurResponse getById(Integer id) {
+        Utilisateur u = utilisateurRepository.findByIdWithRelations(id)
+                .orElseThrow(() -> new ApiException(
+                        "Utilisateur introuvable",
+                        HttpStatus.NOT_FOUND));
+        return mg.bank.backend.mapper.UtilisateurMapper.toResponse(u);
+        }
+
+        /* -------------------- désactivation / activation -------------------- */
+
+        /**
+         * Désactive un utilisateur (logique — aucune suppression physique).
+         *
+         * L'utilisateur désactivé ne pourra plus s'authentifier si le filtre de
+         * sécurité vérifie `actif`. Ce point doit être confirmé côté SecurityConfig :
+         * la désactivation seule ne suffit pas si le filtre n'inspecte pas ce
+         * drapeau.
+         */
+        @Transactional
+        public mg.bank.backend.dto.backoffice.UtilisateurResponse desactiverUtilisateur(Integer id) {
+        Utilisateur u = utilisateurRepository.findById(id)
+                .orElseThrow(() -> new ApiException(
+                        "Utilisateur introuvable",
+                        HttpStatus.NOT_FOUND));
+
+        if (Boolean.FALSE.equals(u.getActif())) {
+                throw new ApiException(
+                        "L'utilisateur est déjà désactivé",
+                        HttpStatus.BAD_REQUEST);
+        }
+
+        u.setActif(false);
+        u.setDateDesactivation(LocalDateTime.now());
+        u.setDateModification(LocalDateTime.now());
+
+        return mg.bank.backend.mapper.UtilisateurMapper.toResponse(
+                utilisateurRepository.save(u));
+        }
+
+        @Transactional
+        public mg.bank.backend.dto.backoffice.UtilisateurResponse activerUtilisateur(Integer id) {
+        Utilisateur u = utilisateurRepository.findById(id)
+                .orElseThrow(() -> new ApiException(
+                        "Utilisateur introuvable",
+                        HttpStatus.NOT_FOUND));
+
+        if (Boolean.TRUE.equals(u.getActif())) {
+                throw new ApiException(
+                        "L'utilisateur est déjà actif",
+                        HttpStatus.BAD_REQUEST);
+        }
+
+        if (u.getMotDePasse() == null) {
+                throw new ApiException(
+                        "Cet utilisateur n'a pas encore activé son compte. "
+                                + "Il doit utiliser le lien d'activation reçu par email.",
+                        HttpStatus.BAD_REQUEST);
+        }
+
+        u.setActif(true);
+        u.setDateDesactivation(null);
+        u.setDateModification(LocalDateTime.now());
+
+        return mg.bank.backend.mapper.UtilisateurMapper.toResponse(
+                utilisateurRepository.save(u));
+        }
 }

@@ -10,7 +10,7 @@ import lombok.Setter;
 @Setter
 public class ActivationRequest {
 
-    @NotBlank(message = "Le token est obligatoire")
+    @NotBlank(message = "Le jeton d'activation est obligatoire")
     private String token;
 
     @NotBlank(message = "Le mot de passe est obligatoire")
