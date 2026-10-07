@@ -26,8 +26,10 @@ import mg.bank.backend.repository.projection.HistoriqueActiviteRow;
 import mg.bank.backend.repository.projection.IndicateurDetailRow;
 import mg.bank.backend.repository.projection.LivrableDetailRow;
 import mg.bank.backend.repository.projection.OptionRow;
+import mg.bank.backend.repository.projection.ResponsableSuiviRow;
 import mg.bank.backend.repository.projection.ResultatIntermediaireRow;
 import mg.bank.backend.repository.projection.SousActiviteDetailRow;
+import mg.bank.backend.repository.projection.SousActiviteSuiviRow;
 import mg.bank.backend.repository.projection.StatutCourantRow;
 import mg.bank.backend.repository.projection.ValeurIndicateurRow;
 
@@ -1295,4 +1297,81 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("codeBrouillon") String codeBrouillon,
                      @Param("idUtilisateur") Integer idUtilisateur);
 
+       /**
+        * Sous-activités de plusieurs activités en UNE requête.
+        *
+        * C'est ce qui évite le N+1 : sans ce batch, chaque activité de la page
+        * déclencherait une requête supplémentaire. Le tri par date puis code est
+        * celui de findSousActivites, pour que l'ordre affiché soit identique.
+        */
+       @Query(value = """
+                     SELECT sa.id_sous_activite AS id,
+                            sa.id_activite      AS idActivite,
+                            sa.code             AS code,
+                            sa.designation      AS designation
+                     FROM sous_activite sa
+                     WHERE sa.id_activite IN (:ids)
+                     ORDER BY sa.id_activite, sa.date_debut_prevue, sa.code
+                     """, nativeQuery = true)
+       List<SousActiviteSuiviRow> findSousActivitesPourActivites(@Param("ids") List<Integer> ids);
+
+       /**
+        * Premier responsable actif par activité.
+        *
+        * Il n'existe pas de "responsable d'activité" en base : la règle appliquée
+        * ici est celle du projet — le responsable est le premier utilisateur
+        * affecté (au sens de affectation_sous_activite) sur l'une des
+        * sous-activités de l'activité, tant que son affectation n'est pas close
+        * (date_desaffectation IS NULL).
+        *
+        * DISTINCT ON (id_activite) : PostgreSQL renvoie une seule ligne par
+        * activité, la plus ancienne affectation active — l'ordre du ORDER BY
+        * est donc significatif et vient APRÈS le DISTINCT ON.
+        *
+        * Le tri date_affectation ASC fait que c'est le premier affecté qui est
+        * retenu, pas le dernier. La règle pourrait être discutée : le spec ne
+        * précise pas. À ajuster si "responsable actuel" doit se lire différemment.
+        */
+       @Query(value = """
+                     SELECT DISTINCT ON (act.id_activite)
+                            act.id_activite     AS idActivite,
+                            u.id_utilisateur    AS idUtilisateur,
+                            u.nom               AS nom,
+                            u.prenom            AS prenom
+                     FROM activite act
+                     JOIN sous_activite sa
+                            ON sa.id_activite = act.id_activite
+                     JOIN affectation_sous_activite aff
+                            ON aff.id_sous_activite = sa.id_sous_activite
+                           AND aff.date_desaffectation IS NULL
+                     JOIN utilisateur u
+                            ON u.id_utilisateur = aff.id_utilisateur
+                     WHERE act.id_activite IN (:ids)
+                     ORDER BY act.id_activite, aff.date_affectation ASC, aff.id_affectation_sous_activite ASC
+                     """, nativeQuery = true)
+       List<ResponsableSuiviRow> findResponsablesActifsPourActivites(@Param("ids") List<Integer> ids);
+
+       /**
+        * Avancement d'une activité : moyenne des derniers avancements de ses
+        * sous-activités. Null si aucune sous-activité n'a de relevé.
+        *
+        * Le COALESCE(..., 0) est posé dans le service, pas ici : la requête dit
+        * la vérité ("pas de relevé"), le service décide ce qu'il en fait.
+        */
+       @Query(value = """
+                     SELECT AVG(dernier.valeur_pourcentage) AS avancement
+                     FROM sous_activite sa
+                     JOIN LATERAL (
+                         SELECT av.valeur_pourcentage
+                         FROM avancement_sous_activite av
+                         WHERE av.id_sous_activite = sa.id_sous_activite
+                           AND NOT EXISTS (
+                               SELECT 1 FROM avancement_sous_activite av2
+                               WHERE av2.id_sous_activite = av.id_sous_activite
+                                 AND (av2.date_changement, av2.id_historique_sous_activite)
+                                     > (av.date_changement, av.id_historique_sous_activite))
+                     ) dernier ON TRUE
+                     WHERE sa.id_activite = :id
+                     """, nativeQuery = true)
+       Double findAvancementActivite(@Param("id") Integer idActivite);
 }

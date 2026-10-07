@@ -66,8 +66,8 @@
                     </router-link>
                 </li>
                 <li class="nav-item">
-                    <router-link class="nav-link" to="/suivi-activites"
-                        :class="{ active: isActive('/suivi-activites') }">
+                    <router-link class="nav-link" to="/activites/suivi"
+                        :class="{ active: isActive('/activites/suivi') }">
                         <i class="bi bi-graph-up-arrow"></i>
                         <span>Suivi des activités</span>
                     </router-link>

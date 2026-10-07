@@ -111,6 +111,11 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 name: 'sous-activite-detail',
                 component: () => import('@/views/frontoffice/activites/SousActivite.vue'),
             },
+            {
+                path: 'activites/suivi',
+                name: 'activites-suivi',
+                component: () => import('@/views/frontoffice/activites/Suivi.vue'),
+            },
         ],
     },
 ]

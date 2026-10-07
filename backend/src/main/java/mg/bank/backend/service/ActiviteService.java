@@ -27,12 +27,15 @@ import mg.bank.backend.dto.ActiviteFiltreCriteria;
 import mg.bank.backend.dto.ActiviteListItemDTO;
 import mg.bank.backend.dto.ActiviteOptionsDTO;
 import mg.bank.backend.dto.ActiviteStatistiquesDTO;
+import mg.bank.backend.dto.ActiviteSuiviDTO;
 import mg.bank.backend.dto.AutocompleteDTO;
 import mg.bank.backend.dto.ObjectifSpecifiqueEcritureRequest;
 import mg.bank.backend.dto.OptionDTO;
 import mg.bank.backend.dto.PageResponse;
 import mg.bank.backend.dto.PerimetreUtilisateur;
 import mg.bank.backend.dto.ReferenceDTO;
+import mg.bank.backend.dto.ResponsableSuiviDTO;
+import mg.bank.backend.dto.SousActiviteSuiviDTO;
 import mg.bank.backend.enums.DecisionValidation;
 import mg.bank.backend.enums.StatutActiviteEnum;
 import mg.bank.backend.exception.ApiException;
@@ -45,6 +48,7 @@ import mg.bank.backend.model.Statut;
 import mg.bank.backend.model.Utilisateur;
 import mg.bank.backend.model.ValidationActivite;
 import mg.bank.backend.repository.ActiviteRepository;
+import mg.bank.backend.repository.AvancementSousActiviteRepository;
 import mg.bank.backend.repository.HistoriqueActiviteRepository;
 import mg.bank.backend.repository.ObjectifSpecifiqueRepository;
 import mg.bank.backend.repository.PrioriteRepository;
@@ -55,8 +59,11 @@ import mg.bank.backend.repository.StatutRepository;
 import mg.bank.backend.repository.TypeActiviteRepository;
 import mg.bank.backend.repository.projection.ActiviteListRow;
 import mg.bank.backend.repository.projection.ActiviteStatistiquesRow;
+import mg.bank.backend.repository.projection.AvancementSousActiviteRow;
 import mg.bank.backend.repository.projection.ObjectifAutocompleteRow;
 import mg.bank.backend.repository.projection.OptionRow;
+import mg.bank.backend.repository.projection.ResponsableSuiviRow;
+import mg.bank.backend.repository.projection.SousActiviteSuiviRow;
 import mg.bank.backend.enums.StatutsActivite;
 import mg.bank.backend.repository.PosteRepository;
 import mg.bank.backend.repository.ValidationActiviteRepository;
@@ -108,6 +115,7 @@ public class ActiviteService {
         private final ValidationActiviteRepository validationActiviteRepository;
         private final EtapeValidationService etapeValidationService;
         private final PosteRepository posteRepository;
+        private final AvancementSousActiviteRepository avancementSousActiviteRepository;
 
         // ------------------------------------------------------------------
         // Perimetre
@@ -190,11 +198,14 @@ public class ActiviteService {
                 }
                 for (ValidationActivite v : enAttente) {
                         EtapeValidation etape = etapesParId.get(v.getEtapeValidation().getIdEtapeValidation());
-                        if (etape != null && 
-                                        (utilisateur.getService() == null 
-                                                || v.getActivite().getService().getIdService().equals(utilisateur.getService().getIdService())) 
+                        if (etape != null &&
+                                        (utilisateur.getService() == null
+                                                        || v.getActivite().getService().getIdService().equals(
+                                                                        utilisateur.getService().getIdService()))
                                         && (utilisateur.getDepartement() == null ||
-                                                v.getActivite().getService().getDepartement().getIdDepartement().equals(utilisateur.getDepartement().getIdDepartement()))) {
+                                                        v.getActivite().getService().getDepartement().getIdDepartement()
+                                                                        .equals(utilisateur.getDepartement()
+                                                                                        .getIdDepartement()))) {
                                 resultat.get(etape).add(v.getActivite());
                         }
                 }
@@ -259,7 +270,8 @@ public class ActiviteService {
                                 .map(ValidationActivite::getEtapeValidation)
                                 .orElse(null);
                 Poste poste = posteMetierCourant(utilisateur);
-                EtapeValidation prochaineEtape = etapeValidationService.getEtapeSuivante(etapeValidation, activite.getProcedure().getIdProcedure(), poste)
+                EtapeValidation prochaineEtape = etapeValidationService
+                                .getEtapeSuivante(etapeValidation, activite.getProcedure().getIdProcedure(), poste)
                                 .orElseThrow(() -> new ApiException(
                                                 "Aucune étape suivante trouvée pour l'étape actuelle",
                                                 HttpStatus.BAD_REQUEST));
@@ -329,7 +341,9 @@ public class ActiviteService {
                                         utilisateur, commentaire);
                 } else {
                         EtapeValidation prochaineEtape = etapeValidationService
-                                        .getEtapeSuivante(validationActivite.getEtapeValidation(), activite.getProcedure().getIdProcedure(), poste).orElse(null);
+                                        .getEtapeSuivante(validationActivite.getEtapeValidation(),
+                                                        activite.getProcedure().getIdProcedure(), poste)
+                                        .orElse(null);
                         if (prochaineEtape == null) {
                                 changerStatut(activite, statutRepository.findByCode(StatutsActivite.VALIDEE)
                                                 .orElseThrow(() -> new ApiException(
@@ -942,9 +956,195 @@ public class ActiviteService {
 
                 return new ContexteSoumission(
                                 courante,
-                                etapeValidationService.getEtapeSuivante(courante, courante.getProcedure().getIdProcedure(), null),
+                                etapeValidationService.getEtapeSuivante(courante,
+                                                courante.getProcedure().getIdProcedure(), null),
                                 etapeValidationService.getEtapePrecedente(courante),
                                 brouillons);
+        }
+
+        /**
+         * Liste paginée pour l'écran de suivi.
+         *
+         * Réutilise intégralement la mécanique de rechercher() : mêmes filtres,
+         * même périmètre, même tri, même assainissement. La seule différence est
+         * que la réponse porte, pour chaque activité, ses sous-activités et son
+         * responsable.
+         *
+         * Les sous-activités et responsables sont chargés en DEUX requêtes batch
+         * pour l'ensemble de la page. Le nombre total de requêtes ne dépend donc
+         * pas du nombre d'activités affichées.
+         */
+        @Transactional(readOnly = true)
+        public PageResponse<ActiviteSuiviDTO> rechercherSuivi(
+                        ActiviteFiltreCriteria filtres,
+                        int page,
+                        int size,
+                        Sort sort) {
+
+                if (page < 0) {
+                        throw new ApiException(
+                                        "Le numero de page ne peut pas etre negatif",
+                                        HttpStatus.BAD_REQUEST);
+                }
+
+                if (size < 1 || size > TAILLE_PAGE_MAX) {
+                        throw new ApiException(
+                                        "La taille de page doit etre comprise entre 1 et " + TAILLE_PAGE_MAX,
+                                        HttpStatus.BAD_REQUEST);
+                }
+
+                PerimetreUtilisateur perimetre = getPerimetre();
+                Arguments args = arguments(filtres, perimetre);
+
+                Sort tri = (sort == null || sort.isUnsorted()) ? TRI_PAR_DEFAUT : sort;
+                Pageable pageable = PageRequest.of(page, size, assainir(tri));
+
+                Page<ActiviteListRow> resultat = activiteRepository.findActivites(
+                                args.pta(),
+                                args.recherche(),
+                                args.objectifId(),
+                                args.objectifRecherche(),
+                                args.servicePerimetre(),
+                                args.departementPerimetre(),
+                                args.serviceDemande(),
+                                args.prioriteId(),
+                                args.typeActiviteId(),
+                                args.siteId(),
+                                args.statutCode(),
+                                args.codesTerminaux(),
+                                args.annee(),
+                                args.moisDebut(),
+                                args.moisFin(),
+                                args.dateDebut(),
+                                args.dateFin(),
+                                pageable);
+
+                List<Integer> ids = resultat.getContent().stream()
+                                .map(ActiviteListRow::getId)
+                                .toList();
+
+                if (ids.isEmpty()) {
+                        return PageResponse.from(resultat.map(this::versSuiviSansEnfants));
+                }
+
+                // 2 requêtes batch, indépendantes du nombre d'activités de la page.
+                Map<Integer, List<SousActiviteSuiviDTO>> sousParActivite = chargerSousActivites(ids);
+                Map<Integer, ResponsableSuiviDTO> responsableParActivite = chargerResponsables(ids);
+
+                Page<ActiviteSuiviDTO> enrichi = resultat.map(row -> {
+                        ActiviteSuiviDTO base = versSuiviSansEnfants(row);
+                        return ActiviteSuiviDTO.builder()
+                                        .id(base.getId())
+                                        .code(base.getCode())
+                                        .reference(base.getReference())
+                                        .designation(base.getDesignation())
+                                        .dateDebutPrevue(base.getDateDebutPrevue())
+                                        .dateFinPrevue(base.getDateFinPrevue())
+                                        .dateDebutReelle(base.getDateDebutReelle())
+                                        .dateFinReelle(base.getDateFinReelle())
+                                        .service(base.getService())
+                                        .priorite(base.getPriorite())
+                                        .statut(base.getStatut())
+                                        .avancement(base.getAvancement())
+                                        .sousActivites(sousParActivite.getOrDefault(row.getId(), List.of()))
+                                        .responsable(responsableParActivite.get(row.getId()))
+                                        .build();
+                });
+
+                return PageResponse.from(enrichi);
+        }
+
+        private ActiviteSuiviDTO versSuiviSansEnfants(ActiviteListRow row) {
+                return ActiviteSuiviDTO.builder()
+                                .id(row.getId())
+                                .code(row.getCode())
+                                .reference(row.getReference())
+                                .designation(row.getDesignation())
+                                .dateDebutPrevue(row.getDateDebutPrevue())
+                                .dateFinPrevue(row.getDateFinPrevue())
+                                .dateDebutReelle(row.getDateDebutReelle())
+                                .dateFinReelle(row.getDateFinReelle())
+                                .service(ReferenceDTO.builder()
+                                                .id(row.getServiceId())
+                                                .libelle(row.getServiceLibelle())
+                                                .build())
+                                .priorite(row.getPrioriteId() == null ? null
+                                                : ReferenceDTO.builder()
+                                                                .id(row.getPrioriteId())
+                                                                .code(row.getPrioriteCode())
+                                                                .libelle(row.getPrioriteLibelle())
+                                                                .build())
+                                .statut(row.getStatutId() == null ? null
+                                                : ReferenceDTO.builder()
+                                                                .id(row.getStatutId())
+                                                                .code(row.getStatutCode())
+                                                                .libelle(row.getStatutLibelle())
+                                                                .build())
+                                .avancement(row.getAvancement() == null ? 0d : row.getAvancement())
+                                .sousActivites(List.of())
+                                .build();
+        }
+
+        private Map<Integer, List<SousActiviteSuiviDTO>> chargerSousActivites(List<Integer> ids) {
+                List<SousActiviteSuiviRow> sousActivites = activiteRepository.findSousActivitesPourActivites(ids);
+                if (sousActivites.isEmpty())
+                        return Map.of();
+
+                // Une seconde requête batch pour les derniers avancements de TOUTES les
+                // sous-activités de la page. Ce n'est pas du N+1 : le nombre de
+                // requêtes reste constant quel que soit le nombre de sous-activités.
+                List<Integer> idsSous = sousActivites.stream()
+                                .map(SousActiviteSuiviRow::getId)
+                                .toList();
+                Map<Integer, Double> avancementParSous = avancementSousActiviteRepository
+                                .findDerniersPourSousActivites(idsSous).stream()
+                                .collect(Collectors.toMap(
+                                                AvancementSousActiviteRow::getIdSousActivite,
+                                                r -> r.getValeur() == null ? 0d : r.getValeur(),
+                                                (a, b) -> a));
+
+                return sousActivites.stream()
+                                .collect(Collectors.groupingBy(
+                                                SousActiviteSuiviRow::getIdActivite,
+                                                Collectors.mapping(
+                                                                r -> SousActiviteSuiviDTO.builder()
+                                                                                .id(r.getId())
+                                                                                .code(r.getCode())
+                                                                                .designation(r.getDesignation())
+                                                                                .avancement(avancementParSous
+                                                                                                .getOrDefault(r.getId(),
+                                                                                                                0d))
+                                                                                .build(),
+                                                                Collectors.toList())));
+        }
+
+        private Map<Integer, ResponsableSuiviDTO> chargerResponsables(List<Integer> ids) {
+                return activiteRepository.findResponsablesActifsPourActivites(ids).stream()
+                                .collect(Collectors.toMap(
+                                                ResponsableSuiviRow::getIdActivite,
+                                                r -> ResponsableSuiviDTO.builder()
+                                                                .idUtilisateur(r.getIdUtilisateur())
+                                                                .nom(r.getNom())
+                                                                .prenom(r.getPrenom())
+                                                                .build(),
+                                                (a, b) -> a));
+        }
+
+        /**
+         * Avancement d'une activité : moyenne des dernières valeurs d'avancement
+         * de ses sous-activités.
+         *
+         * UNE ACTIVITÉ SANS SOUS-ACTIVITÉ A UN AVANCEMENT DE 0, PAS DE NULL
+         *
+         * Le front affiche un pourcentage ; un null l'obligerait à décider d'un
+         * affichage particulier. 0 dit la même chose sans code spécial.
+         *
+         * La valeur est calculée en relisant la même source que la liste : elle
+         * ne peut donc pas diverger de l'avancement affiché dans Suivi.vue.
+         */
+        @Transactional(readOnly = true)
+        public Double calculerAvancementActivite(Integer idActivite) {
+                return activiteRepository.findAvancementActivite(idActivite);
         }
 
 }

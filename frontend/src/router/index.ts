@@ -19,21 +19,17 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to) => {
-
     const authStore = useAuthStore()
 
     if (!authStore.initialized) {
         await authStore.restoreSession()
     }
 
-    /**
-     * ==========================================
-     * BACKOFFICE
-     * ==========================================
-     */
+    // ==============================
+    // BACKOFFICE
+    // ==============================
 
     if (to.meta.requiresBackoffice) {
-
         if (!authStore.isAuthenticated) {
             return {
                 name: 'backoffice-login',
@@ -48,29 +44,18 @@ router.beforeEach(async (to) => {
     }
 
     if (to.meta.requiresBackofficeGuest) {
-
         if (authStore.isAuthenticated) {
-
-            if (authStore.isBackoffice) {
-                return {
-                    name: 'backoffice-dashboard',
-                }
-            }
-
-            return {
-                name: 'dashboard',
-            }
+            return authStore.isBackoffice
+                ? { name: 'backoffice-dashboard' }
+                : { name: 'dashboard' }
         }
     }
 
-    /**
-     * ==========================================
-     * FRONTOFFICE
-     * ==========================================
-     */
+    // ==============================
+    // FRONTOFFICE
+    // ==============================
 
     if (to.meta.requiresFrontoffice) {
-
         if (!authStore.isAuthenticated) {
             return {
                 name: 'login',
@@ -79,24 +64,10 @@ router.beforeEach(async (to) => {
                 },
             }
         }
-
-        if (authStore.isBackoffice) {
-            return {
-                name: 'backoffice-dashboard',
-            }
-        }
     }
 
     if (to.meta.requiresFrontofficeGuest) {
-
         if (authStore.isAuthenticated) {
-
-            if (authStore.isBackoffice) {
-                return {
-                    name: 'backoffice-dashboard',
-                }
-            }
-
             return {
                 name: 'dashboard',
             }

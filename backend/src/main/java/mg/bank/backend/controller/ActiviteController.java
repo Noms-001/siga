@@ -37,6 +37,7 @@ import mg.bank.backend.dto.ActiviteFormulaireDTO;
 import mg.bank.backend.dto.ActiviteListItemDTO;
 import mg.bank.backend.dto.ActiviteOptionsDTO;
 import mg.bank.backend.dto.ActiviteStatistiquesDTO;
+import mg.bank.backend.dto.ActiviteSuiviDTO;
 import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.AutocompleteDTO;
 import mg.bank.backend.dto.CodeProposeDTO;
@@ -633,6 +634,44 @@ public class ActiviteController {
 
         private String videSiNull(String valeur) {
                 return (valeur == null || valeur.isBlank()) ? null : valeur.trim();
+        }
+
+        /**
+         * Liste pour l'écran de suivi : mêmes filtres que la liste, mais avec
+         * sous-activités et responsable pré-chargés.
+         *
+         * Le spec demande "code OU référence OU désignation" pour la recherche —
+         * c'est déjà ce que fait /autocomplete et / lister (ILIKE sur les trois
+         * colonnes). Le search ici n'a donc pas de comportement particulier.
+         *
+         * Déclaré AVANT les routes {idActivite} pour ne pas être capturé comme un
+         * identifiant.
+         */
+        @GetMapping("/suivi")
+        public ResponseEntity<ApiResponse<PageResponse<ActiviteSuiviDTO>>> suivi(
+                        @RequestParam(required = false) Boolean pta,
+                        @RequestParam(required = false) String search,
+                        @RequestParam(required = false) Integer serviceId,
+                        @RequestParam(required = false) Integer prioriteId,
+                        @RequestParam(required = false) String statut,
+                        @RequestParam(required = false) Integer annee,
+                        @RequestParam(required = false) Integer trimestre,
+                        @RequestParam(required = false) LocalDate dateDebut,
+                        @RequestParam(required = false) LocalDate dateFin,
+                        @PageableDefault(size = 20) Pageable pagination) {
+
+                ActiviteFiltreCriteria filtres = filtres(
+                                pta, search, null, null, serviceId,
+                                prioriteId, null, null, statut, annee, trimestre,
+                                dateDebut, dateFin);
+
+                PageResponse<ActiviteSuiviDTO> resultat = activiteService.rechercherSuivi(
+                                filtres,
+                                pagination.getPageNumber(),
+                                pagination.getPageSize(),
+                                pagination.getSort());
+
+                return ResponseEntity.ok(ApiResponse.success(resultat));
         }
 
 }
