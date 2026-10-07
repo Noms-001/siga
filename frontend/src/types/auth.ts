@@ -16,16 +16,7 @@ export interface ProfileResponse {
     email: string
     telephone: string | null
     service: string | null
-    /**
-     * Un utilisateur peut cumuler plusieurs postes (poste_utilisateur est une
-     * table de jointure, pas une colonne).
-     *
-     * L'API renvoie donc un TABLEAU. Ce contrat est déclare ici une seule fois :
-     * le typer en `poste: string` le faisait passer pour absent partout, et
-     * aucun appel n'aurait signalé l'erreur, puisque le JSON est valide dans
-     * les deux cas.
-     */
-    postes: string[]
+    poste: string
     actif: boolean
     dateCreation: string
     dateDerniereConnexion: string | null
@@ -39,8 +30,7 @@ export interface LoginResponse {
     idUtilisateur: number
     nom: string
     prenom: string
-    /** Tableau pour la même raison que ProfileResponse.postes. */
-    postes: string[]
+    poste: string
     service: string | null
 
     accessToken: string

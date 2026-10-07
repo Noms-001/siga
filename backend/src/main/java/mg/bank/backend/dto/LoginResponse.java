@@ -13,7 +13,7 @@ public class LoginResponse {
     private Integer idUtilisateur;
     private String nom;
     private String prenom;
-    private List<String> postes;
+    private String poste;
     private String service;
 
     private String accessToken;
@@ -28,12 +28,7 @@ public class LoginResponse {
                 .idUtilisateur(utilisateur.getIdUtilisateur())
                 .nom(utilisateur.getNom())
                 .prenom(utilisateur.getPrenom())
-                .postes(
-                        utilisateur.getPostes()
-                                .stream()
-                                .map(poste -> poste.getLibelle())
-                                .toList()
-                )
+                .poste(utilisateur.getPoste().getLibelle())
                 .service(utilisateur.getService() != null
                         ? utilisateur.getService().getNom()
                         : null)

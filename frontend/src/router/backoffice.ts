@@ -199,6 +199,27 @@ export const backofficeRoutes: RouteRecordRaw[] = [
                 name: 'backoffice-utilisateurs-detail',
                 component: () => import('@/views/backoffice/utilisateurs/Show.vue'),
             },
+            /* ------------------ PROCÉDURES ------------------ */
+            {
+                path: 'procedures',
+                name: 'backoffice-procedures',
+                component: () => import('@/views/backoffice/procedures/List.vue'),
+            },
+            {
+                path: 'procedures/nouveau',
+                name: 'backoffice-procedures-nouveau',
+                component: () => import('@/views/backoffice/procedures/Form.vue'),
+            },
+            {
+                path: 'procedures/:id/modifier',
+                name: 'backoffice-procedures-modifier',
+                component: () => import('@/views/backoffice/procedures/Form.vue'),
+            },
+            {
+                path: 'procedures/:id',
+                name: 'backoffice-procedures-detail',
+                component: () => import('@/views/backoffice/procedures/Show.vue'),
+            },
         ],
     },
 ]

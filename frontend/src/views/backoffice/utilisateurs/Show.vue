@@ -141,6 +141,16 @@ onMounted(charger)
                     <span class="bo-detail__value">{{ item.service?.nom || '—' }}</span>
                 </div>
                 <div class="bo-detail__row">
+                    <span class="bo-detail__label">Poste</span>
+                    <span class="bo-detail__value">
+                        <span v-if="!item.poste" class="text-muted-custom">—</span>
+                        <span v-else>
+                            {{ item.poste.nom }}
+                            <span v-if="!item.poste.isMetier" class="badge-support">support</span>
+                        </span>
+                    </span>
+                </div>
+                <div class="bo-detail__row">
                     <span class="bo-detail__label">Statut</span>
                     <span class="bo-detail__value">
                         <span class="badge" :class="item.actif ? 'badge-actif' : 'badge-inactif'">
@@ -167,26 +177,6 @@ onMounted(charger)
                     </span>
                 </div>
             </div>
-
-            <section class="bo-section">
-                <header class="bo-section__head">
-                    <h2 class="bo-section__title">Postes</h2>
-                    <span class="bo-section__count">
-                        {{ item.postes.length }} poste{{ item.postes.length > 1 ? 's' : '' }}
-                    </span>
-                </header>
-
-                <div v-if="item.postes.length === 0" class="bo-empty">
-                    Aucun poste affecté.
-                </div>
-
-                <div v-else class="bo-chips">
-                    <span v-for="p in item.postes" :key="p.id" class="chip">
-                        <i :class="p.isMetier ? 'bi bi-briefcase' : 'bi bi-tools'"></i>
-                        {{ p.nom }}
-                    </span>
-                </div>
-            </section>
         </template>
 
         <BaseConfirm v-model="confirmOpen" :demande="confirmDemande" :loading="confirmLoading"

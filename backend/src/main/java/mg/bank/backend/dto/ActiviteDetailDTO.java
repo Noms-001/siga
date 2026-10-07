@@ -7,7 +7,6 @@ import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import mg.bank.backend.model.Activite;
 
 /**
  * Detail complet d une activite.

@@ -114,6 +114,25 @@ public class ActiviteService {
         // ------------------------------------------------------------------
 
         /**
+         * Poste métier de l'utilisateur, ou une 404 explicite.
+         *
+         * Le modèle porte désormais un poste unique sur l'utilisateur : plus besoin
+         * de le chercher en base, il est déjà chargé avec l'utilisateur. La méthode
+         * factorise les quatre points qui exigent un poste métier — refuser au même
+         * endroit évite que l'un d'eux oublie la condition isMetier et laisse un
+         * utilisateur support valider des activités.
+         */
+        private Poste posteMetierCourant(Utilisateur utilisateur) {
+                Poste poste = utilisateur.getPoste();
+                if (poste == null || !Boolean.TRUE.equals(poste.getIsMetier())) {
+                        throw new ApiException(
+                                        "Poste métier introuvable pour l'utilisateur",
+                                        HttpStatus.NOT_FOUND);
+                }
+                return poste;
+        }
+
+        /**
          * Perimetre de l'utilisateur connecte, derive de ses rattachements.
          *
          * - service et departement : bloque sur son service
@@ -145,10 +164,7 @@ public class ActiviteService {
                         throw new ApiException("Utilisateur non authentifie", HttpStatus.UNAUTHORIZED);
                 }
 
-                Poste poste = posteRepository
-                                .findFirstByUtilisateurs_IdUtilisateurAndIsMetier(utilisateur.getIdUtilisateur(), true)
-                                .orElseThrow(() -> new ApiException("Poste introuvable pour l'utilisateur",
-                                                HttpStatus.NOT_FOUND));
+                Poste poste = posteMetierCourant(utilisateur);
 
                 List<EtapeValidation> etapes = etapeValidationService.getEtapesByPoste(poste.getIdPoste());
                 if (etapes.isEmpty()) {
@@ -242,12 +258,7 @@ public class ActiviteService {
                 EtapeValidation etapeValidation = derniereValidation
                                 .map(ValidationActivite::getEtapeValidation)
                                 .orElse(null);
-                Poste poste = posteRepository
-                                .findFirstByUtilisateurs_IdUtilisateurAndIsMetier(
-                                                utilisateur.getIdUtilisateur(), true)
-                                .orElseThrow(() -> new ApiException(
-                                                "Poste introuvable pour l'utilisateur",
-                                                HttpStatus.NOT_FOUND));
+                Poste poste = posteMetierCourant(utilisateur);
                 EtapeValidation prochaineEtape = etapeValidationService.getEtapeSuivante(etapeValidation, activite.getProcedure().getIdProcedure(), poste)
                                 .orElseThrow(() -> new ApiException(
                                                 "Aucune étape suivante trouvée pour l'étape actuelle",
@@ -290,11 +301,7 @@ public class ActiviteService {
                         throw new ApiException("Utilisateur non authentifie", HttpStatus.UNAUTHORIZED);
                 }
 
-                Poste poste = posteRepository.findFirstByUtilisateurs_IdUtilisateurAndIsMetier(
-                                utilisateur.getIdUtilisateur(), true).orElseThrow(
-                                                () -> new ApiException(
-                                                                "Poste introuvable pour l'utilisateur",
-                                                                HttpStatus.NOT_FOUND));
+                Poste poste = posteMetierCourant(utilisateur);
 
                 ValidationActivite validationActivite = validationActiviteService.getDerniereEtapeNonValidee(idActivite)
                                 .orElseThrow(() -> new ApiException(
@@ -913,11 +920,7 @@ public class ActiviteService {
                         throw new ApiException("Utilisateur non authentifie", HttpStatus.UNAUTHORIZED);
                 }
 
-                Poste poste = posteRepository.findFirstByUtilisateurs_IdUtilisateurAndIsMetier(
-                                utilisateur.getIdUtilisateur(), true)
-                                .orElseThrow(() -> new ApiException(
-                                                "Poste metier introuvable pour l'utilisateur",
-                                                HttpStatus.NOT_FOUND));
+                Poste poste = posteMetierCourant(utilisateur);
 
                 List<EtapeValidation> etapesPoste = etapeValidationService.getEtapesByPoste(poste.getIdPoste());
 

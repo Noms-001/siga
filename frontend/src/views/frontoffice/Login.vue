@@ -64,15 +64,11 @@ const handleLogin = async () => {
             password: password.value
         })
 
-        console.log('Connexion réussie :', authStore.user)
 
         // Redirection
         await router.push('/dashboard')
 
     } catch (error: unknown) {
-        console.error('Erreur complète de connexion :', error)
-        console.error('Response :', (error as any)?.response)
-        console.error('Response data :', (error as any)?.response?.data)
 
         loginError.value =
             (error as any)?.response?.data?.error ??

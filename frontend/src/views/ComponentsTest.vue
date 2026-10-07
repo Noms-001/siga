@@ -93,13 +93,11 @@ const validateInput = () => {
 }
 
 const submitForm = () => {
-    console.log('Formulaire soumis :', formData.value)
     showFormModal.value = false
     formData.value = { name: '', email: '', city: '' }
 }
 
 const confirmAction = () => {
-    console.log('Action confirmée')
     showConfirmModal.value = false
 }
 

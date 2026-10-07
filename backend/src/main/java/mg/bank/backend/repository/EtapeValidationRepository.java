@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
@@ -46,4 +48,12 @@ public interface EtapeValidationRepository
 
         List<EtapeValidation> findByPostesDecideurs_IdPosteAndActifTrueOrderByNiveauAsc(
                         Integer idPoste);
+
+        @Query("""
+                        select distinct e from EtapeValidation e
+                        left join fetch e.postesDecideurs
+                        where e.procedure.idProcedure = :idProcedure
+                        order by e.niveau asc
+                        """)
+        List<EtapeValidation> findByProcedureWithDecideurs(@Param("idProcedure") Integer idProcedure);
 }

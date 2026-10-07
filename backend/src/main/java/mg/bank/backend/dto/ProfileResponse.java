@@ -19,7 +19,7 @@ public class ProfileResponse {
     private String telephone;
 
     private String service;
-    private List<String> postes;
+    private String poste;
 
     private Boolean actif;
     private LocalDateTime dateCreation;
@@ -38,12 +38,7 @@ public class ProfileResponse {
                         ? utilisateur.getService().getNom()
                         : null
                 )
-                .postes(
-                        utilisateur.getPostes()
-                                .stream()
-                                .map(poste -> poste.getLibelle())
-                                .toList()
-                )
+                .poste(utilisateur.getPoste().getLibelle())
                 .actif(utilisateur.getActif())
                 .dateCreation(utilisateur.getDateCreation())
                 .dateDesactivation(utilisateur.getDateDesactivation())

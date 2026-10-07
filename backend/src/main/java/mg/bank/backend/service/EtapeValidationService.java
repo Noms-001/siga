@@ -101,4 +101,14 @@ public class EtapeValidationService {
                 }
                 return map;
         }
+
+        @Transactional(readOnly = true)
+        public List<mg.bank.backend.dto.backoffice.EtapeValidationResponse> listerParProcedure(
+                Integer idProcedure) {
+
+        return etapeValidationRepository.findByProcedureWithDecideurs(idProcedure)
+                .stream()
+                .map(mg.bank.backend.mapper.EtapeValidationMapper::toResponse)
+                .toList();
+        }
 }

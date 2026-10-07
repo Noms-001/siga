@@ -152,7 +152,7 @@ const notifDropdownRef = ref<HTMLDivElement | null>(null)
 const userMenuRef = ref<HTMLDivElement | null>(null)
 
 const userRole = computed(() => {
-    return authStore.posteLibelle ?? 'Utilisateur'
+    return authStore.user?.poste ?? 'Utilisateur'
 })
 
 const userFullName = computed(() => {
@@ -228,20 +228,11 @@ const toggleUserMenu = () => {
     if (isNotifOpen.value) isNotifOpen.value = false
 }
 
-const handleSearch = () => {
-    if (searchQuery.value.trim()) {
-        console.log('Recherche:', searchQuery.value)
-        // Ici tu peux implémenter la logique de recherche
-    }
-}
-
 const handleLogout = async () => {
     try {
         isUserMenuOpen.value = false
 
         await authStore.logout()
-
-        console.log('Déconnexion réussie')
 
         await router.push('/login')
     } catch (error) {

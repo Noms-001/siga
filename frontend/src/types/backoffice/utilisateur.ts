@@ -17,7 +17,7 @@ export interface Utilisateur {
         actif: boolean
         departement: { id: number; code: string; nom: string }
     } | null
-    postes: Array<{ id: number; nom: string; isMetier: boolean }>
+    poste: { id: number; nom: string; isMetier: boolean }
 }
 
 /**

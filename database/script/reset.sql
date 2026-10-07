@@ -13,7 +13,6 @@ BEGIN;
 TRUNCATE TABLE plan_action_origine RESTART IDENTITY CASCADE;
 TRUNCATE TABLE activite_indicateur RESTART IDENTITY CASCADE;
 TRUNCATE TABLE poste_permission RESTART IDENTITY CASCADE;
-TRUNCATE TABLE poste_utilisateur RESTART IDENTITY CASCADE;
 TRUNCATE TABLE type_activite_service RESTART IDENTITY CASCADE;
 
 -- ============================================================

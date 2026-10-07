@@ -24,50 +24,27 @@ export const useAuthStore = defineStore('auth', () => {
     /**
      * Accès backoffice.
      *
-     * `includes` et non `===` : postes est une liste, donc la comparaison
-     * scalaire renvoyait toujours false et l'acces backoffice etait refuse a
-     * tout le monde, y compris a un vrai administrateur. Le cas passa
-     * inaperçu parce qu'un utilisateur non administrateur voit exactement le
-     * meme resultat, a savoir aucun acces.
+     * Tous les utilisateurs autorisés du Département TSS peuvent accéder
+     * au backoffice.
      *
-     * Le libelle est compare sans casse, comme le fait AuthService cote
-     * backend pour la meme verification.
+     * Les droits d'accès aux fonctionnalités sont ensuite déterminés
+     * par les permissions associées au poste de l'utilisateur.
      */
     const isBackoffice = computed(() => {
-        return (user.value?.postes ?? []).some(
-            poste => poste.toLowerCase() === 'administrateur'
-        )
-    })
-
-    /** Postes de l'utilisateur, jamais undefined. */
-    const postes = computed<string[]>(() => user.value?.postes ?? [])
-
-    /**
-     * Postes réduits à un libellé affichable, ou null si l'utilisateur n'en
-     * a aucun.
-     *
-     * null et non "" : les appelants utilisent `|| 'Non défini'`, et une
-     * chaine vide passerait pour un poste renseigné mais vide.
-     */
-    const posteLibelle = computed<string | null>(() => {
-        const liste = postes.value
-        return liste.length > 0 ? liste.join(' / ') : null
+        return user.value !== null
     })
 
     /**
      * Connexion
      */
-    /**
- * Connexion
- */
     const login = async (
         credentials: LoginRequest,
-        isBackoffice: boolean = false
+        isBackofficeLogin: boolean = false
     ) => {
 
         let response: ApiResponse<LoginResponse>
 
-        if (isBackoffice) {
+        if (isBackofficeLogin) {
             response = await authService.loginBackoffice(credentials)
         } else {
             response = await authService.login(credentials)
@@ -116,7 +93,6 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-
     /**
      * Récupérer le profil complet
      */
@@ -163,9 +139,8 @@ export const useAuthStore = defineStore('auth', () => {
     /**
      * Fermeture de session purement locale, sans appel au backend.
      *
-     * Réservée aux cas où le serveur considère déjà la session morte (token
-     * expiré, 401 reçu, inactivité) : un POST /auth/logout répondrait à son
-     * tour 401 et ne donnerait rien, sans compter une requête inutile.
+     * Réservée aux cas où le serveur considère déjà la session morte
+     * (token expiré, 401 reçu, inactivité).
      */
     const logoutLocal = () => {
 
@@ -191,15 +166,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     /**
- * Demander la réinitialisation du mot de passe
- */
-    const forgotPassword = async (data: ForgotPasswordRequest) => {
+     * Demander la réinitialisation du mot de passe
+     */
+    const forgotPassword = async (
+        data: ForgotPasswordRequest
+    ) => {
 
         const response = await authService.forgotPassword(data)
 
         if (!response.success) {
             throw new Error(
-                response.error ?? 'Impossible d’envoyer la demande de réinitialisation'
+                response.error ??
+                'Impossible d’envoyer la demande de réinitialisation'
             )
         }
 
@@ -209,13 +187,17 @@ export const useAuthStore = defineStore('auth', () => {
     /**
      * Vérifier le token de réinitialisation
      */
-    const verifyResetPasswordToken = async (token: string) => {
+    const verifyResetPasswordToken = async (
+        token: string
+    ) => {
 
-        const response = await authService.verifyResetPasswordToken(token)
+        const response =
+            await authService.verifyResetPasswordToken(token)
 
         if (!response.success) {
             throw new Error(
-                response.error ?? 'Le lien de réinitialisation est invalide ou expiré'
+                response.error ??
+                'Le lien de réinitialisation est invalide ou expiré'
             )
         }
 
@@ -225,13 +207,17 @@ export const useAuthStore = defineStore('auth', () => {
     /**
      * Réinitialiser le mot de passe
      */
-    const resetPassword = async (data: ResetPasswordRequest) => {
+    const resetPassword = async (
+        data: ResetPasswordRequest
+    ) => {
 
-        const response = await authService.resetPassword(data)
+        const response =
+            await authService.resetPassword(data)
 
         if (!response.success) {
             throw new Error(
-                response.error ?? 'Impossible de réinitialiser le mot de passe'
+                response.error ??
+                'Impossible de réinitialiser le mot de passe'
             )
         }
 
@@ -254,8 +240,6 @@ export const useAuthStore = defineStore('auth', () => {
 
     return {
         user,
-        postes,
-        posteLibelle,
         isBackoffice,
         isAuthenticated,
         initialized,

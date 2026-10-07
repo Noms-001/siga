@@ -90,9 +90,9 @@ INSERT INTO type_token (code, libelle, description) VALUES
 
 
 -- 1.9 Procédure de validation (indépendante)
-INSERT INTO "procedure" (designation, description) VALUES
+INSERT INTO "procedure" (designation, description, actif) VALUES
 ('Procédure de validation des activités TSS',
- 'Procédure standard de validation des activités du département TSS : validation par le chef de service puis par le chef de département.');
+ 'Procédure standard de validation des activités du département TSS : validation par le chef de service puis par le chef de département.', TRUE);
 
 -- 1.10 Étapes de validation (référence à "procedure" via sous-requête)
 INSERT INTO etape_validation (designation, description, niveau, obligatoire, actif, date_desactivation, id_procedure, retour)
@@ -178,157 +178,602 @@ INSERT INTO permission (designation, description, ressource, action, actif, date
 -- =============================================================================
 -- 2. UTILISATEURS
 -- =============================================================================
--- Chef de département → id_service NULL, id_departement = TSS
--- Membres de service → id_departement = TSS, id_service = (Risques) ou (Systèmes)
+--
+-- Règles :
+--   - Un utilisateur possède un seul poste.
+--   - Le poste est directement référencé par utilisateur.id_poste.
+--   - Chef de département → id_service NULL, id_departement = TSS.
+--   - Membres de service → id_departement = TSS,
+--     id_service = Risques ou Systèmes.
+--   - Le poste Administrateur n'est plus utilisé.
+--
+-- =============================================================================
 
--- Chef de département (id_service NULL)
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Ben Salah', 'Karim', 'karim.bensalah@bfm.tn', '+216 71 100 001',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2020-01-15 08:00:00', NULL, NULL, '2027-03-15 09:12:00',
-       d.id_departement, NULL
-FROM departement d WHERE d.code = 'TSS';
 
+-- -----------------------------------------------------------------------------
+-- Chef de département
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Ben Salah',
+    'Karim',
+    'karim.bensalah@bfm.tn',
+    '+216 71 100 001',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2020-01-15 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-15 09:12:00',
+    d.id_departement,
+    NULL,
+    p.id_poste
+FROM departement d
+JOIN poste p
+    ON p.nom = 'Chef de département TSS'
+WHERE d.code = 'TSS';
+
+
+-- -----------------------------------------------------------------------------
 -- Chef de service 1 — Gestion des Risques et Procédures
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Mansouri', 'Leila', 'leila.mansouri@bfm.tn', '+216 71 100 002',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2020-02-01 08:00:00', NULL, NULL, '2027-03-14 10:30:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Mansouri',
+    'Leila',
+    'leila.mansouri@bfm.tn',
+    '+216 71 100 002',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2020-02-01 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-14 10:30:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Risques et Procédures'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Risques et Procédures'
+JOIN poste p
+    ON p.nom = 'Chef de service — Gestion des Risques et Procédures'
 WHERE d.code = 'TSS';
 
+
+-- -----------------------------------------------------------------------------
 -- Chef de service 2 — Gestion des Systèmes de Sécurité
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Trabelsi', 'Hatem', 'hatem.trabelsi@bfm.tn', '+216 71 100 003',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2020-02-01 08:00:00', NULL, NULL, '2027-03-14 11:00:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Trabelsi',
+    'Hatem',
+    'hatem.trabelsi@bfm.tn',
+    '+216 71 100 003',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2020-02-01 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-14 11:00:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN poste p
+    ON p.nom = 'Chef de service — Gestion des Systèmes de Sécurité'
 WHERE d.code = 'TSS';
 
+
+-- -----------------------------------------------------------------------------
 -- Gestionnaire risques 1
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Gharbi', 'Sonia', 'sonia.gharbi@bfm.tn', '+216 71 100 004',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2021-01-10 08:00:00', NULL, NULL, '2027-03-13 08:45:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Gharbi',
+    'Sonia',
+    'sonia.gharbi@bfm.tn',
+    '+216 71 100 004',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2021-01-10 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-13 08:45:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Risques et Procédures'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Risques et Procédures'
+JOIN poste p
+    ON p.nom = 'Gestionnaire risques sûreté/sécurité'
 WHERE d.code = 'TSS';
 
+
+-- -----------------------------------------------------------------------------
 -- Gestionnaire risques 2
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Khelifi', 'Mohamed', 'mohamed.khelifi@bfm.tn', '+216 71 100 005',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2021-05-20 08:00:00', NULL, NULL, '2027-03-12 14:20:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Khelifi',
+    'Mohamed',
+    'mohamed.khelifi@bfm.tn',
+    '+216 71 100 005',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2021-05-20 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-12 14:20:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Risques et Procédures'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Risques et Procédures'
+JOIN poste p
+    ON p.nom = 'Gestionnaire risques sûreté/sécurité'
 WHERE d.code = 'TSS';
 
+
+-- -----------------------------------------------------------------------------
 -- Chargé procédures 1
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Bouazizi', 'Nadia', 'nadia.bouazizi@bfm.tn', '+216 71 100 006',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2021-09-01 08:00:00', NULL, NULL, '2027-03-11 09:00:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Bouazizi',
+    'Nadia',
+    'nadia.bouazizi@bfm.tn',
+    '+216 71 100 006',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2021-09-01 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-11 09:00:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Risques et Procédures'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Risques et Procédures'
+JOIN poste p
+    ON p.nom = 'Chargé procédures sûreté/sécurité'
 WHERE d.code = 'TSS';
 
+
+-- -----------------------------------------------------------------------------
 -- Chargé procédures 2
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Jlassi', 'Rami', 'rami.jlassi@bfm.tn', '+216 71 100 007',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2022-03-15 08:00:00', NULL, NULL, '2027-03-10 16:30:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Jlassi',
+    'Rami',
+    'rami.jlassi@bfm.tn',
+    '+216 71 100 007',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2022-03-15 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-10 16:30:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Risques et Procédures'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Risques et Procédures'
+JOIN poste p
+    ON p.nom = 'Chargé procédures sûreté/sécurité'
 WHERE d.code = 'TSS';
 
+
+-- -----------------------------------------------------------------------------
 -- Superviseur installation
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Ayari', 'Slim', 'slim.ayari@bfm.tn', '+216 71 100 008',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2020-06-01 08:00:00', NULL, NULL, '2027-03-15 07:55:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Ayari',
+    'Slim',
+    'slim.ayari@bfm.tn',
+    '+216 71 100 008',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2020-06-01 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-15 07:55:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN poste p
+    ON p.nom = 'Superviseur installation systèmes de sécurité'
 WHERE d.code = 'TSS';
 
+
+-- -----------------------------------------------------------------------------
 -- Technicien 1
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Mejri', 'Anis', 'anis.mejri@bfm.tn', '+216 71 100 009',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2021-02-01 08:00:00', NULL, NULL, '2027-03-14 08:10:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Mejri',
+    'Anis',
+    'anis.mejri@bfm.tn',
+    '+216 71 100 009',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2021-02-01 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-14 08:10:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN poste p
+    ON p.nom = 'Technicien spécialisé systèmes de sécurité'
 WHERE d.code = 'TSS';
 
+
+-- -----------------------------------------------------------------------------
 -- Technicien 2
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Ferchichi', 'Ines', 'ines.ferchichi@bfm.tn', '+216 71 100 010',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2021-07-01 08:00:00', NULL, NULL, '2027-03-13 15:45:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Ferchichi',
+    'Ines',
+    'ines.ferchichi@bfm.tn',
+    '+216 71 100 010',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2021-07-01 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-13 15:45:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN poste p
+    ON p.nom = 'Technicien spécialisé systèmes de sécurité'
 WHERE d.code = 'TSS';
 
+
+-- -----------------------------------------------------------------------------
 -- Technicien 3
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Zaidi', 'Yassine', 'yassine.zaidi@bfm.tn', '+216 71 100 011',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2022-01-10 08:00:00', NULL, NULL, '2027-03-12 11:30:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Zaidi',
+    'Yassine',
+    'yassine.zaidi@bfm.tn',
+    '+216 71 100 011',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2022-01-10 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-12 11:30:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN poste p
+    ON p.nom = 'Technicien spécialisé systèmes de sécurité'
 WHERE d.code = 'TSS';
 
+
+-- -----------------------------------------------------------------------------
 -- Technicien 4
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Hamdi', 'Mariem', 'mariem.hamdi@bfm.tn', '+216 71 100 012',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2022-09-01 08:00:00', NULL, NULL, '2027-03-11 13:00:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Hamdi',
+    'Mariem',
+    'mariem.hamdi@bfm.tn',
+    '+216 71 100 012',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2022-09-01 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-11 13:00:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN poste p
+    ON p.nom = 'Technicien spécialisé systèmes de sécurité'
 WHERE d.code = 'TSS';
 
+
+-- -----------------------------------------------------------------------------
 -- Gestionnaire systèmes 1
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Sassi', 'Walid', 'walid.sassi@bfm.tn', '+216 71 100 013',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2021-04-01 08:00:00', NULL, NULL, '2027-03-14 09:25:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Sassi',
+    'Walid',
+    'walid.sassi@bfm.tn',
+    '+216 71 100 013',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2021-04-01 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-14 09:25:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN poste p
+    ON p.nom = 'Gestionnaire systèmes sécurité'
 WHERE d.code = 'TSS';
 
+
+-- -----------------------------------------------------------------------------
 -- Gestionnaire systèmes 2
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Riahi', 'Faten', 'faten.riahi@bfm.tn', '+216 71 100 014',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2022-06-01 08:00:00', NULL, NULL, '2027-03-13 10:50:00',
-       d.id_departement, s.id_service
+-- -----------------------------------------------------------------------------
+
+INSERT INTO utilisateur (
+    nom,
+    prenom,
+    email,
+    telephone,
+    mot_de_passe,
+    actif,
+    date_creation,
+    date_desactivation,
+    date_modification,
+    date_derniere_connexion,
+    id_departement,
+    id_service,
+    id_poste
+)
+SELECT
+    'Riahi',
+    'Faten',
+    'faten.riahi@bfm.tn',
+    '+216 71 100 014',
+    '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
+    TRUE,
+    '2022-06-01 08:00:00',
+    NULL,
+    NULL,
+    '2027-03-13 10:50:00',
+    d.id_departement,
+    s.id_service,
+    p.id_poste
 FROM departement d
-JOIN service s ON s.id_departement = d.id_departement AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN service s
+    ON s.id_departement = d.id_departement
+   AND s.nom = 'Gestion des Systèmes de Sécurité'
+JOIN poste p
+    ON p.nom = 'Gestionnaire systèmes sécurité'
 WHERE d.code = 'TSS';
 
--- Administrateur (id_service NULL, rattaché au département)
-INSERT INTO utilisateur (nom, prenom, email, telephone, mot_de_passe, actif, date_creation, date_desactivation, date_modification, date_derniere_connexion, id_departement, id_service)
-SELECT 'Baccouche', 'Tarek', 'tarek.baccouche@bfm.tn', '+216 71 100 015',
-       '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim', TRUE, '2020-01-15 08:00:00', NULL, NULL, '2027-03-15 08:00:00',
-       d.id_departement, NULL
-FROM departement d WHERE d.code = 'TSS';
-
--- =============================================================================
--- 3. RELATIONS UTILISATEURS / POSTES
--- =============================================================================
--- Référencement par email (unique) et par nom de poste
-
-INSERT INTO poste_utilisateur (id_poste, id_utilisateur)
-SELECT p.id_poste, u.id_utilisateur
-FROM poste p, utilisateur u
-WHERE (p.nom = 'Chef de département TSS' AND u.email = 'karim.bensalah@bfm.tn')
-   OR (p.nom = 'Chef de service — Gestion des Risques et Procédures' AND u.email = 'leila.mansouri@bfm.tn')
-   OR (p.nom = 'Chef de service — Gestion des Systèmes de Sécurité' AND u.email = 'hatem.trabelsi@bfm.tn')
-   OR (p.nom = 'Gestionnaire risques sûreté/sécurité' AND u.email IN ('sonia.gharbi@bfm.tn', 'mohamed.khelifi@bfm.tn'))
-   OR (p.nom = 'Chargé procédures sûreté/sécurité' AND u.email IN ('nadia.bouazizi@bfm.tn', 'rami.jlassi@bfm.tn'))
-   OR (p.nom = 'Superviseur installation systèmes de sécurité' AND u.email = 'slim.ayari@bfm.tn')
-   OR (p.nom = 'Technicien spécialisé systèmes de sécurité' AND u.email IN ('anis.mejri@bfm.tn', 'ines.ferchichi@bfm.tn', 'yassine.zaidi@bfm.tn', 'mariem.hamdi@bfm.tn'))
-   OR (p.nom = 'Gestionnaire systèmes sécurité' AND u.email IN ('walid.sassi@bfm.tn', 'faten.riahi@bfm.tn'))
-   OR (p.nom = 'Administrateur' AND u.email = 'tarek.baccouche@bfm.tn');
 
 INSERT INTO poste_permission (
     id_poste,

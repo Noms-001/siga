@@ -44,7 +44,7 @@
                         </div>
                         <h2 class="avatar-name h5 mb-1">{{ userFullName }}</h2>
                         <p class="avatar-role text-muted mb-3">
-                            {{ userPostes || 'Poste non défini' }}
+                            {{ userPoste || 'Poste non défini' }}
                         </p>
                         <div class="avatar-status d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill">
                             <span class="status-dot active"></span>
@@ -162,7 +162,7 @@
                         <div class="col-md-6">
                             <div class="info-item">
                                 <label class="info-label text-uppercase text-muted small fw-semibold">Poste</label>
-                                <p class="info-value mb-0">{{ userPostes || 'Non défini' }}</p>
+                                <p class="info-value mb-0">{{ userPoste || 'Non défini' }}</p>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -314,7 +314,7 @@ const userFullName = computed(() => {
  * defini" : le champ lu ici s appelait `poste`, alors que l'API renvoie
  * `postes`, un tableau.
  */
-const userPostes = computed(() => authStore.posteLibelle)
+const userPoste = computed(() => authStore.user?.poste ?? null)
 
 // --- Methods ---
 const loadProfile = async () => {

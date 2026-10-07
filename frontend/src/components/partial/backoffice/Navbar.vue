@@ -149,7 +149,7 @@ const userMenuRef = ref<HTMLDivElement | null>(null)
 
 // --- Computed ---
 const userRole = computed(() => {
-    return authStore.posteLibelle ?? 'Administrateur'
+    return authStore.user?.poste ?? 'Non défini'
 })
 
 const userFullName = computed(() => {
@@ -219,12 +219,6 @@ const toggleNotifications = () => {
 const toggleUserMenu = () => {
     isUserMenuOpen.value = !isUserMenuOpen.value
     if (isNotifOpen.value) isNotifOpen.value = false
-}
-
-const handleSearch = () => {
-    if (searchQuery.value.trim()) {
-        console.log('Recherche:', searchQuery.value)
-    }
 }
 
 const handleLogout = async () => {

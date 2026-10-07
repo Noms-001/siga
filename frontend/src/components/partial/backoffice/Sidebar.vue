@@ -155,7 +155,6 @@ const autorisationsItems: MenuItem[] = [
 const configurationItems: MenuItem[] = [
     // ⚠️ Pages à créer (hors périmètre phases 1 à 5)
     { path: '/backoffice/procedures',          label: 'Procédures',           icon: 'bi bi-file-earmark-text' },
-    { path: '/backoffice/etapes-validation',   label: 'Étapes de validation', icon: 'bi bi-list-ol' },
     { path: '/backoffice/parametres',          label: 'Paramètres',           icon: 'bi bi-sliders' },
 ]
 

@@ -1,7 +1,6 @@
 package mg.bank.backend.dto.backoffice;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -22,5 +21,5 @@ public class UtilisateurResponse {
     private LocalDateTime dateDerniereConnexion;
     private DepartementSummaryResponse departement;
     private ServiceSummaryResponse service;
-    private List<PosteSummaryResponse> postes;
+    private PosteSummaryResponse poste;
 }

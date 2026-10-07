@@ -1,8 +1,6 @@
 package mg.bank.backend.service;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -68,14 +66,11 @@ public class UtilisateurService {
                 "Poste introuvable",
                 HttpStatus.NOT_FOUND));
 
-        Set<Poste> postes = new HashSet<>();
-        postes.add(poste);
-
         // 4. Construire l'utilisateur
         Utilisateur utilisateur = Utilisateur.builder()
                 .departement(departement)
                 .service(service)
-                .postes(postes)
+                .poste(poste)
                 .nom(request.getNom())
                 .prenom(request.getPrenom())
                 .email(request.getEmail())

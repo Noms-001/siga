@@ -106,6 +106,10 @@ CREATE TABLE "procedure"(
    id_procedure SERIAL,
    designation VARCHAR(255)  NOT NULL,
    description TEXT,
+   actif BOOLEAN NOT NULL,
+   date_creation TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+   date_modification TIMESTAMP,
+   date_desactivation TIMESTAMP,
    PRIMARY KEY(id_procedure)
 );
 
@@ -206,9 +210,11 @@ CREATE TABLE utilisateur(
    date_derniere_connexion TIMESTAMP,
    id_departement INTEGER,
    id_service INTEGER,
+   id_poste INTEGER NOT NULL,
    PRIMARY KEY(id_utilisateur),
    FOREIGN KEY(id_departement) REFERENCES departement(id_departement),
    FOREIGN KEY(id_service) REFERENCES service(id_service),
+   FOREIGN KEY(id_poste) REFERENCES poste(id_poste),
    FOREIGN KEY(id_service, id_departement) REFERENCES service(id_service, id_departement),
    CONSTRAINT chk_utilisateur_service_departement CHECK (
        id_service IS NULL OR id_departement IS NOT NULL
@@ -538,14 +544,6 @@ CREATE TABLE type_activite_service(
    PRIMARY KEY(id_service, id_type_activite),
    FOREIGN KEY(id_service) REFERENCES service(id_service),
    FOREIGN KEY(id_type_activite) REFERENCES type_activite(id_type_activite)
-);
-
-CREATE TABLE poste_utilisateur(
-   id_poste INTEGER,
-   id_utilisateur INTEGER,
-   PRIMARY KEY(id_poste, id_utilisateur),
-   FOREIGN KEY(id_poste) REFERENCES poste(id_poste),
-   FOREIGN KEY(id_utilisateur) REFERENCES utilisateur(id_utilisateur)
 );
 
 CREATE TYPE portee_permission AS ENUM (

@@ -30,11 +30,9 @@ public final class UtilisateurMapper {
                         .departement(DepartementMapper.toSummary(u.getService().getDepartement()))
                         .build();
 
-        List<PosteSummaryResponse> postes = u.getPostes().stream()
-                .map(UtilisateurMapper::toPosteSummary)
-                .sorted(Comparator.comparing(PosteSummaryResponse::getNom,
-                        Comparator.nullsLast(String::compareToIgnoreCase)))
-                .toList();
+        PosteSummaryResponse poste = u.getPoste() == null
+        ? null
+        : toPosteSummary(u.getPoste());
 
         return UtilisateurResponse.builder()
                 .id(u.getIdUtilisateur())
@@ -50,7 +48,7 @@ public final class UtilisateurMapper {
                 .dateDerniereConnexion(u.getDateDerniereConnexion())
                 .departement(dep)
                 .service(srv)
-                .postes(postes)
+                .poste(poste)
                 .build();
     }
 

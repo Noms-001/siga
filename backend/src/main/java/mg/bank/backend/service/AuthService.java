@@ -49,32 +49,10 @@ public class AuthService {
                     HttpStatus.UNAUTHORIZED);
         }
 
-        if (Boolean.TRUE.equals(isBackoffice)) {
-            verifyBackofficeAccess(utilisateur);
-        }
-
         utilisateur.setDateDerniereConnexion(LocalDateTime.now());
         utilisateurService.updateUtilisateur(utilisateur);
 
         return new AuthResult(authentication, utilisateur);
-    }
-
-    private void verifyBackofficeAccess(Utilisateur utilisateur) {
-
-        boolean isAdministrateur = utilisateur.getPostes() != null
-                && utilisateur.getPostes().stream()
-                        .anyMatch(poste
-                                -> "Administrateur".equalsIgnoreCase(
-                                poste.getLibelle()
-                        )
-                        );
-
-        if (!isAdministrateur) {
-            throw new ApiException(
-                    "Accès au backoffice non autorisé",
-                    HttpStatus.FORBIDDEN
-            );
-        }
     }
 
     @Transactional

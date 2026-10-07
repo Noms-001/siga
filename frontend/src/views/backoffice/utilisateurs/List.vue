@@ -65,7 +65,7 @@ const columns: TableColumn<Utilisateur>[] = [
     { key: 'email', label: 'Email' },
     { key: 'departement', label: 'Département' },
     { key: 'service', label: 'Service' },
-    { key: 'postes', label: 'Postes' },
+    { key: 'poste', label: 'Poste' },
     { key: 'actif', label: 'Statut', align: 'center' },
     { key: 'actions', label: 'Actions', align: 'text-end' },
 ]
@@ -227,9 +227,9 @@ onMounted(() => {
                 <span v-else class="text-muted-custom">—</span>
             </template>
 
-            <template #cell-postes="{ item }">
-                <span v-if="item.postes.length === 0" class="text-muted-custom">—</span>
-                <span v-else class="badge-count">{{ item.postes.length }}</span>
+            <template #cell-poste="{ item }">
+                <span v-if="!item.poste" class="text-muted-custom">—</span>
+                <span v-else>{{ item.poste.nom }}</span>
             </template>
 
             <template #cell-actif="{ item }">

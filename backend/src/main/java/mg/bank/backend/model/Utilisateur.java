@@ -1,8 +1,6 @@
 package mg.bank.backend.model;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,8 +9,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -43,9 +39,9 @@ public class Utilisateur {
     @JoinColumn(name = "id_service")
     private Service service;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "poste_utilisateur", joinColumns = @JoinColumn(name = "id_utilisateur"), inverseJoinColumns = @JoinColumn(name = "id_poste"))
-    private Set<Poste> postes = new HashSet<>();
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_poste")
+    private Poste poste;
 
     @Column(name = "nom", nullable = false)
     private String nom;
