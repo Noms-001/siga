@@ -116,6 +116,12 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 name: 'activites-suivi',
                 component: () => import('@/views/frontoffice/activites/Suivi.vue'),
             },
+
+            {
+                path: 'indicateurs',
+                name: 'indicateurs',
+                component: () => import('@/views/frontoffice/indicateurs/List.vue'),
+            },
         ],
     },
 ]

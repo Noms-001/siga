@@ -113,13 +113,6 @@
                     </router-link>
                 </li>
                 <li class="nav-item">
-                    <router-link class="nav-link" to="/indicateurs/nouveau"
-                        :class="{ active: isActive('/indicateurs/nouveau') }">
-                        <i class="bi bi-bar-chart"></i>
-                        <span>Nouvel indicateur</span>
-                    </router-link>
-                </li>
-                <li class="nav-item">
                     <router-link class="nav-link" to="/suivi-indicateurs"
                         :class="{ active: isActive('/suivi-indicateurs') }">
                         <i class="bi bi-graph-up"></i>

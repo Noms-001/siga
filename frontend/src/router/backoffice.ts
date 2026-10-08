@@ -220,6 +220,27 @@ export const backofficeRoutes: RouteRecordRaw[] = [
                 name: 'backoffice-procedures-detail',
                 component: () => import('@/views/backoffice/procedures/Show.vue'),
             },
+            /* ------------------ INDICATEURS ------------------ */
+            {
+                path: 'indicateurs',
+                name: 'backoffice-indicateurs',
+                component: () => import('@/views/backoffice/indicateurs/List.vue'),
+            },
+            {
+                path: 'indicateurs/nouveau',
+                name: 'backoffice-indicateurs-nouveau',
+                component: () => import('@/views/backoffice/indicateurs/Form.vue'),
+            },
+            {
+                path: 'indicateurs/:id/modifier',
+                name: 'backoffice-indicateurs-modifier',
+                component: () => import('@/views/backoffice/indicateurs/Form.vue'),
+            },
+            {
+                path: 'indicateurs/:id',
+                name: 'backoffice-indicateurs-detail',
+                component: () => import('@/views/backoffice/indicateurs/Show.vue'),
+            },
         ],
     },
 ]
