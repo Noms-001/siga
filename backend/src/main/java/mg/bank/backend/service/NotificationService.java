@@ -2,6 +2,8 @@ package mg.bank.backend.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +45,11 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public List<NotificationDTO> lister(Integer idUtilisateur) { return notificationRepository.lister(idUtilisateur); }
     @Transactional(readOnly = true)
+    public Page<NotificationDTO> listerPage(
+            Integer idUtilisateur, String search, String lecture, String priorite, Pageable pageable) {
+        return notificationRepository.listerPage(idUtilisateur, search, lecture, priorite, pageable);
+    }
+    @Transactional(readOnly = true)
     public long compterNonLues(Integer idUtilisateur) { return notificationRepository.countByUtilisateur_IdUtilisateurAndDateLectureIsNull(idUtilisateur); }
     @Transactional
     public boolean marquerLue(Integer idUtilisateur, Integer idNotification) {
@@ -50,4 +57,6 @@ public class NotificationService {
                 .map(n -> { if (n.getDateLecture() == null) n.setDateLecture(LocalDateTime.now()); return true; })
                 .orElse(false);
     }
+    @Transactional
+    public int marquerToutesLues(Integer idUtilisateur) { return notificationRepository.marquerToutesLues(idUtilisateur); }
 }

@@ -2,6 +2,14 @@ import type { RouteRecordRaw } from 'vue-router'
 
 export const frontofficeRoutes: RouteRecordRaw[] = [
     {
+        path: '/validation',
+        name: 'validation-directe',
+        component: () => import('@/views/frontoffice/activites/AValider.vue'),
+        meta: {
+            requiresFrontoffice: true,
+        },
+    },
+    {
         path: '/login',
         name: 'login',
         component: () => import('@/views/frontoffice/Login.vue'),

@@ -13,4 +13,6 @@ public class NotificationDTO {
     private LocalDateTime dateLecture;
     private Integer idActivite;
     private String activite;
+    private String prioriteCode;
+    private String prioriteLibelle;
 }

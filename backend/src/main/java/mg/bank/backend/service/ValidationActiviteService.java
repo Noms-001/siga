@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.model.ValidationActivite;
 import mg.bank.backend.enums.DecisionValidation;
 import mg.bank.backend.repository.ValidationActiviteRepository;
+import mg.bank.backend.repository.UtilisateurRepository;
+import mg.bank.backend.model.Utilisateur;
 import org.springframework.stereotype.Service;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -17,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class ValidationActiviteService {
 
     private final ValidationActiviteRepository validationActiviteRepository;
+    private final UtilisateurRepository utilisateurRepository;
+    private final EmailService emailService;
 
     public Optional<ValidationActivite> getDerniereValidationValidee(Integer idActivite) {
         return validationActiviteRepository
@@ -31,8 +35,24 @@ public class ValidationActiviteService {
                         idActivite);
     }
 
+    @Transactional
     public ValidationActivite soumettre(ValidationActivite validationActivite) {
-        return validationActiviteRepository.save(validationActivite);
+        boolean nouvelleEnAttente = validationActivite.getIdValidationActivite() == null
+                && (validationActivite.getDecision() == null
+                        || DecisionValidation.EN_ATTENTE_VALIDATION.equals(validationActivite.getDecision()));
+        ValidationActivite sauvegardee = validationActiviteRepository.save(validationActivite);
+        if (nouvelleEnAttente) {
+            Integer idService = sauvegardee.getActivite().getService() == null
+                    ? null
+                    : sauvegardee.getActivite().getService().getIdService();
+            if (idService != null) {
+                utilisateurRepository.findDestinatairesEtape(
+                        sauvegardee.getEtapeValidation().getIdEtapeValidation(), idService)
+                        .forEach(destinataire -> emailService.sendValidationActiviteEmail(
+                                destinataire, sauvegardee.getActivite()));
+            }
+        }
+        return sauvegardee;
     }
 
     public Optional<ValidationActivite> getDerniereEtapeNonValidee(Integer idActivite) {

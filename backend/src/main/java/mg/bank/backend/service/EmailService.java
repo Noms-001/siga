@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import mg.bank.backend.model.TokenAuth;
 import mg.bank.backend.model.Utilisateur;
+import mg.bank.backend.model.Activite;
 
 @Service
 @RequiredArgsConstructor
@@ -71,5 +72,19 @@ public class EmailService {
                 + "Cordialement,\n"
                 + "Service Administration"
         );
+    }
+
+    public void sendValidationActiviteEmail(Utilisateur destinataire, Activite activite) {
+        String validationLink = frontendUrl + "/validation";
+        sendEmail(
+                destinataire.getEmail(),
+                "Activité en attente de validation",
+                "Bonjour " + destinataire.getPrenom() + ",\n\n"
+                        + "Une activité attend votre validation : « " + activite.getDesignation() + " ».\n\n"
+                        + "Ouvrez la page de validation en cliquant sur le lien suivant :\n\n"
+                        + validationLink + "\n\n"
+                        + "Si vous n'êtes pas connecté, vous serez invité à vous connecter avant d'accéder à la page.\n\n"
+                        + "Cordialement,\n"
+                        + "Service Administration");
     }
 }

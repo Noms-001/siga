@@ -2136,4 +2136,12 @@ VALUES
     TRUE,
     TRUE,
     '2026-01-05 08:00:00'::timestamp
+),
+(
+    'NOTIFICATION_PLAN_ACTION_SEUIL_RETARD_HIERARCHIE_JOURS',
+    'Seuil de retard (jours) déclenchant l''alerte hiérarchique sur un plan d''action',
+    '7',
+    'INTEGER',
+    'Nombre de jours de retard à partir duquel le chef de service et le chef de département sont notifiés pour un plan d''action rattaché à un INCIDENT.',
+    'NOTIFICATION', TRUE, TRUE, CURRENT_TIMESTAMP
 );
