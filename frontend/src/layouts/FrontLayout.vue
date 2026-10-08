@@ -19,11 +19,12 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { Navbar, Sidebar, Footer } from '@/components/partial/frontoffice'
+import { useNotifications, actualiserNotifications } from '@/services/notification'
 
 // --- State ---
 const isSidebarOpen = ref(false)
 const isSidebarCollapsed = ref(false)
-const notificationCount = ref(7) // Simulé, à remplacer par un store
+const { unreadCount: notificationCount } = useNotifications()
 
 // --- Methods ---
 const toggleSidebar = () => {
@@ -52,6 +53,7 @@ onMounted(() => {
         isSidebarCollapsed.value = false
     }
     window.addEventListener('resize', handleResize)
+    void actualiserNotifications()
 })
 
 onUnmounted(() => {

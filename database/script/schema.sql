@@ -452,6 +452,8 @@ CREATE TABLE notification(
    date_lecture TIMESTAMP,
    id_priorite INTEGER NOT NULL,
    id_utilisateur INTEGER NOT NULL,
+   id_reference INTEGER,
+   resource VARCHAR(100),
    PRIMARY KEY(id_notification),
    FOREIGN KEY(id_priorite) REFERENCES priorite(id_priorite),
    FOREIGN KEY(id_utilisateur) REFERENCES utilisateur(id_utilisateur)

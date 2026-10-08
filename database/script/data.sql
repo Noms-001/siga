@@ -2125,4 +2125,14 @@ VALUES
     TRUE,
     TRUE,
     '2027-01-05 08:00:00'::timestamp
+),
+VALUES (
+    'NOTIFICATION_ACTIVITE_AVANT_ECHEANCE_JOURS',
+    'Nombre de jours avant échéance pour notification des sous-activités',
+    '2',
+    'INTEGER',
+    'Nombre de jours avant la date de fin prévue à partir duquel le responsable d''une sous-activité est notifié.',
+    'NOTIFICATION',
+    TRUE,
+    TRUE
 );

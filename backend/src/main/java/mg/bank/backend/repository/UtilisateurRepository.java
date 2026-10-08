@@ -16,6 +16,15 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Intege
 
     List<Utilisateur> findByActifFalse();
 
+    @Query(value = """
+            SELECT DISTINCT u.* FROM utilisateur u
+            JOIN etape_validation_decideur evd ON evd.id_poste = u.id_poste
+            WHERE evd.id_etape_validation = :idEtape
+              AND u.id_service = :idService AND u.actif = TRUE
+            ORDER BY u.id_utilisateur
+            """, nativeQuery = true)
+    List<Utilisateur> findDestinatairesEtape(@Param("idEtape") Integer idEtape, @Param("idService") Integer idService);
+
     @Query("""
             select u from Utilisateur u
             left join fetch u.departement

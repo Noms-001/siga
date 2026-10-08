@@ -116,6 +116,7 @@ public class ActiviteService {
         private final EtapeValidationService etapeValidationService;
         private final PosteRepository posteRepository;
         private final AvancementSousActiviteRepository avancementSousActiviteRepository;
+        private final NotificationService notificationService;
 
         // ------------------------------------------------------------------
         // Perimetre
@@ -235,7 +236,10 @@ public class ActiviteService {
                                 .dateDemande(LocalDateTime.now())
                                 .commentaire(commentaire)
                                 .build();
-                return validationActiviteService.soumettre(validationActivite);
+                ValidationActivite soumise = validationActiviteService.soumettre(validationActivite);
+                notificationService.notifierUtilisateur(activite, validation.getDemandeur(), "Activité retournée",
+                                "L'activité « " + activite.getDesignation() + " » vous a été retournée pour modification.");
+                return soumise;
 
         }
 
@@ -283,7 +287,10 @@ public class ActiviteService {
                                 .dateDemande(LocalDateTime.now())
                                 .commentaire(commentaire)
                                 .build();
-                return validationActiviteService.soumettre(validationActivite);
+                ValidationActivite soumise = validationActiviteService.soumettre(validationActivite);
+                notificationService.notifierEtape(activite, prochaineEtape, "Activité en attente de validation",
+                                "L'activité « " + activite.getDesignation() + " » est en attente de votre validation.");
+                return soumise;
         }
 
         private void changerStatut(
@@ -319,6 +326,8 @@ public class ActiviteService {
                                 .orElseThrow(() -> new ApiException(
                                                 "Aucune étape en cours de validation pour cette activité",
                                                 HttpStatus.BAD_REQUEST));
+                Utilisateur demandeur = validationActivite.getDemandeur();
+                EtapeValidation prochaineEtape = null;
 
                 validationActivite.setDecision(rejeter ? DecisionValidation.REJETE : DecisionValidation.VALIDE);
                 validationActivite.setDateDecision(LocalDateTime.now());
@@ -340,7 +349,7 @@ public class ActiviteService {
                                                         HttpStatus.INTERNAL_SERVER_ERROR)),
                                         utilisateur, commentaire);
                 } else {
-                        EtapeValidation prochaineEtape = etapeValidationService
+                        prochaineEtape = etapeValidationService
                                         .getEtapeSuivante(validationActivite.getEtapeValidation(),
                                                         activite.getProcedure().getIdProcedure(), poste)
                                         .orElse(null);
@@ -363,7 +372,17 @@ public class ActiviteService {
                         }
                 }
 
-                return validationActiviteService.soumettre(validationActivite);
+                ValidationActivite decision = validationActiviteService.soumettre(validationActivite);
+                notificationService.notifierUtilisateur(activite, demandeur,
+                                rejeter ? "Activité rejetée" : "Activité validée",
+                                rejeter
+                                                ? "L'activité « " + activite.getDesignation() + " » a été rejetée."
+                                                : "L'activité « " + activite.getDesignation() + " » a été validée.");
+                if (!rejeter && prochaineEtape != null) {
+                        notificationService.notifierEtape(activite, prochaineEtape, "Activité en attente de validation",
+                                        "L'activité « " + activite.getDesignation() + " » est en attente de votre validation.");
+                }
+                return decision;
         }
 
         /**

@@ -52,6 +52,11 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 component: () => import('@/views/frontoffice/Profile.vue'),
             },
             {
+                path: 'notifications',
+                name: 'notifications',
+                component: () => import('@/views/frontoffice/Notifications.vue'),
+            },
+            {
                 path: 'activites',
                 name: 'activites',
                 component: () => import('@/views/frontoffice/activites/Liste.vue'),
