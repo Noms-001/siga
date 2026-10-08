@@ -74,33 +74,6 @@
                 </li>
 
                 <!-- ========================================== -->
-                <!-- 📑 PROCÉDURES                             -->
-                <!-- ========================================== -->
-                <li class="nav-item">
-                    <span class="nav-label">Procédures</span>
-                </li>
-                <li class="nav-item">
-                    <router-link class="nav-link" to="/procedures" :class="{ active: isActive('/procedures') }">
-                        <i class="bi bi-files"></i>
-                        <span>Liste des procédures</span>
-                    </router-link>
-                </li>
-                <li class="nav-item">
-                    <router-link class="nav-link" to="/procedures/nouvelle"
-                        :class="{ active: isActive('/procedures/nouvelle') }">
-                        <i class="bi bi-file-earmark-plus"></i>
-                        <span>Nouvelle procédure</span>
-                    </router-link>
-                </li>
-                <li class="nav-item">
-                    <router-link class="nav-link" to="/suivi-procedures"
-                        :class="{ active: isActive('/suivi-procedures') }">
-                        <i class="bi bi-clock-history"></i>
-                        <span>Suivi des procédures</span>
-                    </router-link>
-                </li>
-
-                <!-- ========================================== -->
                 <!-- 🎯 PLANS D'ACTION                         -->
                 <!-- ========================================== -->
                 <li class="nav-item">
