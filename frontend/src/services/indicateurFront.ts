@@ -1,5 +1,5 @@
 import { get, type ApiResponse } from '@/services/api-client'
-import type { Indicateur } from '@/types/backoffice/indicateur'
+import type { Indicateur, ValeurIndicateur } from '@/types/backoffice/indicateur'
 
 const BASE = '/indicateurs'
 
@@ -35,4 +35,10 @@ export function listerIndicateursFront(
 
 export function getIndicateurFront(id: number): Promise<ApiResponse<Indicateur>> {
     return get<Indicateur>(`${BASE}/${id}`)
+}
+
+export function listerValeursIndicateur(
+    id: number
+): Promise<ApiResponse<ValeurIndicateur[]>> {
+    return get<ValeurIndicateur[]>(`${BASE}/${id}/valeurs`)
 }

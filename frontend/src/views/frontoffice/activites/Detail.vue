@@ -327,12 +327,14 @@ onMounted(charger)
 
                             <div class="info-item">
                                 <span class="info-label">Période prévue</span>
-                                <span class="info-value">{{ periode(detail.dateDebutPrevue, detail.dateFinPrevue) }}</span>
+                                <span class="info-value">{{ periode(detail.dateDebutPrevue, detail.dateFinPrevue)
+                                    }}</span>
                             </div>
 
                             <div class="info-item">
                                 <span class="info-label">Période réelle</span>
-                                <span class="info-value">{{ periode(detail.dateDebutReelle, detail.dateFinReelle) }}</span>
+                                <span class="info-value">{{ periode(detail.dateDebutReelle, detail.dateFinReelle)
+                                    }}</span>
                             </div>
 
                             <div class="info-item">
@@ -355,7 +357,8 @@ onMounted(charger)
 
                         <div class="avancement">
                             <div class="avancement__row">
-                                <span class="avancement__label">Moyenne des derniers avancements des sous-activités</span>
+                                <span class="avancement__label">Moyenne des derniers avancements des
+                                    sous-activités</span>
                                 <span class="avancement__valeur">{{ avancementAffiche }}%</span>
                             </div>
 
@@ -416,88 +419,90 @@ onMounted(charger)
             </div>
 
             <!-- ============ SOUS-ACTIVITES ============ -->
-                <BaseCard class="mb-4">
-                    <template #title>
-                        <div class="section-head">
-                            <i class="bi bi-list-check"></i>
-                            <h3 class="card-title h6 mb-0">
-                                Sous-activités ({{ detail.sousActivites.length }})
-                            </h3>
-                        </div>
-                    </template>
-
-                    <div v-if="detail.sousActivites.length" class="table-wrapper">
-                        <table class="table-sous-activites">
-                            <thead>
-                                <tr>
-                                    <th class="col-code">Code</th>
-                                    <th class="col-designation">Désignation</th>
-                                    <th class="col-periode">Période prévue</th>
-                                    <th class="col-responsables">Responsables</th>
-                                    <th class="col-livrables">Livrables</th>
-                                    <th class="col-avancement">Avancement</th>
-                                    <th class="col-actions">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="sa in detail.sousActivites" :key="sa.id">
-                                    <td class="col-code">
-                                        <span class="cell-code">{{ sa.code }}</span>
-                                    </td>
-
-                                    <td class="col-designation">
-                                        <span class="cell-designation">{{ sa.designation }}</span>
-                                    </td>
-
-                                    <td class="col-periode">
-                                        <span class="cell-periode">{{ periode(sa.dateDebutPrevue, sa.dateFinPrevue) }}</span>
-                                    </td>
-
-                                    <td class="col-responsables">
-                                        <div v-if="responsablesActifs(sa).length" class="cell-responsables">
-                                            <span v-for="resp in responsablesActifs(sa)" :key="resp.id"
-                                                class="badge-soft badge-soft--info"
-                                                :title="resp.role?.libelle ?? undefined">
-                                                <i class="bi bi-person"></i>
-                                                {{ nomComplet(resp.utilisateur) }}
-                                            </span>
-                                        </div>
-                                        <span v-else class="text-muted">—</span>
-                                    </td>
-
-                                    <td class="col-livrables">
-                                        <span v-if="sa.livrables.length">{{ sa.livrables.length }}</span>
-                                        <span v-else class="text-muted">—</span>
-                                    </td>
-
-                                    <td class="col-avancement">
-                                        <template v-if="sa.avancementCourant">
-                                            <span class="cell-avancement__valeur">
-                                                {{ pct(sa.avancementCourant.valeurPourcentage) }}%
-                                            </span>
-                                            <div class="cell-avancement__bar" role="progressbar"
-                                                :aria-valuenow="pct(sa.avancementCourant.valeurPourcentage)"
-                                                aria-valuemin="0" aria-valuemax="100">
-                                                <div class="avancement__fill"
-                                                    :style="{ width: pct(sa.avancementCourant.valeurPourcentage) + '%' }"></div>
-                                            </div>
-                                        </template>
-                                        <span v-else class="text-muted">Jamais évalué</span>
-                                    </td>
-
-                                    <td class="col-actions">
-                                        <button type="button" class="btn-icone" title="Voir le détail de la sous-activité"
-                                            @click="voirSousActivite(sa.id)">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+            <BaseCard class="mb-4">
+                <template #title>
+                    <div class="section-head">
+                        <i class="bi bi-list-check"></i>
+                        <h3 class="card-title h6 mb-0">
+                            Sous-activités ({{ detail.sousActivites.length }})
+                        </h3>
                     </div>
+                </template>
 
-                    <p v-else class="vide">Aucune sous-activité pour cette activité.</p>
-                </BaseCard>
+                <div v-if="detail.sousActivites.length" class="table-wrapper">
+                    <table class="table-sous-activites">
+                        <thead>
+                            <tr>
+                                <th class="col-code">Code</th>
+                                <th class="col-designation">Désignation</th>
+                                <th class="col-periode">Période prévue</th>
+                                <th class="col-responsables">Responsables</th>
+                                <th class="col-livrables">Livrables</th>
+                                <th class="col-avancement">Avancement</th>
+                                <th class="col-actions">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="sa in detail.sousActivites" :key="sa.id">
+                                <td class="col-code">
+                                    <span class="cell-code">{{ sa.code }}</span>
+                                </td>
+
+                                <td class="col-designation">
+                                    <span class="cell-designation">{{ sa.designation }}</span>
+                                </td>
+
+                                <td class="col-periode">
+                                    <span class="cell-periode">{{ periode(sa.dateDebutPrevue, sa.dateFinPrevue)
+                                        }}</span>
+                                </td>
+
+                                <td class="col-responsables">
+                                    <div v-if="responsablesActifs(sa).length" class="cell-responsables">
+                                        <span v-for="resp in responsablesActifs(sa)" :key="resp.id"
+                                            class="badge-soft badge-soft--info"
+                                            :title="resp.role?.libelle ?? undefined">
+                                            <i class="bi bi-person"></i>
+                                            {{ nomComplet(resp.utilisateur) }}
+                                        </span>
+                                    </div>
+                                    <span v-else class="text-muted">—</span>
+                                </td>
+
+                                <td class="col-livrables">
+                                    <span v-if="sa.livrables.length">{{ sa.livrables.length }}</span>
+                                    <span v-else class="text-muted">—</span>
+                                </td>
+
+                                <td class="col-avancement">
+                                    <template v-if="sa.avancementCourant">
+                                        <span class="cell-avancement__valeur">
+                                            {{ pct(sa.avancementCourant.valeurPourcentage) }}%
+                                        </span>
+                                        <div class="cell-avancement__bar" role="progressbar"
+                                            :aria-valuenow="pct(sa.avancementCourant.valeurPourcentage)"
+                                            aria-valuemin="0" aria-valuemax="100">
+                                            <div class="avancement__fill"
+                                                :style="{ width: pct(sa.avancementCourant.valeurPourcentage) + '%' }">
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <span v-else class="text-muted">Jamais évalué</span>
+                                </td>
+
+                                <td class="col-actions">
+                                    <button type="button" class="btn-icone" title="Voir le détail de la sous-activité"
+                                        @click="voirSousActivite(sa.id)">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p v-else class="vide">Aucune sous-activité pour cette activité.</p>
+            </BaseCard>
 
             <!-- ============ INDICATEURS ============ -->
             <BaseCard class="mb-4">
@@ -543,15 +548,13 @@ onMounted(charger)
                                 </span>
                             </template>
                             <span v-else class="indicateur__periode">Aucune mesure</span>
-                        </div>
 
-                        <div v-if="ind.valeurs.length" class="indicateur__mesures">
-                            <span class="indicateur__titre">Mesures</span>
-                            <div v-for="v in ind.valeurs" :key="v.id" class="mesure">
-                                <span class="mesure__valeur">{{ v.valeur }}</span>
-                                <span class="mesure__periode">{{ periode(v.periodeDebut, v.periodeFin) }}</span>
-                                <span class="mesure__saisie">{{ formaterDateHeure(v.dateSaisie) }}</span>
-                            </div>
+                            <!-- Lien vers le détail de l'indicateur, où se trouve l'historique complet -->
+                            <RouterLink :to="{ name: 'indicateur-detail', params: { id: ind.id } }"
+                                class="indicateur__lien">
+                                Voir l'historique complet
+                                <i class="bi bi-arrow-right"></i>
+                            </RouterLink>
                         </div>
                     </div>
                 </div>
@@ -1079,32 +1082,20 @@ onMounted(charger)
     margin-left: 0.5rem;
 }
 
-.indicateur__mesures {
-    margin-top: 0.7rem;
-}
-
-.mesure {
-    display: flex;
-    align-items: baseline;
-    gap: 0.75rem;
-    padding: 0.3rem 0;
-    border-top: 1px solid #f2f5f7;
-    font-size: 0.78rem;
-}
-
-.mesure__valeur {
+.indicateur__lien {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.4rem;
+    font-size: 0.76rem;
+    color: #14657f;
+    text-decoration: none;
     font-weight: 600;
-    color: #33475c;
-    min-width: 4.5rem;
 }
 
-.mesure__periode {
-    color: #5a6b7f;
-}
-
-.mesure__saisie {
-    color: #8a9aac;
-    margin-left: auto;
+.indicateur__lien:hover {
+    color: #1e88a8;
+    text-decoration: underline;
 }
 
 /* --- Resultats --- */

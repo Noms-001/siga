@@ -38,3 +38,15 @@ export interface IndicateurRequest {
 export interface IndicateurFiltres {
     types: string[]
 }
+
+export interface ValeurIndicateur {
+    id: number
+    valeur: number
+    periodeDebut: string
+    periodeFin: string
+    commentaire?: string | null
+    dateSaisie: string
+    idUtilisateur: number
+    nomUtilisateur: string
+    prenomUtilisateur: string
+}

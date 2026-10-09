@@ -122,6 +122,11 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 name: 'indicateurs',
                 component: () => import('@/views/frontoffice/indicateurs/List.vue'),
             },
+            {
+                path: 'indicateurs/:id(\\d+)',
+                name: 'indicateur-detail',
+                component: () => import('@/views/frontoffice/indicateurs/Show.vue')
+            }
         ],
     },
 ]
