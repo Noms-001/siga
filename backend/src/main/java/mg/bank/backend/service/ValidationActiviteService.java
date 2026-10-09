@@ -1,18 +1,19 @@
 package mg.bank.backend.service;
 
-import lombok.RequiredArgsConstructor;
-import mg.bank.backend.model.ValidationActivite;
-import mg.bank.backend.enums.DecisionValidation;
-import mg.bank.backend.repository.ValidationActiviteRepository;
-import mg.bank.backend.repository.UtilisateurRepository;
-import mg.bank.backend.model.Utilisateur;
-import org.springframework.stereotype.Service;
-import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import lombok.RequiredArgsConstructor;
+import mg.bank.backend.enums.DecisionValidation;
+import mg.bank.backend.model.ValidationActivite;
+import mg.bank.backend.repository.UtilisateurRepository;
+import mg.bank.backend.repository.ValidationActiviteRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -45,9 +46,12 @@ public class ValidationActiviteService {
             Integer idService = sauvegardee.getActivite().getService() == null
                     ? null
                     : sauvegardee.getActivite().getService().getIdService();
+            Integer idDepartement = sauvegardee.getActivite().getService() == null
+                    ? null
+                    : sauvegardee.getActivite().getService().getDepartement().getIdDepartement();
             if (idService != null) {
                 utilisateurRepository.findDestinatairesEtape(
-                        sauvegardee.getEtapeValidation().getIdEtapeValidation(), idService)
+                        sauvegardee.getEtapeValidation().getIdEtapeValidation(), idService, idDepartement)
                         .forEach(destinataire -> emailService.sendValidationActiviteEmail(
                                 destinataire, sauvegardee.getActivite()));
             }
