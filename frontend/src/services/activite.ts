@@ -8,6 +8,7 @@
  * Aucune pagination n'est faite ici ni dans les composants : la pagination
  * est appliquee par le backend apres les filtres.
  */
+import { getCurrentYear } from '@/utils/date'
 import { get, getBlob, post, postForm, put } from './api-client'
 import type { ApiResponse } from './api-client'
 import {
@@ -36,7 +37,7 @@ import {
 } from '@/types/activite'
 
 /** Annee proposee par defaut a l'ouverture de la page. */
-export const ANNEE_DEFAUT = 2027
+export const ANNEE_DEFAUT = getCurrentYear()
 
 /**
  * Construit la query string des filtres en ignorant les valeurs vides.

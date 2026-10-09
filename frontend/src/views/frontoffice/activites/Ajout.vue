@@ -61,6 +61,7 @@ import type {
     ResultatIntermediaireEcriture,
     SousActiviteEcriture,
 } from '@/types/activite'
+import { getCurrentYear } from '@/utils/date'
 
 /** Ligne de resultat intermediaire telle qu'elle vit dans le formulaire. */
 interface LigneResultat {
@@ -430,7 +431,7 @@ const erreursObjectif = reactive({
 function ouvrirModalObjectif(): void {
     objectif.code = ''
     objectif.designation = ''
-    objectif.annee = 2027
+    objectif.annee = getCurrentYear()
     erreursObjectif.code = ''
     erreursObjectif.designation = ''
     erreursObjectif.annee = ''

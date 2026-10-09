@@ -57,3 +57,7 @@ export const formatDateSeule = (
         year: 'numeric'
     }).format(parsedDate)
 }
+
+export function getCurrentYear(): number {
+    return new Date().getFullYear()
+}

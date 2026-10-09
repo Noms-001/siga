@@ -1250,96 +1250,312 @@ SELECT
 FROM livrable_sous_activite l;
 
 -- =============================================================================
--- 12. INDICATEURS (au moins un par activité)
--- =============================================================================
--- Chaque activité reçoit au moins un indicateur. Certaines activités (1 sur 3)
--- en reçoivent un second pour plus de réalisme.
-
--- 12.1 Indicateurs principaux (un par activité)
-INSERT INTO indicateur (code, code_hopex, indicateur_hopex, actif, unite_mesure, frequence_verification, frequence_aggregation, definition, methode_determination, objectif, valeur_cible, seuil_min, seuil_max, designation, type_indicateur)
-SELECT
-    'IND-' || LPAD(a.id_activite::text, 4, '0'),
-    NULL, NULL, TRUE,
-    CASE (a.id_activite % 4)
-        WHEN 0 THEN '%'
-        WHEN 1 THEN 'nombre'
-        WHEN 2 THEN 'taux'
-        ELSE 'jours'
-    END,
-    CASE (a.id_activite % 3)
-        WHEN 0 THEN 'Mensuelle'
-        WHEN 1 THEN 'Trimestrielle'
-        ELSE 'Semestrielle'
-    END,
-    CASE (a.id_activite % 2)
-        WHEN 0 THEN 'Trimestrielle'
-        ELSE 'Annuelle'
-    END,
-    'Indicateur de suivi de l''activité : ' || a.designation,
-    'Calcul basé sur les données de suivi de l''activité ' || a.code,
-    'Atteindre la cible définie pour l''activité ' || a.code,
-    CASE (a.id_activite % 4)
-        WHEN 0 THEN 90.00
-        WHEN 1 THEN 10.00
-        WHEN 2 THEN 95.00
-        ELSE 30.00
-    END,
-    CASE (a.id_activite % 4)
-        WHEN 0 THEN 70.00
-        WHEN 1 THEN 0.00
-        WHEN 2 THEN 80.00
-        ELSE 0.00
-    END,
-    CASE (a.id_activite % 4)
-        WHEN 0 THEN 100.00
-        WHEN 1 THEN 50.00
-        WHEN 2 THEN 100.00
-        ELSE 90.00
-    END,
-    'Indicateur principal — ' || a.designation,
-    CASE (a.id_activite % 3)
-        WHEN 0 THEN 'Quantitatif'
-        WHEN 1 THEN 'Qualitatif'
-        ELSE 'Mixte'
-    END
-FROM activite a;
-
--- 12.2 Indicateurs secondaires (une activité sur trois)
-INSERT INTO indicateur (code, code_hopex, indicateur_hopex, actif, unite_mesure, frequence_verification, frequence_aggregation, definition, methode_determination, objectif, valeur_cible, seuil_min, seuil_max, designation, type_indicateur)
-SELECT
-    'IND-' || LPAD(a.id_activite::text, 4, '0') || '-B',
-    NULL, NULL, TRUE,
-    CASE (a.id_activite % 3)
-        WHEN 0 THEN 'nombre'
-        WHEN 1 THEN '%'
-        ELSE 'jours'
-    END,
-    'Mensuelle', 'Trimestrielle',
-    'Indicateur secondaire de suivi de l''activité : ' || a.designation,
-    'Calcul complémentaire basé sur les données de l''activité ' || a.code,
-    'Compléter le suivi de l''activité ' || a.code,
-    20.00, 0.00, 100.00,
-    'Indicateur secondaire — ' || a.designation,
-    'Quantitatif'
-FROM activite a
-WHERE (a.id_activite % 3) = 0;
-
--- =============================================================================
--- 13. ACTIVITE_INDICATEUR (liaison activité ↔ indicateur)
+-- 12. INDICATEURS
 -- =============================================================================
 
--- 13.1 Liaison avec les indicateurs principaux
+INSERT INTO indicateur (
+    code,
+    code_hopex,
+    indicateur_hopex,
+    actif,
+    unite_mesure,
+    frequence_verification,
+    frequence_aggregation,
+    definition,
+    methode_determination,
+    objectif,
+    valeur_cible,
+    seuil_min,
+    seuil_max,
+    designation,
+    type_indicateur
+)
+VALUES
+
+-- ============================================================================
+-- KPI
+-- ============================================================================
+
+(
+    'KPI-001',
+    NULL,
+    NULL,
+    TRUE,
+    '%',
+    'Mensuelle',
+    'Trimestrielle',
+    'Pourcentage des activités terminées par rapport aux activités prévues.',
+    'Nombre d''activités terminées / nombre d''activités prévues × 100.',
+    'Améliorer le taux de réalisation des activités.',
+    90.00,
+    70.00,
+    100.00,
+    'Taux de réalisation des activités',
+    'KPI'
+),
+
+(
+    'KPI-002',
+    NULL,
+    NULL,
+    TRUE,
+    '%',
+    'Mensuelle',
+    'Trimestrielle',
+    'Pourcentage des activités terminées dans les délais prévus.',
+    'Nombre d''activités terminées dans les délais / nombre d''activités terminées × 100.',
+    'Améliorer le respect des délais.',
+    90.00,
+    70.00,
+    100.00,
+    'Taux d''activités terminées dans les délais',
+    'KPI'
+),
+
+(
+    'KPI-003',
+    NULL,
+    NULL,
+    TRUE,
+    '%',
+    'Mensuelle',
+    'Trimestrielle',
+    'Pourcentage des sous-activités terminées par rapport aux sous-activités prévues.',
+    'Nombre de sous-activités terminées / nombre total de sous-activités × 100.',
+    'Assurer une progression régulière des activités.',
+    90.00,
+    70.00,
+    100.00,
+    'Taux de réalisation des sous-activités',
+    'KPI'
+),
+
+(
+    'KPI-004',
+    NULL,
+    NULL,
+    TRUE,
+    '%',
+    'Mensuelle',
+    'Trimestrielle',
+    'Pourcentage des activités ayant obtenu une validation conformément à la procédure.',
+    'Nombre d''activités validées / nombre d''activités soumises à validation × 100.',
+    'Améliorer le processus de validation des activités.',
+    95.00,
+    80.00,
+    100.00,
+    'Taux d''activités validées',
+    'KPI'
+),
+
+(
+    'KPI-005',
+    NULL,
+    NULL,
+    TRUE,
+    '%',
+    'Mensuelle',
+    'Trimestrielle',
+    'Pourcentage des activités dont l''avancement est régulièrement renseigné.',
+    'Nombre d''activités disposant d''un avancement renseigné / nombre d''activités en cours × 100.',
+    'Garantir un suivi régulier des activités.',
+    95.00,
+    80.00,
+    100.00,
+    'Taux de suivi des activités',
+    'KPI'
+),
+
+(
+    'KPI-006',
+    NULL,
+    NULL,
+    TRUE,
+    'jours',
+    'Mensuelle',
+    'Trimestrielle',
+    'Durée moyenne nécessaire pour terminer les activités.',
+    'Somme des durées de réalisation / nombre d''activités terminées.',
+    'Maîtriser la durée de réalisation des activités.',
+    30.00,
+    0.00,
+    90.00,
+    'Délai moyen de réalisation',
+    'KPI'
+),
+
+-- ============================================================================
+-- KRI
+-- ============================================================================
+
+(
+    'KRI-001',
+    NULL,
+    NULL,
+    TRUE,
+    'nombre',
+    'Mensuelle',
+    'Mensuelle',
+    'Nombre d''activités présentant un retard par rapport à leur échéance.',
+    'Comptage des activités dont l''échéance est dépassée et qui ne sont pas terminées.',
+    'Réduire le nombre d''activités en retard.',
+    0.00,
+    0.00,
+    10.00,
+    'Nombre d''activités en retard',
+    'KRI'
+),
+
+(
+    'KRI-002',
+    NULL,
+    NULL,
+    TRUE,
+    'nombre',
+    'Mensuelle',
+    'Mensuelle',
+    'Nombre d''activités ayant une priorité élevée ou critique.',
+    'Comptage des activités dont la priorité est HAUTE ou CRITIQUE.',
+    'Maintenir sous contrôle les activités à forte criticité.',
+    5.00,
+    0.00,
+    20.00,
+    'Nombre d''activités à priorité élevée ou critique',
+    'KRI'
+),
+
+(
+    'KRI-003',
+    NULL,
+    NULL,
+    TRUE,
+    '%',
+    'Mensuelle',
+    'Trimestrielle',
+    'Pourcentage d''activités présentant un risque ou un incident nécessitant une action.',
+    'Nombre d''activités avec risque ou incident nécessitant une action / nombre total d''activités × 100.',
+    'Limiter l''exposition aux risques opérationnels.',
+    5.00,
+    0.00,
+    20.00,
+    'Taux d''activités avec risque ou incident',
+    'KRI'
+),
+
+(
+    'KRI-004',
+    NULL,
+    NULL,
+    TRUE,
+    'nombre',
+    'Mensuelle',
+    'Mensuelle',
+    'Nombre d''activités suspendues ou annulées.',
+    'Comptage des activités ayant le statut Suspendue ou Annulée.',
+    'Réduire les interruptions et annulations d''activités.',
+    0.00,
+    0.00,
+    10.00,
+    'Nombre d''activités suspendues ou annulées',
+    'KRI'
+);
+
+
+-- =============================================================================
+-- 13. ACTIVITE_INDICATEUR
+-- =============================================================================
+
+-- KPI commun à toutes les activités
 INSERT INTO activite_indicateur (id_activite, id_indicateur)
-SELECT a.id_activite, i.id_indicateur
+SELECT
+    a.id_activite,
+    i.id_indicateur
 FROM activite a
-JOIN indicateur i ON i.code = 'IND-' || LPAD(a.id_activite::text, 4, '0');
+CROSS JOIN indicateur i
+WHERE i.code IN (
+    'KPI-001',
+    'KPI-002'
+);
 
--- 13.2 Liaison avec les indicateurs secondaires
+
+-- KPI concernant les activités possédant des sous-activités
 INSERT INTO activite_indicateur (id_activite, id_indicateur)
-SELECT a.id_activite, i.id_indicateur
+SELECT DISTINCT
+    sa.id_activite,
+    i.id_indicateur
+FROM sous_activite sa
+CROSS JOIN indicateur i
+WHERE i.code = 'KPI-003';
+
+
+-- KPI de validation
+INSERT INTO activite_indicateur (id_activite, id_indicateur)
+SELECT
+    a.id_activite,
+    i.id_indicateur
 FROM activite a
-JOIN indicateur i ON i.code = 'IND-' || LPAD(a.id_activite::text, 4, '0') || '-B'
-WHERE (a.id_activite % 3) = 0;
+CROSS JOIN indicateur i
+WHERE i.code = 'KPI-004';
+
+
+-- KPI de suivi
+INSERT INTO activite_indicateur (id_activite, id_indicateur)
+SELECT
+    a.id_activite,
+    i.id_indicateur
+FROM activite a
+CROSS JOIN indicateur i
+WHERE i.code = 'KPI-005';
+
+
+-- KPI délai moyen
+INSERT INTO activite_indicateur (id_activite, id_indicateur)
+SELECT
+    a.id_activite,
+    i.id_indicateur
+FROM activite a
+CROSS JOIN indicateur i
+WHERE i.code = 'KPI-006';
+
+
+-- KRI retard
+INSERT INTO activite_indicateur (id_activite, id_indicateur)
+SELECT
+    a.id_activite,
+    i.id_indicateur
+FROM activite a
+CROSS JOIN indicateur i
+WHERE i.code = 'KRI-001';
+
+
+-- KRI priorité
+INSERT INTO activite_indicateur (id_activite, id_indicateur)
+SELECT
+    a.id_activite,
+    i.id_indicateur
+FROM activite a
+CROSS JOIN indicateur i
+WHERE i.code = 'KRI-002';
+
+
+-- KRI risque / incident
+INSERT INTO activite_indicateur (id_activite, id_indicateur)
+SELECT
+    a.id_activite,
+    i.id_indicateur
+FROM activite a
+CROSS JOIN indicateur i
+WHERE i.code = 'KRI-003';
+
+
+-- KRI suspension / annulation
+INSERT INTO activite_indicateur (id_activite, id_indicateur)
+SELECT
+    a.id_activite,
+    i.id_indicateur
+FROM activite a
+CROSS JOIN indicateur i
+WHERE i.code = 'KRI-004';
 
 -- =============================================================================
 -- 14. VALEURS D'INDICATEURS (pour un sous-ensemble d'indicateurs)

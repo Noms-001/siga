@@ -2,15 +2,15 @@ package mg.bank.backend.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -19,7 +19,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
@@ -38,6 +37,7 @@ import mg.bank.backend.dto.ResponsableSuiviDTO;
 import mg.bank.backend.dto.SousActiviteSuiviDTO;
 import mg.bank.backend.enums.DecisionValidation;
 import mg.bank.backend.enums.StatutActiviteEnum;
+import mg.bank.backend.enums.StatutsActivite;
 import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.model.Activite;
 import mg.bank.backend.model.EtapeValidation;
@@ -52,11 +52,12 @@ import mg.bank.backend.repository.AvancementSousActiviteRepository;
 import mg.bank.backend.repository.HistoriqueActiviteRepository;
 import mg.bank.backend.repository.ObjectifSpecifiqueRepository;
 import mg.bank.backend.repository.PrioriteRepository;
-import mg.bank.backend.repository.UtilisateurRepository;
 import mg.bank.backend.repository.ServiceRepository;
 import mg.bank.backend.repository.SiteRepository;
 import mg.bank.backend.repository.StatutRepository;
 import mg.bank.backend.repository.TypeActiviteRepository;
+import mg.bank.backend.repository.UtilisateurRepository;
+import mg.bank.backend.repository.ValidationActiviteRepository;
 import mg.bank.backend.repository.projection.ActiviteListRow;
 import mg.bank.backend.repository.projection.ActiviteStatistiquesRow;
 import mg.bank.backend.repository.projection.AvancementSousActiviteRow;
@@ -64,10 +65,6 @@ import mg.bank.backend.repository.projection.ObjectifAutocompleteRow;
 import mg.bank.backend.repository.projection.OptionRow;
 import mg.bank.backend.repository.projection.ResponsableSuiviRow;
 import mg.bank.backend.repository.projection.SousActiviteSuiviRow;
-import mg.bank.backend.enums.StatutsActivite;
-import mg.bank.backend.repository.PosteRepository;
-import mg.bank.backend.repository.ValidationActiviteRepository;
-import java.util.function.Function;
 
 /**
  * Service de consultation des activites, et source de verite du perimetre.
@@ -114,7 +111,6 @@ public class ActiviteService {
         private final ValidationActiviteService validationActiviteService;
         private final ValidationActiviteRepository validationActiviteRepository;
         private final EtapeValidationService etapeValidationService;
-        private final PosteRepository posteRepository;
         private final AvancementSousActiviteRepository avancementSousActiviteRepository;
         private final NotificationService notificationService;
 

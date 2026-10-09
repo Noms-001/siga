@@ -9,8 +9,7 @@
                     <span class="back-sidebar__label">Principal</span>
                 </li>
                 <li v-for="item in principalItems" :key="item.path" class="back-sidebar__item">
-                    <router-link class="back-sidebar__link" :to="item.path"
-                        :class="{ active: isActive(item.path) }"
+                    <router-link class="back-sidebar__link" :to="item.path" :class="{ active: isActive(item.path) }"
                         :title="isCollapsed ? item.label : ''">
                         <i :class="item.icon"></i>
                         <span class="back-sidebar__link-text">{{ item.label }}</span>
@@ -22,8 +21,7 @@
                     <span class="back-sidebar__label">Gestion</span>
                 </li>
                 <li v-for="item in gestionItems" :key="item.path" class="back-sidebar__item">
-                    <router-link class="back-sidebar__link" :to="item.path"
-                        :class="{ active: isActive(item.path) }"
+                    <router-link class="back-sidebar__link" :to="item.path" :class="{ active: isActive(item.path) }"
                         :title="isCollapsed ? item.label : ''">
                         <i :class="item.icon"></i>
                         <span class="back-sidebar__link-text">{{ item.label }}</span>
@@ -35,8 +33,7 @@
                     <span class="back-sidebar__label">Référentiels</span>
                 </li>
                 <li v-for="item in referentielsItems" :key="item.path" class="back-sidebar__item">
-                    <router-link class="back-sidebar__link" :to="item.path"
-                        :class="{ active: isActive(item.path) }"
+                    <router-link class="back-sidebar__link" :to="item.path" :class="{ active: isActive(item.path) }"
                         :title="isCollapsed ? item.label : ''">
                         <i :class="item.icon"></i>
                         <span class="back-sidebar__link-text">{{ item.label }}</span>
@@ -48,8 +45,7 @@
                     <span class="back-sidebar__label">Autorisations</span>
                 </li>
                 <li v-for="item in autorisationsItems" :key="item.path" class="back-sidebar__item">
-                    <router-link class="back-sidebar__link" :to="item.path"
-                        :class="{ active: isActive(item.path) }"
+                    <router-link class="back-sidebar__link" :to="item.path" :class="{ active: isActive(item.path) }"
                         :title="isCollapsed ? item.label : ''">
                         <i :class="item.icon"></i>
                         <span class="back-sidebar__link-text">{{ item.label }}</span>
@@ -61,8 +57,7 @@
                     <span class="back-sidebar__label">Configuration</span>
                 </li>
                 <li v-for="item in configurationItems" :key="item.path" class="back-sidebar__item">
-                    <router-link class="back-sidebar__link" :to="item.path"
-                        :class="{ active: isActive(item.path) }"
+                    <router-link class="back-sidebar__link" :to="item.path" :class="{ active: isActive(item.path) }"
                         :title="isCollapsed ? item.label : ''">
                         <i :class="item.icon"></i>
                         <span class="back-sidebar__link-text">{{ item.label }}</span>
@@ -74,8 +69,7 @@
                     <span class="back-sidebar__label">Supervision</span>
                 </li>
                 <li v-for="item in supervisionItems" :key="item.path" class="back-sidebar__item">
-                    <router-link class="back-sidebar__link" :to="item.path"
-                        :class="{ active: isActive(item.path) }"
+                    <router-link class="back-sidebar__link" :to="item.path" :class="{ active: isActive(item.path) }"
                         :title="isCollapsed ? item.label : ''">
                         <i :class="item.icon"></i>
                         <span class="back-sidebar__link-text">{{ item.label }}</span>
@@ -132,14 +126,15 @@ const gestionItems: MenuItem[] = [
    RÉFÉRENTIELS
    ============================================================ */
 const referentielsItems: MenuItem[] = [
-    { path: '/backoffice/departements',   label: 'Départements',    icon: 'bi bi-building' },
-    { path: '/backoffice/services',       label: 'Services',        icon: 'bi bi-diagram-3' },
-    { path: '/backoffice/postes',         label: 'Postes',          icon: 'bi bi-briefcase' },
-    { path: '/backoffice/roles',          label: 'Rôles',           icon: 'bi bi-person-badge' },
+    { path: '/backoffice/departements', label: 'Départements', icon: 'bi bi-building' },
+    { path: '/backoffice/services', label: 'Services', icon: 'bi bi-diagram-3' },
+    { path: '/backoffice/postes', label: 'Postes', icon: 'bi bi-briefcase' },
+    { path: '/backoffice/roles', label: 'Rôles', icon: 'bi bi-person-badge' },
     { path: '/backoffice/types-activite', label: "Types d'activité", icon: 'bi bi-tags' },
-    { path: '/backoffice/sites',          label: 'Sites',           icon: 'bi bi-geo-alt' },
-    { path: '/backoffice/priorites',      label: 'Priorités',       icon: 'bi bi-flag' },
-    { path: '/backoffice/statuts',        label: 'Statuts',         icon: 'bi bi-circle-half' },
+    { path: '/backoffice/sites', label: 'Sites', icon: 'bi bi-geo-alt' },
+    { path: '/backoffice/indicateurs', label: 'Indicateurs', icon: 'bi bi-graph-up-arrow' },
+    { path: '/backoffice/priorites', label: 'Priorités', icon: 'bi bi-flag' },
+    { path: '/backoffice/statuts', label: 'Statuts', icon: 'bi bi-circle-half' },
 ]
 
 /* ============================================================
@@ -154,8 +149,8 @@ const autorisationsItems: MenuItem[] = [
    ============================================================ */
 const configurationItems: MenuItem[] = [
     // ⚠️ Pages à créer (hors périmètre phases 1 à 5)
-    { path: '/backoffice/procedures',          label: 'Procédures',           icon: 'bi bi-file-earmark-text' },
-    { path: '/backoffice/parametres',          label: 'Paramètres',           icon: 'bi bi-sliders' },
+    { path: '/backoffice/procedures', label: 'Procédures de validation', icon: 'bi bi-file-earmark-text' },
+    { path: '/backoffice/parametres', label: 'Paramètres', icon: 'bi bi-sliders' },
 ]
 
 /* ============================================================
@@ -163,9 +158,9 @@ const configurationItems: MenuItem[] = [
    ============================================================ */
 const supervisionItems: MenuItem[] = [
     // ⚠️ Pages à créer (hors périmètre phases 1 à 5)
-    { path: '/backoffice/activites',    label: 'Activités',      icon: 'bi bi-clipboard-check' },
+    { path: '/backoffice/activites', label: 'Activités', icon: 'bi bi-clipboard-check' },
     { path: '/backoffice/plans-action', label: "Plans d'action", icon: 'bi bi-list-check' },
-    { path: '/backoffice/indicateurs',  label: 'Indicateurs',    icon: 'bi bi-bar-chart-line' },
+    { path: '/backoffice/indicateurs', label: 'Indicateurs', icon: 'bi bi-bar-chart-line' },
 ]
 
 // --- Computed ---
@@ -359,8 +354,13 @@ const closeSidebar = () => {
 }
 
 @keyframes dtsFadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 /* --- Responsive --- */
