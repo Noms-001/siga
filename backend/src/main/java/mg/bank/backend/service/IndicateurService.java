@@ -14,12 +14,14 @@ import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.mapper.IndicateurMapper;
 import mg.bank.backend.model.Indicateur;
 import mg.bank.backend.repository.IndicateurRepository;
+import mg.bank.backend.repository.ValeurIndicateurRepository;
 
 @Service
 @RequiredArgsConstructor
 public class IndicateurService {
 
     private final IndicateurRepository indicateurRepository;
+    private final ValeurIndicateurRepository valeurIndicateurRepository; // à ajouter en haut
 
     /* -------------------- lecture -------------------- */
 
@@ -206,5 +208,30 @@ public class IndicateurService {
     private String motifRecherche(String search) {
         String v = videSiBlanc(search);
         return v == null ? null : "%" + v + "%";
+    }
+
+
+    /* -------------------- historique des valeurs -------------------- */
+
+    /**
+     * Historique complet des valeurs d'un indicateur, du plus récent au plus
+     * ancien.
+     *
+     * La vérification d'existence de l'indicateur distingue "aucun relevé"
+     * (liste vide) de "indicateur inconnu" (404). Sans elle, un id erroné
+     * renverrait une liste vide, que le front interpréterait comme un
+     * indicateur sans valeur.
+     */
+    @Transactional(readOnly = true)
+    public List<mg.bank.backend.dto.backoffice.ValeurIndicateurResponse> listerValeurs(
+            Integer idIndicateur) {
+
+        if (!indicateurRepository.existsById(idIndicateur)) {
+            throw new ApiException("Indicateur introuvable", HttpStatus.NOT_FOUND);
+        }
+
+        return valeurIndicateurRepository.findHistoriqueByIndicateur(idIndicateur).stream()
+                .map(mg.bank.backend.mapper.ValeurIndicateurMapper::toResponse)
+                .toList();
     }
 }
