@@ -139,7 +139,24 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 path: 'indicateurs/:id(\\d+)',
                 name: 'indicateur-detail',
                 component: () => import('@/views/frontoffice/indicateurs/Show.vue')
-            }
+            },
+
+            /* ------------------ SIGNALEMENTS ------------------ */
+            {
+                path: 'signalements',
+                name: 'signalements',
+                component: () => import('@/views/frontoffice/signalements/List.vue'),
+            },
+            {
+                path: 'signalements/nouveau',
+                name: 'signalement-nouveau',
+                component: () => import('@/views/frontoffice/signalements/Form.vue'),
+            },
+            {
+                path: 'signalements/:id(\\d+)',
+                name: 'signalement-detail',
+                component: () => import('@/views/frontoffice/signalements/Show.vue'),
+            },
         ],
     },
 ]
