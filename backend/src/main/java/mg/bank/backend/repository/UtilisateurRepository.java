@@ -1,7 +1,7 @@
 package mg.bank.backend.repository;
 
-import java.util.Optional;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -15,6 +15,17 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Intege
     List<Utilisateur> findByActifTrue();
 
     List<Utilisateur> findByActifFalse();
+
+    @Query(value = """
+            SELECT DISTINCT u.* FROM utilisateur u
+            JOIN etape_validation_decideur evd ON evd.id_poste = u.id_poste
+            WHERE evd.id_etape_validation = :idEtape
+              AND (u.id_service = :idService | u.id_service IS NULL)
+              AND (u.id_departement = :idDepartement | u.id_departement IS NULL)
+              AND u.actif = TRUE
+            ORDER BY u.id_utilisateur
+            """, nativeQuery = true)
+    List<Utilisateur> findDestinatairesEtape(@Param("idEtape") Integer idEtape, @Param("idService") Integer idService, @Param("idDepartement") Integer idDepartement);
 
     @Query("""
             select u from Utilisateur u

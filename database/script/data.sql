@@ -212,7 +212,7 @@ INSERT INTO utilisateur (
 SELECT
     'Ben Salah',
     'Karim',
-    'karim.bensalah@bfm.tn',
+    'randrichris17@gmail.com',
     '+216 71 100 001',
     '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
     TRUE,
@@ -251,7 +251,7 @@ INSERT INTO utilisateur (
 SELECT
     'Mansouri',
     'Leila',
-    'leila.mansouri@bfm.tn',
+    'nomenachristian04@gmail.com',
     '+216 71 100 002',
     '$2a$12$ky63.0qcZctkDoSrGVjlbuoAlGYTQJVeBFB.s5UzgNXv/IB1C9Yim',
     TRUE,
@@ -1683,7 +1683,7 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
     (SELECT id_statut FROM statut WHERE code = 'BROUILLON'),
@@ -1700,7 +1700,7 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
     (SELECT id_statut FROM statut WHERE code = 'VALIDEE'),
@@ -1716,7 +1716,7 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
     (SELECT id_statut FROM statut WHERE code = 'EN_COURS'),
@@ -1732,7 +1732,7 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
     (SELECT id_statut FROM statut WHERE code = 'TERMINEE'),
@@ -1749,7 +1749,7 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
     (SELECT id_statut FROM statut WHERE code = 'VALIDEE'),
@@ -1765,7 +1765,7 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
     (SELECT id_statut FROM statut WHERE code = 'EN_COURS'),
@@ -1782,7 +1782,7 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
     (SELECT id_statut FROM statut WHERE code = 'VALIDEE'),
@@ -1798,7 +1798,7 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
      (SELECT id_statut FROM statut WHERE code = 'NON_COMMENCEE'),
@@ -1819,7 +1819,7 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
     (SELECT id_statut FROM statut WHERE code = 'EN_ATTENTE_VALIDATION'),
@@ -1947,27 +1947,27 @@ INSERT INTO affectation_plan_action (date_affectation, date_desaffectation, id_p
 SELECT v.date_affectation::timestamp, NULL, p.id_plan_action, u.id_utilisateur, r.id_role
 FROM (VALUES
 -- Plans risques : affectés au chef de service 1 ou 2 selon le type
-('2026-02-01 08:00:00', 'PA-RSQ-001', 'leila.mansouri@bfm.tn', 'RESPONSABLE'), ('2026-02-01 08:00:00', 'PA-RSQ-001', 'sonia.gharbi@bfm.tn', 'PARTICIPANT'),
-('2026-02-01 08:00:00', 'PA-RSQ-002', 'leila.mansouri@bfm.tn', 'RESPONSABLE'), ('2026-02-01 08:00:00', 'PA-RSQ-002', 'mohamed.khelifi@bfm.tn', 'PARTICIPANT'),
+('2026-02-01 08:00:00', 'PA-RSQ-001', 'nomenachristian04@gmail.com', 'RESPONSABLE'), ('2026-02-01 08:00:00', 'PA-RSQ-001', 'sonia.gharbi@bfm.tn', 'PARTICIPANT'),
+('2026-02-01 08:00:00', 'PA-RSQ-002', 'nomenachristian04@gmail.com', 'RESPONSABLE'), ('2026-02-01 08:00:00', 'PA-RSQ-002', 'mohamed.khelifi@bfm.tn', 'PARTICIPANT'),
 ('2026-02-15 08:00:00', 'PA-RSQ-003', 'hatem.trabelsi@bfm.tn', 'RESPONSABLE'), ('2026-02-15 08:00:00', 'PA-RSQ-003', 'slim.ayari@bfm.tn', 'PARTICIPANT'),
 ('2026-03-01 08:00:00', 'PA-RSQ-004', 'hatem.trabelsi@bfm.tn', 'RESPONSABLE'), ('2026-03-01 08:00:00', 'PA-RSQ-004', 'anis.mejri@bfm.tn', 'PARTICIPANT'),
-('2026-03-01 08:00:00', 'PA-RSQ-005', 'leila.mansouri@bfm.tn', 'RESPONSABLE'), ('2026-03-01 08:00:00', 'PA-RSQ-005', 'nadia.bouazizi@bfm.tn', 'PARTICIPANT'),
-('2026-03-15 08:00:00', 'PA-RSQ-006', 'leila.mansouri@bfm.tn', 'RESPONSABLE'), ('2026-03-15 08:00:00', 'PA-RSQ-006', 'rami.jlassi@bfm.tn', 'PARTICIPANT'),
+('2026-03-01 08:00:00', 'PA-RSQ-005', 'nomenachristian04@gmail.com', 'RESPONSABLE'), ('2026-03-01 08:00:00', 'PA-RSQ-005', 'nadia.bouazizi@bfm.tn', 'PARTICIPANT'),
+('2026-03-15 08:00:00', 'PA-RSQ-006', 'nomenachristian04@gmail.com', 'RESPONSABLE'), ('2026-03-15 08:00:00', 'PA-RSQ-006', 'rami.jlassi@bfm.tn', 'PARTICIPANT'),
 ('2026-04-01 08:00:00', 'PA-RSQ-007', 'hatem.trabelsi@bfm.tn', 'RESPONSABLE'), ('2026-04-01 08:00:00', 'PA-RSQ-007', 'ines.ferchichi@bfm.tn', 'PARTICIPANT'),
 ('2026-04-01 08:00:00', 'PA-RSQ-008', 'hatem.trabelsi@bfm.tn', 'RESPONSABLE'), ('2026-04-01 08:00:00', 'PA-RSQ-008', 'yassine.zaidi@bfm.tn', 'PARTICIPANT'),
-('2026-04-15 08:00:00', 'PA-RSQ-009', 'leila.mansouri@bfm.tn', 'RESPONSABLE'), ('2026-04-15 08:00:00', 'PA-RSQ-009', 'mariem.hamdi@bfm.tn', 'PARTICIPANT'),
-('2026-05-01 08:00:00', 'PA-RSQ-010', 'leila.mansouri@bfm.tn', 'RESPONSABLE'), ('2026-05-01 08:00:00', 'PA-RSQ-010', 'walid.sassi@bfm.tn', 'PARTICIPANT'),
+('2026-04-15 08:00:00', 'PA-RSQ-009', 'nomenachristian04@gmail.com', 'RESPONSABLE'), ('2026-04-15 08:00:00', 'PA-RSQ-009', 'mariem.hamdi@bfm.tn', 'PARTICIPANT'),
+('2026-05-01 08:00:00', 'PA-RSQ-010', 'nomenachristian04@gmail.com', 'RESPONSABLE'), ('2026-05-01 08:00:00', 'PA-RSQ-010', 'walid.sassi@bfm.tn', 'PARTICIPANT'),
 -- Plans incidents
 ('2026-01-21 08:00:00', 'PA-INC-001', 'hatem.trabelsi@bfm.tn', 'RESPONSABLE'), ('2026-01-21 08:00:00', 'PA-INC-001', 'anis.mejri@bfm.tn', 'PARTICIPANT'),
 ('2026-01-06 08:00:00', 'PA-INC-002', 'hatem.trabelsi@bfm.tn', 'RESPONSABLE'), ('2026-01-06 08:00:00', 'PA-INC-002', 'ines.ferchichi@bfm.tn', 'PARTICIPANT'),
 ('2026-02-11 08:00:00', 'PA-INC-003', 'hatem.trabelsi@bfm.tn', 'RESPONSABLE'), ('2026-02-11 08:00:00', 'PA-INC-003', 'yassine.zaidi@bfm.tn', 'PARTICIPANT'),
 ('2026-03-06 08:00:00', 'PA-INC-004', 'hatem.trabelsi@bfm.tn', 'RESPONSABLE'), ('2026-03-06 08:00:00', 'PA-INC-004', 'mariem.hamdi@bfm.tn', 'PARTICIPANT'),
-('2026-03-26 08:00:00', 'PA-INC-005', 'leila.mansouri@bfm.tn', 'RESPONSABLE'), ('2026-03-26 08:00:00', 'PA-INC-005', 'sonia.gharbi@bfm.tn', 'PARTICIPANT'),
+('2026-03-26 08:00:00', 'PA-INC-005', 'nomenachristian04@gmail.com', 'RESPONSABLE'), ('2026-03-26 08:00:00', 'PA-INC-005', 'sonia.gharbi@bfm.tn', 'PARTICIPANT'),
 ('2026-03-02 08:00:00', 'PA-INC-006', 'hatem.trabelsi@bfm.tn', 'RESPONSABLE'), ('2026-03-02 08:00:00', 'PA-INC-006', 'slim.ayari@bfm.tn', 'PARTICIPANT'),
 ('2026-04-21 08:00:00', 'PA-INC-007', 'hatem.trabelsi@bfm.tn', 'RESPONSABLE'), ('2026-04-21 08:00:00', 'PA-INC-007', 'walid.sassi@bfm.tn', 'PARTICIPANT'),
 ('2026-07-06 08:00:00', 'PA-INC-008', 'hatem.trabelsi@bfm.tn', 'RESPONSABLE'), ('2026-07-06 08:00:00', 'PA-INC-008', 'faten.riahi@bfm.tn', 'PARTICIPANT'),
 ('2026-05-02 08:00:00', 'PA-INC-009', 'hatem.trabelsi@bfm.tn', 'RESPONSABLE'), ('2026-05-02 08:00:00', 'PA-INC-009', 'anis.mejri@bfm.tn', 'PARTICIPANT'),
-('2026-09-02 08:00:00', 'PA-INC-010', 'leila.mansouri@bfm.tn', 'RESPONSABLE'), ('2026-09-02 08:00:00', 'PA-INC-010', 'mohamed.khelifi@bfm.tn', 'PARTICIPANT')
+('2026-09-02 08:00:00', 'PA-INC-010', 'nomenachristian04@gmail.com', 'RESPONSABLE'), ('2026-09-02 08:00:00', 'PA-INC-010', 'mohamed.khelifi@bfm.tn', 'PARTICIPANT')
 ) AS v(date_affectation, code_plan, email, code_role)
 JOIN plan_action p ON p.code = v.code_plan
 JOIN utilisateur u ON u.email = v.email
@@ -1981,27 +1981,27 @@ INSERT INTO avancement_plan_action (valeur_pourcentage, commentaire, date_change
 SELECT v.valeur_pourcentage, v.commentaire, v.date_changement::timestamp, u.id_utilisateur, s.id_statut, p.id_plan_action
 FROM (VALUES
 -- Plans risques
-(30.00, 'Diagnostic en cours', '2026-03-01 10:00:00', 'leila.mansouri@bfm.tn', 'EN_COURS', 'PA-RSQ-001'),
-(25.00, 'Analyse des vulnérabilités réalisée', '2026-03-15 10:00:00', 'leila.mansouri@bfm.tn', 'EN_COURS', 'PA-RSQ-002'),
+(30.00, 'Diagnostic en cours', '2026-03-01 10:00:00', 'nomenachristian04@gmail.com', 'EN_COURS', 'PA-RSQ-001'),
+(25.00, 'Analyse des vulnérabilités réalisée', '2026-03-15 10:00:00', 'nomenachristian04@gmail.com', 'EN_COURS', 'PA-RSQ-002'),
 (20.00, 'Audit du système d''alarme en cours', '2026-03-20 10:00:00', 'hatem.trabelsi@bfm.tn', 'EN_COURS', 'PA-RSQ-003'),
 (0.00, 'Plan non encore démarré', '2026-03-01 08:00:00', 'hatem.trabelsi@bfm.tn', 'NON_COMMENCEE', 'PA-RSQ-004'),
-(0.00, 'Plan non encore démarré', '2026-03-01 08:00:00', 'leila.mansouri@bfm.tn', 'NON_COMMENCEE', 'PA-RSQ-005'),
-(0.00, 'Plan non encore démarré', '2026-03-15 08:00:00', 'leila.mansouri@bfm.tn', 'NON_COMMENCEE', 'PA-RSQ-006'),
+(0.00, 'Plan non encore démarré', '2026-03-01 08:00:00', 'nomenachristian04@gmail.com', 'NON_COMMENCEE', 'PA-RSQ-005'),
+(0.00, 'Plan non encore démarré', '2026-03-15 08:00:00', 'nomenachristian04@gmail.com', 'NON_COMMENCEE', 'PA-RSQ-006'),
 (0.00, 'Plan non encore démarré', '2026-04-01 08:00:00', 'hatem.trabelsi@bfm.tn', 'NON_COMMENCEE', 'PA-RSQ-007'),
 (0.00, 'Plan non encore démarré', '2026-04-01 08:00:00', 'hatem.trabelsi@bfm.tn', 'NON_COMMENCEE', 'PA-RSQ-008'),
-(0.00, 'Plan non encore démarré', '2026-04-15 08:00:00', 'leila.mansouri@bfm.tn', 'NON_COMMENCEE', 'PA-RSQ-009'),
-(0.00, 'Plan non encore démarré', '2026-05-01 08:00:00', 'leila.mansouri@bfm.tn', 'NON_COMMENCEE', 'PA-RSQ-010'),
+(0.00, 'Plan non encore démarré', '2026-04-15 08:00:00', 'nomenachristian04@gmail.com', 'NON_COMMENCEE', 'PA-RSQ-009'),
+(0.00, 'Plan non encore démarré', '2026-05-01 08:00:00', 'nomenachristian04@gmail.com', 'NON_COMMENCEE', 'PA-RSQ-010'),
 -- Plans incidents
 (100.00, 'Caméra remplacée et testée', '2026-01-25 16:00:00', 'hatem.trabelsi@bfm.tn', 'TERMINEE', 'PA-INC-001'),
 (100.00, 'Alarme diagnostiquée et corrigée', '2026-01-15 16:00:00', 'hatem.trabelsi@bfm.tn', 'TERMINEE', 'PA-INC-002'),
 (100.00, 'Lecteur réparé et testé', '2026-02-20 16:00:00', 'hatem.trabelsi@bfm.tn', 'TERMINEE', 'PA-INC-003'),
 (100.00, 'Communication rétablie', '2026-03-15 16:00:00', 'hatem.trabelsi@bfm.tn', 'TERMINEE', 'PA-INC-004'),
-(60.00, 'Enquête en cours et mesures prises', '2026-04-15 10:00:00', 'leila.mansouri@bfm.tn', 'EN_COURS', 'PA-INC-005'),
+(60.00, 'Enquête en cours et mesures prises', '2026-04-15 10:00:00', 'nomenachristian04@gmail.com', 'EN_COURS', 'PA-INC-005'),
 (100.00, 'Alimentation fiabilisée', '2026-03-25 16:00:00', 'hatem.trabelsi@bfm.tn', 'TERMINEE', 'PA-INC-006'),
 (50.00, 'Réparation en cours', '2026-05-01 10:00:00', 'hatem.trabelsi@bfm.tn', 'EN_COURS', 'PA-INC-007'),
 (0.00, 'Plan non encore démarré', '2026-07-06 08:00:00', 'hatem.trabelsi@bfm.tn', 'NON_COMMENCEE', 'PA-INC-008'),
 (100.00, 'Système réparé et testé', '2026-05-20 16:00:00', 'hatem.trabelsi@bfm.tn', 'TERMINEE', 'PA-INC-009'),
-(0.00, 'Plan non encore démarré', '2026-09-02 08:00:00', 'leila.mansouri@bfm.tn', 'NON_COMMENCEE', 'PA-INC-010')
+(0.00, 'Plan non encore démarré', '2026-09-02 08:00:00', 'nomenachristian04@gmail.com', 'NON_COMMENCEE', 'PA-INC-010')
 ) AS v(valeur_pourcentage, commentaire, date_changement, email, code_statut, code_plan)
 JOIN utilisateur u ON u.email = v.email
 JOIN statut s ON s.code = v.code_statut
@@ -2024,14 +2024,14 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
     (SELECT u.id_utilisateur
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1)
 FROM activite a;
@@ -2049,10 +2049,10 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
-    (SELECT id_utilisateur FROM utilisateur WHERE email = 'karim.bensalah@bfm.tn')
+    (SELECT id_utilisateur FROM utilisateur WHERE email = 'randrichris17@gmail.com')
 FROM activite a;
 
 -- Activités en attente de validation (une sélection)
@@ -2068,10 +2068,10 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
-    (SELECT id_utilisateur FROM utilisateur WHERE email = 'karim.bensalah@bfm.tn')
+    (SELECT id_utilisateur FROM utilisateur WHERE email = 'randrichris17@gmail.com')
 FROM activite a
 WHERE a.code IN ('A-2026-01-03', 'A-2026-02-03', 'A-2026-03-03', 'A-2026-04-03', 'A-2026-05-03',
                  'A-2026-06-03', 'A-2026-07-03', 'A-2026-08-03', 'A-2026-09-03', 'A-2026-10-03');
@@ -2089,10 +2089,10 @@ SELECT
      FROM utilisateur u
      JOIN service s ON s.id_service = u.id_service
      WHERE s.nom = (SELECT nom FROM service WHERE id_service = a.id_service)
-       AND u.email IN ('leila.mansouri@bfm.tn', 'hatem.trabelsi@bfm.tn')
+       AND u.email IN ('nomenachristian04@gmail.com', 'hatem.trabelsi@bfm.tn')
      ORDER BY u.email
      LIMIT 1),
-    (SELECT id_utilisateur FROM utilisateur WHERE email = 'karim.bensalah@bfm.tn')
+    (SELECT id_utilisateur FROM utilisateur WHERE email = 'randrichris17@gmail.com')
 FROM activite a
 WHERE a.code IN ('A-2026-01-05', 'A-2026-06-05', 'A-2026-05', 'A-2026-30');
 
@@ -2104,28 +2104,28 @@ INSERT INTO validation_plan_action (decision, commentaire, date_demande, date_de
 SELECT v.decision::decision_validation, v.commentaire, v.date_demande::timestamp, v.date_decision::timestamp, p.id_plan_action,
        (SELECT id_etape_validation FROM etape_validation WHERE niveau = 2),
        u.id_utilisateur,
-       (SELECT id_utilisateur FROM utilisateur WHERE email = 'karim.bensalah@bfm.tn')
+       (SELECT id_utilisateur FROM utilisateur WHERE email = 'randrichris17@gmail.com')
 FROM (VALUES
-('VALIDE', 'Plan d''action validé.', '2026-02-01 08:00:00', '2026-02-03 10:00:00', 'PA-RSQ-001', 'leila.mansouri@bfm.tn'),
-('VALIDE', 'Plan d''action validé.', '2026-02-01 08:00:00', '2026-02-03 10:00:00', 'PA-RSQ-002', 'leila.mansouri@bfm.tn'),
+('VALIDE', 'Plan d''action validé.', '2026-02-01 08:00:00', '2026-02-03 10:00:00', 'PA-RSQ-001', 'nomenachristian04@gmail.com'),
+('VALIDE', 'Plan d''action validé.', '2026-02-01 08:00:00', '2026-02-03 10:00:00', 'PA-RSQ-002', 'nomenachristian04@gmail.com'),
 ('VALIDE', 'Plan d''action validé.', '2026-02-15 08:00:00', '2026-02-17 10:00:00', 'PA-RSQ-003', 'hatem.trabelsi@bfm.tn'),
 ('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-03-01 08:00:00', NULL, 'PA-RSQ-004', 'hatem.trabelsi@bfm.tn'),
-('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-03-01 08:00:00', NULL, 'PA-RSQ-005', 'leila.mansouri@bfm.tn'),
-('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-03-15 08:00:00', NULL, 'PA-RSQ-006', 'leila.mansouri@bfm.tn'),
+('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-03-01 08:00:00', NULL, 'PA-RSQ-005', 'nomenachristian04@gmail.com'),
+('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-03-15 08:00:00', NULL, 'PA-RSQ-006', 'nomenachristian04@gmail.com'),
 ('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-04-01 08:00:00', NULL, 'PA-RSQ-007', 'hatem.trabelsi@bfm.tn'),
 ('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-04-01 08:00:00', NULL, 'PA-RSQ-008', 'hatem.trabelsi@bfm.tn'),
-('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-04-15 08:00:00', NULL, 'PA-RSQ-009', 'leila.mansouri@bfm.tn'),
-('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-05-01 08:00:00', NULL, 'PA-RSQ-010', 'leila.mansouri@bfm.tn'),
+('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-04-15 08:00:00', NULL, 'PA-RSQ-009', 'nomenachristian04@gmail.com'),
+('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-05-01 08:00:00', NULL, 'PA-RSQ-010', 'nomenachristian04@gmail.com'),
 ('VALIDE', 'Plan d''action validé.', '2026-01-21 08:00:00', '2026-01-22 10:00:00', 'PA-INC-001', 'hatem.trabelsi@bfm.tn'),
 ('VALIDE', 'Plan d''action validé.', '2026-01-06 08:00:00', '2026-01-07 10:00:00', 'PA-INC-002', 'hatem.trabelsi@bfm.tn'),
 ('VALIDE', 'Plan d''action validé.', '2026-02-11 08:00:00', '2026-02-12 10:00:00', 'PA-INC-003', 'hatem.trabelsi@bfm.tn'),
 ('VALIDE', 'Plan d''action validé.', '2026-03-06 08:00:00', '2026-03-07 10:00:00', 'PA-INC-004', 'hatem.trabelsi@bfm.tn'),
-('VALIDE', 'Plan d''action validé.', '2026-03-26 08:00:00', '2026-03-28 10:00:00', 'PA-INC-005', 'leila.mansouri@bfm.tn'),
+('VALIDE', 'Plan d''action validé.', '2026-03-26 08:00:00', '2026-03-28 10:00:00', 'PA-INC-005', 'nomenachristian04@gmail.com'),
 ('VALIDE', 'Plan d''action validé.', '2026-03-02 08:00:00', '2026-03-03 10:00:00', 'PA-INC-006', 'hatem.trabelsi@bfm.tn'),
 ('VALIDE', 'Plan d''action validé.', '2026-04-21 08:00:00', '2026-04-23 10:00:00', 'PA-INC-007', 'hatem.trabelsi@bfm.tn'),
 ('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-07-06 08:00:00', NULL, 'PA-INC-008', 'hatem.trabelsi@bfm.tn'),
 ('VALIDE', 'Plan d''action validé.', '2026-05-02 08:00:00', '2026-05-04 10:00:00', 'PA-INC-009', 'hatem.trabelsi@bfm.tn'),
-('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-09-02 08:00:00', NULL, 'PA-INC-010', 'leila.mansouri@bfm.tn')
+('EN_ATTENTE_VALIDATION', 'En attente de validation.', '2026-09-02 08:00:00', NULL, 'PA-INC-010', 'nomenachristian04@gmail.com')
 ) AS v(decision, commentaire, date_demande, date_decision, code_plan, email)
 JOIN plan_action p ON p.code = v.code_plan
 JOIN utilisateur u ON u.email = v.email;
@@ -2138,10 +2138,10 @@ INSERT INTO notification (titre, message, date_creation, date_lecture, id_priori
 SELECT v.titre, v.message, v.date_creation::timestamp, v.date_lecture::timestamp, pr.id_priorite, u.id_utilisateur
 FROM (VALUES
 ('Nouvelle activité assignée', 'Une nouvelle activité vous a été assignée.', '2026-01-10 08:00:00', NULL, 'NORMALE', 'sonia.gharbi@bfm.tn'),
-('Validation en attente', 'Une activité est en attente de votre validation.', '2026-01-12 09:00:00', NULL, 'HAUTE', 'karim.bensalah@bfm.tn'),
-('Sous-activité terminée', 'La sous-activité a été marquée comme terminée.', '2026-02-25 16:00:00', '2026-02-26 08:00:00', 'NORMALE', 'leila.mansouri@bfm.tn'),
+('Validation en attente', 'Une activité est en attente de votre validation.', '2026-01-12 09:00:00', NULL, 'HAUTE', 'randrichris17@gmail.com'),
+('Sous-activité terminée', 'La sous-activité a été marquée comme terminée.', '2026-02-25 16:00:00', '2026-02-26 08:00:00', 'NORMALE', 'nomenachristian04@gmail.com'),
 ('Incident signalé', 'Un incident de sécurité a été signalé.', '2026-01-05 22:30:00', NULL, 'CRITIQUE', 'hatem.trabelsi@bfm.tn'),
-('Plan d''action validé', 'Votre plan d''action a été validé.', '2026-02-03 10:30:00', '2026-02-04 09:00:00', 'NORMALE', 'leila.mansouri@bfm.tn'),
+('Plan d''action validé', 'Votre plan d''action a été validé.', '2026-02-03 10:30:00', '2026-02-04 09:00:00', 'NORMALE', 'nomenachristian04@gmail.com'),
 ('Maintenance préventive à planifier', 'La maintenance préventive doit être planifiée.', '2026-03-01 08:00:00', NULL, 'HAUTE', 'hatem.trabelsi@bfm.tn'),
 ('Rappel de saisie d''indicateur', 'Veuillez saisir la valeur de l''indicateur.', '2026-04-01 08:00:00', NULL, 'NORMALE', 'sonia.gharbi@bfm.tn'),
 ('Nouvelle procédure disponible', 'Une nouvelle version de procédure est disponible.', '2026-02-20 10:00:00', '2026-02-21 09:00:00', 'FAIBLE', 'nadia.bouazizi@bfm.tn'),
@@ -2161,7 +2161,7 @@ FROM (VALUES
 ('tok_reset_001_abc123', '2026-03-01 10:00:00', '2026-03-01 10:30:00', NULL, 'RESET_MOT_DE_PASSE', 'sonia.gharbi@bfm.tn'),
 ('tok_activation_001_def456', '2026-01-01 08:00:00', '2026-01-01 10:00:00', '2026-01-01 08:05:00', 'ACTIVATION_COMPTE', 'sonia.gharbi@bfm.tn'),
 ('tok_reset_002_ghi789', '2026-03-05 14:00:00', '2026-03-05 14:30:00', NULL, 'RESET_MOT_DE_PASSE', 'rami.jlassi@bfm.tn'),
-('tok_auth_001_jkl012', '2026-03-15 09:00:00', '2026-03-15 17:00:00', '2026-03-15 09:12:00', 'AUTHENTIFICATION', 'karim.bensalah@bfm.tn')
+('tok_auth_001_jkl012', '2026-03-15 09:00:00', '2026-03-15 17:00:00', '2026-03-15 09:12:00', 'AUTHENTIFICATION', 'randrichris17@gmail.com')
 ) AS v(token, date_creation, date_expiration, date_utilisation, code_type_token, email)
 JOIN type_token tt ON tt.code = v.code_type_token
 JOIN utilisateur u ON u.email = v.email;
@@ -2325,7 +2325,7 @@ VALUES
     'Durée du token d''activation du compte',
     '1440',
     'INTEGER',
-    'Durée de validité du token permettant l''activation d''un compte utilisateur, exprimée en heures.',
+    'Durée de validité du token permettant l''activation d''un compte utilisateur, exprimée en minutes.',
     'AUTHENTIFICATION',
     TRUE,
     TRUE,
@@ -2341,4 +2341,23 @@ VALUES
     TRUE,
     TRUE,
     '2026-01-05 08:00:00'::timestamp
+),
+(
+    'NOTIFICATION_ACTIVITE_AVANT_ECHEANCE_JOURS',
+    'Nombre de jours avant échéance pour notification des sous-activités',
+    '2',
+    'INTEGER',
+    'Nombre de jours avant la date de fin prévue à partir duquel le responsable d''une sous-activité est notifié.',
+    'NOTIFICATION',
+    TRUE,
+    TRUE,
+    '2026-01-05 08:00:00'::timestamp
+),
+(
+    'NOTIFICATION_PLAN_ACTION_SEUIL_RETARD_HIERARCHIE_JOURS',
+    'Seuil de retard (jours) déclenchant l''alerte hiérarchique sur un plan d''action',
+    '7',
+    'INTEGER',
+    'Nombre de jours de retard à partir duquel le chef de service et le chef de département sont notifiés pour un plan d''action rattaché à un INCIDENT.',
+    'NOTIFICATION', TRUE, TRUE, CURRENT_TIMESTAMP
 );

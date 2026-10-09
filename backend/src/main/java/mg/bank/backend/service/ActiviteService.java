@@ -112,6 +112,7 @@ public class ActiviteService {
         private final ValidationActiviteRepository validationActiviteRepository;
         private final EtapeValidationService etapeValidationService;
         private final AvancementSousActiviteRepository avancementSousActiviteRepository;
+        private final NotificationService notificationService;
 
         // ------------------------------------------------------------------
         // Perimetre
@@ -209,11 +210,13 @@ public class ActiviteService {
         }
 
         @Transactional
-        ValidationActivite soumettreRetour(Activite activite, Utilisateur utilisateur, String commentaire) {
+        ValidationActivite soumettreRetour      (Activite activite, Utilisateur utilisateur, String commentaire) {
                 ValidationActivite validation = validationActiviteService
                                 .getDerniereEtapeNonValidee(activite.getIdActivite())
                                 .orElseThrow(() -> new ApiException("Aucune étape précédente en cours à retourner",
                                                 HttpStatus.NOT_FOUND));
+                List<Utilisateur> demandeursPrecedents = validationActiviteRepository
+                                .findDemandeursByActiviteId(activite.getIdActivite());
                 EtapeValidation precedente = etapeValidationService.getEtapePrecedente(validation.getEtapeValidation())
                                 .orElseThrow(() -> new ApiException(
                                                 "Aucune étape précédente trouvée pour l'étape actuelle",
@@ -231,7 +234,11 @@ public class ActiviteService {
                                 .dateDemande(LocalDateTime.now())
                                 .commentaire(commentaire)
                                 .build();
-                return validationActiviteService.soumettre(validationActivite);
+                ValidationActivite soumise = validationActiviteService.soumettre(validationActivite);
+                notifierDemandeurs(activite, demandeursPrecedents, "Activité retournée pour modification",
+                                "L'activité « " + activite.getDesignation()
+                                                + " » a été retournée pour modification.");
+                return soumise;
 
         }
 
@@ -279,7 +286,15 @@ public class ActiviteService {
                                 .dateDemande(LocalDateTime.now())
                                 .commentaire(commentaire)
                                 .build();
-                return validationActiviteService.soumettre(validationActivite);
+                List<Utilisateur> demandeursPrecedents = validationActiviteRepository
+                                .findDemandeursByActiviteId(activite.getIdActivite());
+                ValidationActivite soumise = validationActiviteService.soumettre(validationActivite);
+                notifierDemandeurs(activite, demandeursPrecedents, "Activité soumise à validation",
+                                "L'activité « " + activite.getDesignation()
+                                                + " » a été soumise à validation.");
+                notificationService.notifierEtape(activite, prochaineEtape, "Activité en attente de validation",
+                                "L'activité « " + activite.getDesignation() + " » est en attente de votre validation.");
+                return soumise;
         }
 
         private void changerStatut(
@@ -315,6 +330,9 @@ public class ActiviteService {
                                 .orElseThrow(() -> new ApiException(
                                                 "Aucune étape en cours de validation pour cette activité",
                                                 HttpStatus.BAD_REQUEST));
+                List<Utilisateur> demandeurs = validationActiviteRepository
+                                .findDemandeursByActiviteId(activite.getIdActivite());
+                EtapeValidation prochaineEtape = null;
 
                 validationActivite.setDecision(rejeter ? DecisionValidation.REJETE : DecisionValidation.VALIDE);
                 validationActivite.setDateDecision(LocalDateTime.now());
@@ -336,7 +354,7 @@ public class ActiviteService {
                                                         HttpStatus.INTERNAL_SERVER_ERROR)),
                                         utilisateur, commentaire);
                 } else {
-                        EtapeValidation prochaineEtape = etapeValidationService
+                        prochaineEtape = etapeValidationService
                                         .getEtapeSuivante(validationActivite.getEtapeValidation(),
                                                         activite.getProcedure().getIdProcedure(), poste)
                                         .orElse(null);
@@ -359,7 +377,31 @@ public class ActiviteService {
                         }
                 }
 
-                return validationActiviteService.soumettre(validationActivite);
+                ValidationActivite decision = validationActiviteService.soumettre(validationActivite);
+                if (rejeter || prochaineEtape == null) {
+                        String message = rejeter
+                                        ? "L'activité « " + activite.getDesignation()
+                                                        + " » a été rejetée à l'étape « "
+                                                        + validationActivite.getEtapeValidation().getDesignation()
+                                                        + " »."
+                                        : "La validation finale de l'activité « " + activite.getDesignation()
+                                                        + " » est terminée : elle est validée.";
+                        if (rejeter && commentaire != null && !commentaire.isBlank()) {
+                                message += " Commentaire : " + commentaire.trim();
+                        }
+                        notifierDemandeurs(activite, demandeurs,
+                                        rejeter ? "Activité rejetée" : "Activité validée", message);
+                }
+                if (!rejeter && prochaineEtape != null) {
+                        notificationService.notifierEtape(activite, prochaineEtape, "Activité en attente de validation",
+                                        "L'activité « " + activite.getDesignation() + " » est en attente de votre validation.");
+                }
+                return decision;
+        }
+
+        private void notifierDemandeurs(Activite activite, List<Utilisateur> demandeurs, String titre, String message) {
+                demandeurs.forEach(demandeur -> notificationService.notifierUtilisateur(
+                                activite, demandeur, titre, message));
         }
 
         /**

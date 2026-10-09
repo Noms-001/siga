@@ -2,6 +2,14 @@ import type { RouteRecordRaw } from 'vue-router'
 
 export const frontofficeRoutes: RouteRecordRaw[] = [
     {
+        path: '/validation',
+        name: 'validation-directe',
+        component: () => import('@/views/frontoffice/activites/AValider.vue'),
+        meta: {
+            requiresFrontoffice: true,
+        },
+    },
+    {
         path: '/login',
         name: 'login',
         component: () => import('@/views/frontoffice/Login.vue'),
@@ -50,6 +58,11 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 path: 'profile',
                 name: 'profile',
                 component: () => import('@/views/frontoffice/Profile.vue'),
+            },
+            {
+                path: 'notifications',
+                name: 'notifications',
+                component: () => import('@/views/frontoffice/Notifications.vue'),
             },
             {
                 path: 'activites',

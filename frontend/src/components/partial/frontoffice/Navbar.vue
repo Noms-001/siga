@@ -32,21 +32,20 @@
                     </div>
 
                     <div class="notif-list">
-                        <div v-for="notif in notifications" :key="notif.id" class="notif-item" :class="notif.type">
+                        <div v-for="notif in notifications.slice(0, 6)" :key="notif.id" class="notif-item" :class="{ unread: !notif.dateLecture }" @click="ouvrirNotification(notif.id, notif.idActivite)">
                             <div class="notif-icon">
-                                <i :class="notif.icon"></i>
+                                <i class="bi bi-bell"></i>
                             </div>
                             <div class="notif-content">
                                 <div class="notif-title">
-                                    {{ notif.title }}
-                                    <span class="badge-urgence" :class="notif.urgence" v-if="notif.urgence">
-                                        {{ notif.urgence }}
-                                    </span>
+                                    {{ notif.titre }}
+                                    <span class="badge-urgence" v-if="!notif.dateLecture">Non lue</span>
                                 </div>
-                                <div class="notif-desc">{{ notif.description }}</div>
+                                <div class="notif-desc">{{ notif.message }}</div>
+                                <div class="notif-desc" v-if="notif.activite">Activité : {{ notif.activite }}</div>
                                 <div class="notif-meta">
                                     <span class="notif-time">
-                                        <i class="bi bi-clock"></i> {{ notif.time }}
+                                        <i class="bi bi-clock"></i> {{ new Date(notif.dateCreation).toLocaleString() }}
                                     </span>
                                 </div>
                             </div>
@@ -121,20 +120,11 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
+import { useNotifications, actualiserNotifications, marquerNotificationLue } from '@/services/notification'
 
 const authStore = useAuthStore()
 
 // --- Types ---
-interface Notification {
-    id: number
-    title: string
-    description: string
-    time: string
-    type: 'critique' | 'normal'
-    urgence?: 'critique' | 'elevee' | 'moyenne' | 'faible'
-    icon: string
-}
-
 // --- Props & Emits ---
 const emit = defineEmits<{
     (e: 'toggle-sidebar'): void
@@ -170,48 +160,9 @@ const userInitials = computed(() => {
         .toUpperCase()
 })
 
-// --- Notifications simulées ---
-const notifications = ref<Notification[]>([
-    {
-        id: 1,
-        title: 'Nouvelle activité',
-        description: 'Une nouvelle activité a été créée dans le module Sécurité',
-        time: 'Il y a 5 min',
-        type: 'critique',
-        urgence: 'elevee',
-        icon: 'bi bi-exclamation-triangle'
-    },
-    {
-        id: 2,
-        title: 'Mise à jour',
-        description: 'Le système a été mis à jour avec succès',
-        time: 'Il y a 1 heure',
-        type: 'normal',
-        urgence: 'faible',
-        icon: 'bi bi-info-circle'
-    },
-    {
-        id: 3,
-        title: 'Rapport disponible',
-        description: 'Le rapport trimestriel est maintenant disponible',
-        time: 'Il y a 3 heures',
-        type: 'normal',
-        icon: 'bi bi-file-earmark'
-    },
-    {
-        id: 4,
-        title: 'Alerte sécurité',
-        description: 'Une tentative de connexion suspecte a été détectée',
-        time: 'Il y a 5 heures',
-        type: 'critique',
-        urgence: 'critique',
-        icon: 'bi bi-shield-halved'
-    }
-])
-
-const unreadCount = computed(() => {
-    return notifications.value.filter(n => n.type === 'critique').length
-})
+const notificationState = useNotifications()
+const notifications = computed(() => notificationState.notifications)
+const unreadCount = computed(() => notificationState.unreadCount)
 
 // --- Methods ---
 const toggleSidebar = () => {
@@ -221,6 +172,14 @@ const toggleSidebar = () => {
 const toggleNotifications = () => {
     isNotifOpen.value = !isNotifOpen.value
     if (isUserMenuOpen.value) isUserMenuOpen.value = false
+}
+
+const ouvrirNotification = async (id: number, idActivite: number | null) => {
+    await marquerNotificationLue(id)
+    if (idActivite) {
+        isNotifOpen.value = false
+        await router.push(`/activites/${idActivite}`)
+    }
 }
 
 const toggleUserMenu = () => {
@@ -263,6 +222,7 @@ const handleClickOutside = (event: MouseEvent) => {
 // --- Lifecycle ---
 onMounted(() => {
     document.addEventListener('click', handleClickOutside)
+    void actualiserNotifications()
 })
 
 onUnmounted(() => {
@@ -473,6 +433,10 @@ onUnmounted(() => {
 
 .notif-item:hover {
     background: var(--dts-blue-50);
+}
+
+.notif-item.unread {
+    background: #f2f8ff;
 }
 
 .notif-item.critique {

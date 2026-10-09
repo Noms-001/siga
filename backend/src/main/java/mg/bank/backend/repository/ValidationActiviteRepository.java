@@ -1,6 +1,7 @@
 package mg.bank.backend.repository;
 
 import mg.bank.backend.model.ValidationActivite;
+import mg.bank.backend.model.Utilisateur;
 import mg.bank.backend.enums.DecisionValidation;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -20,6 +21,9 @@ public interface ValidationActiviteRepository
 
         Optional<ValidationActivite> findFirstByActivite_IdActiviteOrderByDateDecisionDesc(
                         Integer idActivite);
+
+        @Query("SELECT DISTINCT v.demandeur FROM ValidationActivite v WHERE v.activite.idActivite = :idActivite")
+        List<Utilisateur> findDemandeursByActiviteId(@Param("idActivite") Integer idActivite);
 
         @Query("""
                         SELECT v

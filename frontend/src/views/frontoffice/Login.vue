@@ -65,8 +65,15 @@ const handleLogin = async () => {
         })
 
 
-        // Redirection
-        await router.push('/dashboard')
+        // Reprendre la page demandée avant la connexion, notamment le lien
+        // direct vers la file de validation reçu par e-mail.
+        const redirect = route.query.redirect
+        const destination = typeof redirect === 'string'
+            && redirect.startsWith('/')
+            && !redirect.startsWith('//')
+            ? redirect
+            : '/dashboard'
+        await router.replace(destination)
 
     } catch (error: unknown) {
 
