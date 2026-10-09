@@ -26,7 +26,7 @@ public class NotificationService {
     public void notifierEtape(Activite activite, EtapeValidation etape, String titre, String message) {
         if (etape == null) return;
         List<Utilisateur> destinataires = utilisateurRepository.findDestinatairesEtape(
-                etape.getIdEtapeValidation(), activite.getService().getIdService());
+                etape.getIdEtapeValidation(), activite.getService().getIdService(), activite.getService().getDepartement().getIdDepartement());
         destinataires.forEach(u -> creer(activite, u, titre, message));
     }
 
