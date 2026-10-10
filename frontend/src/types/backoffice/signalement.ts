@@ -11,10 +11,15 @@ export interface Signalement {
 }
 
 export interface SignalementRequest {
-    code: string
     designation: string
     typeOrigine: string
     description?: string | null
+}
+
+export interface CodePropose {
+    code: string
+    typeOrigine: string
+    annee: number
 }
 
 export interface SignalementFiltres {

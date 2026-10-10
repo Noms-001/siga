@@ -1,5 +1,6 @@
 package mg.bank.backend.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -14,7 +15,6 @@ import mg.bank.backend.dto.backoffice.OrigineResponse;
 import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.mapper.OrigineMapper;
 import mg.bank.backend.model.Origine;
-import mg.bank.backend.model.Utilisateur;
 import mg.bank.backend.repository.OrigineRepository;
 
 @Service
@@ -23,6 +23,7 @@ public class OrigineService {
 
     private final OrigineRepository origineRepository;
     private final ActiviteService activiteService;
+    private static final int LONGUEUR_SEQUENCE = 3;
 
     /* -------------------- lecture -------------------- */
 
@@ -59,26 +60,29 @@ public class OrigineService {
 
     @Transactional
     public OrigineResponse creer(OrigineRequest request) {
-        String code = request.getCode().trim();
-
-        if (origineRepository.existsByCode(code)) {
-            throw new ApiException(
-                    "Un signalement avec ce code existe déjà",
-                    HttpStatus.CONFLICT);
-        }
-
-        Utilisateur utilisateur = activiteService.utilisateurCourant();
+        String type = request.getTypeOrigine().trim().toUpperCase();
 
         Origine entity = Origine.builder()
-                .code(code)
+                .code(prochainCode(type))
                 .designation(request.getDesignation().trim())
-                .typeOrigine(request.getTypeOrigine().trim().toUpperCase())
+                .typeOrigine(type)
                 .description(videSiBlanc(request.getDescription()))
                 .dateCreation(LocalDateTime.now())
-                .utilisateur(utilisateur)
+                .utilisateur(activiteService.utilisateurCourant())
                 .build();
 
-        return OrigineMapper.toResponse(origineRepository.save(entity));
+        try {
+            return OrigineMapper.toResponse(origineRepository.save(entity));
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // Le seul cas où l'INSERT peut échouer ici est un conflit sur
+            // `code` (toutes les autres colonnes sont validées en amont, ou
+            // nullable). On traduit en 409 — l'utilisateur n'a rien à faire
+            // de la trace SQL.
+            throw new ApiException(
+                    "Un signalement avec ce code vient d'être créé. "
+                            + "Rechargez la page pour obtenir un code à jour.",
+                    HttpStatus.CONFLICT);
+        }
     }
 
     /* -------------------- helpers -------------------- */
@@ -107,4 +111,60 @@ public class OrigineService {
                 .findPlansActionByOrigine(id);
         return mg.bank.backend.mapper.OrigineMapper.toDetail(origine, plans);
     }
+
+    /**
+     * Code proposé pour un nouveau signalement du type demandé.
+     *
+     * Le code est calculé à la volée à partir du dernier numéro utilisé
+     * dans la base pour ce préfixe et cette année. Il est appelé par le
+     * frontend à chaque changement de type, pour affichage dans un champ
+     * en lecture seule — c'est un APERÇU, pas une réservation.
+     *
+     * Deux appels concurrents pour le même type avant toute création
+     * renverront la même proposition. Le second enregistrement qui suivra
+     * sera refusé par la contrainte UNIQUE(code), ce qui reste une erreur
+     * de saisie (double clic, onglet dupliqué) et non une panne.
+     */
+    @Transactional(readOnly = true)
+    public String prochainCode(String typeOrigine) {
+        if (typeOrigine == null || typeOrigine.isBlank()) {
+            throw new ApiException(
+                    "Le type est obligatoire pour proposer un code",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        String prefix = prefixPour(typeOrigine);
+        int annee = LocalDate.now().getYear();
+
+        String extractPattern = "^" + prefix + "-" + annee + "-([0-9]+)$";
+        String matchPattern = "^" + prefix + "-" + annee + "-[0-9]+$";
+
+        int dernier = origineRepository.dernierNumeroPour(extractPattern, matchPattern);
+        int suivant = dernier + 1;
+
+        return prefix + "-" + annee + "-" + String.format("%0" + LONGUEUR_SEQUENCE + "d", suivant);
+    }
+
+    /**
+     * Préfixe du code pour un type de signalement.
+     *
+     * Trois types nommés (INCIDENT, RISQUE, AUTRE) ont un préfixe explicite.
+     * Tout autre type tombe sur ses trois premières lettres, en majuscules —
+     * si le référentiel des origines gagne un jour un type « OBSERVATION »,
+     * son code sera `OBS-2026-001` sans qu'il faille modifier le code Java.
+     *
+     * Le repli évite un 500 sur un type inconnu, et la contrainte UNIQUE sur
+     * `code` reste la garantie d'unicité, pas le format.
+     */
+    private String prefixPour(String typeOrigine) {
+        String t = typeOrigine.trim().toUpperCase();
+        return switch (t) {
+            case "INCIDENT" -> "INC";
+            case "RISQUE" -> "RSQ";
+            case "AUTRE" -> "AUT";
+            default -> t.substring(0, Math.min(3, t.length()));
+        };
+    }
+
+    
 }

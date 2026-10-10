@@ -13,7 +13,6 @@ public interface OrigineRepository extends JpaRepository<Origine, Integer> {
 
      boolean existsByCode(String code);
 
-     
      @Query(value = """
                SELECT o.* FROM origine o
                WHERE (CAST(:typesCsv AS TEXT) IS NULL
@@ -62,4 +61,33 @@ public interface OrigineRepository extends JpaRepository<Origine, Integer> {
                ORDER BY pao.est_principale DESC NULLS LAST, pa.code
                """, nativeQuery = true)
      List<PlanActionOrigineRow> findPlansActionByOrigine(@Param("idOrigine") Integer idOrigine);
+
+     /**
+      * Dernier numéro de séquence utilisé pour un préfixe et une année donnés.
+      *
+      * Le motif est construit en Java et passé en paramètre : il contient le
+      * préfixe (INC / RSQ / AUT) ET l'année, ce qui évite que deux années
+      * partagent la même séquence. Un MAX sur le numéro extrait, et non un
+      * COUNT : c'est la suite du dernier qui compte, et elle reste juste même
+      * après suppression d'une ligne intermédiaire.
+      *
+      * `[0-9]` plutôt que `\d` : même portée en PostgreSQL, mais sans
+      * échappement Java supplémentaire — un `\\d` mal placé donnerait un
+      * motif muet qui ne capture rien, et le MAX retournerait toujours 0.
+      *
+      * Le motif est ancré (`^...$`) pour ne matcher que les codes complets :
+      * sans cette borne, `INC-2026-0010` serait extrait comme `0010` mais
+      * `INC-2026-001-extra` produirait un résultat incohérent.
+      */
+     @Query(value = """
+               SELECT COALESCE(
+                   MAX(CAST(SUBSTRING(o.code FROM :extractPattern) AS INTEGER)),
+                   0
+               )
+               FROM origine o
+               WHERE o.code ~ :matchPattern
+               """, nativeQuery = true)
+     int dernierNumeroPour(
+               @Param("extractPattern") String extractPattern,
+               @Param("matchPattern") String matchPattern);
 }

@@ -1,5 +1,6 @@
 package mg.bank.backend.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.ApiResponse;
+import mg.bank.backend.dto.backoffice.CodeProposeResponse;
 import mg.bank.backend.dto.backoffice.OrigineFiltresResponse;
 import mg.bank.backend.dto.backoffice.OrigineRequest;
 import mg.bank.backend.dto.backoffice.OrigineResponse;
@@ -65,5 +67,30 @@ public class SignalementFrontController {
             @PathVariable Integer id) {
         return ResponseEntity.ok(
                 ApiResponse.success(origineService.getDetail(id)));
+    }
+
+    /**
+     * Code proposé pour un nouveau signalement du type demandé.
+     *
+     * Déclaré AVANT `/{id}` pour ne pas être capturé comme un identifiant.
+     * Le chemin est volontairement en GET : la réponse est une valeur
+     * calculée, pas une ressource. Un POST serait plus régulier et
+     * obligerait à envoyer un corps pour obtenir un aperçu.
+     *
+     * L'année n'est pas passée en paramètre : elle est toujours celle de la
+     * création, côté serveur. Un client qui fournirait une autre année
+     * obtiendrait un aperçu qui ne correspondrait pas au code réellement
+     * attribué.
+     */
+    @GetMapping("/prochain-code")
+    public ResponseEntity<ApiResponse<CodeProposeResponse>> prochainCode(
+            @RequestParam("type") String type) {
+        String code = origineService.prochainCode(type);
+        return ResponseEntity.ok(
+                ApiResponse.success(CodeProposeResponse.builder()
+                        .code(code)
+                        .typeOrigine(type)
+                        .annee(LocalDate.now().getYear())
+                        .build()));
     }
 }

@@ -1,5 +1,6 @@
 import { get, post, type ApiResponse } from '@/services/api-client'
 import type {
+    CodePropose,
     Signalement,
     SignalementDetail,
     SignalementFiltres,
@@ -44,4 +45,10 @@ export function creerSignalement(
     payload: SignalementRequest
 ): Promise<ApiResponse<Signalement>> {
     return post<Signalement>(BASE, payload)
+}
+
+export function getProchainCode(type: string): Promise<ApiResponse<CodePropose>> {
+    return get<CodePropose>(
+        `${BASE}/prochain-code${query({ type })}`
+    )
 }

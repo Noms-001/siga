@@ -1,14 +1,42 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseInput, BaseSelect, BaseButton, BaseConfirm } from '@/components/base'
+import type { ConfirmDemande } from '@/components/base/BaseConfirm/BaseConfirm.types'
 import {
     creerSignalement,
-    getSignalementFiltres,
+    getProchainCode,
 } from '@/services/signalement'
 import type { SignalementRequest } from '@/types/backoffice/signalement'
 
-import type { ConfirmDemande } from '@/components/base/BaseConfirm/BaseConfirm.types'
+const router = useRouter()
+
+/* -------------------- formulaire -------------------- */
+
+const form = ref<SignalementRequest>({
+    designation: '',
+    typeOrigine: '',
+    description: '',
+})
+
+const errors = ref<Record<string, string>>({})
+const globalError = ref('')
+const loading = ref(false)
+const submitting = ref(false)
+
+/* -------------------- aperçu du code -------------------- */
+
+/**
+ * Code affiché dans le champ en lecture seule.
+ *
+ * Rempli à chaque changement de type par un appel à /prochain-code.
+ * C'est un APERÇU : le serveur régénère le code au moment de la
+ * création. Deux formulaires ouverts en parallèle sur le même type
+ * afficheront le même aperçu — le second enregistrement sera refusé
+ * par la contrainte UNIQUE et l'utilisateur rechargera.
+ */
+const codePropose = ref('')
+const codeLoading = ref(false)
 
 /* -------------------- confirmation -------------------- */
 
@@ -16,24 +44,60 @@ const confirmOpen = ref(false)
 const confirmLoading = ref(false)
 const confirmDemande = ref<ConfirmDemande | null>(null)
 
+const TYPES_SIGNALEMENT = ['INCIDENT', 'RISQUE', 'AUTRE'] as const
+const typeOptions = TYPES_SIGNALEMENT.map(t => ({ value: t, label: t }))
+
+
+/* -------------------- génération du code -------------------- */
+
 /**
- * Étape 1 — l'utilisateur clique "Déclarer le signalement".
+ * Regénère l'aperçu du code à chaque changement de type.
  *
- * On valide le formulaire AVANT d'ouvrir la confirmation : demander
- * "confirmez-vous ?" sur une saisie incomplète reviendrait à faire
- * confirmer une erreur. La validation reste ici, pas dans le bouton
- * de confirmation.
+ * Le watch couvre aussi le retour à vide (l'utilisateur désélectionne) :
+ * dans ce cas, on efface l'aperçu plutôt que de le laisser sur un code
+ * devenu obsolète.
  */
+watch(() => form.value.typeOrigine, async (nouveau) => {
+    if (!nouveau) {
+        codePropose.value = ''
+        return
+    }
+    codeLoading.value = true
+    const res = await getProchainCode(nouveau)
+    codeLoading.value = false
+    codePropose.value = res.success ? res.data.code : ''
+})
+
+/* -------------------- validation -------------------- */
+
+function valider(): boolean {
+    errors.value = {}
+
+    if (!form.value.designation.trim()) {
+        errors.value.designation = 'La désignation est obligatoire'
+    } else if (form.value.designation.trim().length > 255) {
+        errors.value.designation = 'Maximum 255 caractères'
+    }
+
+    if (!form.value.typeOrigine.trim()) {
+        errors.value.typeOrigine = 'Le type est obligatoire'
+    }
+
+    return Object.keys(errors.value).length === 0
+}
+
+/* -------------------- confirmation -------------------- */
+
 function demanderConfirmation(): void {
     globalError.value = ''
     if (!valider()) return
 
     confirmDemande.value = {
         titre: 'Confirmer la déclaration',
-        message:
-            `Vous allez déclarer le signalement « ${form.value.designation.trim()} ».`,
+        message: `Vous allez déclarer le signalement « ${form.value.designation.trim()} ».`,
         consequence:
-            'Un signalement est un fait historique : une fois créé, il ne peut '
+            'Le code sera attribué automatiquement par le système. '
+            + 'Un signalement est un fait historique : une fois créé, il ne peut '
             + 'plus être modifié ni supprimé.',
         libelleConfirmer: 'Déclarer',
         libelleAnnuler: 'Revenir au formulaire',
@@ -44,13 +108,11 @@ function demanderConfirmation(): void {
     confirmOpen.value = true
 }
 
-/** Étape 2 — l'utilisateur confirme. Seul point qui appelle le backend. */
 async function confirmerCreation(): Promise<void> {
     globalError.value = ''
     confirmLoading.value = true
 
     const payload: SignalementRequest = {
-        code: form.value.code.trim(),
         designation: form.value.designation.trim(),
         typeOrigine: form.value.typeOrigine.trim(),
         description: form.value.description?.trim() || null,
@@ -60,9 +122,6 @@ async function confirmerCreation(): Promise<void> {
     confirmLoading.value = false
 
     if (!res.success) {
-        // Échec serveur : on referme la confirmation et on rend la main
-        // au formulaire, où l'utilisateur peut corriger. La saisie n'est
-        // pas perdue — le formulaire n'a jamais été démonté.
         confirmOpen.value = false
         globalError.value = res.error
         return
@@ -71,84 +130,14 @@ async function confirmerCreation(): Promise<void> {
     router.push({ name: 'signalements', query: { created: '1' } })
 }
 
-/** Fermeture sans confirmer : retour au formulaire, saisie préservée. */
 function annulerConfirmation(): void {
     confirmOpen.value = false
-}
-
-const router = useRouter()
-
-const form = ref<SignalementRequest>({
-    code: '',
-    designation: '',
-    typeOrigine: '',
-    description: '',
-})
-
-const typesDisponibles = ref<string[]>([])
-const errors = ref<Record<string, string>>({})
-const globalError = ref('')
-const loading = ref(false)
-const submitting = ref(false)
-
-/**
- * Types disponibles chargés depuis la base.
- *
- * Ne pas figer la liste : elle dépend du référentiel réel. Les valeurs
- * les plus fréquentes (INCIDENT, RISQUE) n'ont pas à être connues du code.
- */
-const typeOptions = computed(() =>
-    typesDisponibles.value.map(t => ({ value: t, label: t }))
-)
-
-async function charger(): Promise<void> {
-    loading.value = true
-    const res = await getSignalementFiltres()
-    loading.value = false
-    if (res.success) typesDisponibles.value = res.data.types
-}
-
-function valider(): boolean {
-    errors.value = {}
-
-    if (!form.value.code.trim()) errors.value.code = 'Le code est obligatoire'
-    else if (form.value.code.trim().length > 50) errors.value.code = 'Maximum 50 caractères'
-
-    if (!form.value.designation.trim()) errors.value.designation = 'La désignation est obligatoire'
-    else if (form.value.designation.trim().length > 255) errors.value.designation = 'Maximum 255 caractères'
-
-    if (!form.value.typeOrigine.trim()) errors.value.typeOrigine = 'Le type est obligatoire'
-
-    return Object.keys(errors.value).length === 0
-}
-
-async function soumettre(): Promise<void> {
-    globalError.value = ''
-    if (!valider()) return
-    submitting.value = true
-
-    const payload: SignalementRequest = {
-        code: form.value.code.trim(),
-        designation: form.value.designation.trim(),
-        typeOrigine: form.value.typeOrigine.trim(),
-        description: form.value.description?.trim() || null,
-    }
-
-    const res = await creerSignalement(payload)
-    submitting.value = false
-
-    if (!res.success) { globalError.value = res.error; return }
-    router.push({
-        name: 'signalements',
-        query: { created: '1' },
-    })
 }
 
 function annuler(): void {
     router.push({ name: 'signalements' })
 }
 
-onMounted(charger)
 </script>
 
 <template>
@@ -169,16 +158,17 @@ onMounted(charger)
         <div class="sig-form">
             <section class="sig-form__section">
                 <h2 class="sig-form__title">Identification</h2>
-                <div class="sig-form__row">
-                    <BaseInput v-model="form.code" label="Code" required placeholder="Ex : INC-2026-001"
-                        :error="errors.code" :disabled="loading || submitting" />
-                    <BaseInput v-model="form.designation" label="Désignation" required
-                        placeholder="Résumé court du signalement" :error="errors.designation"
-                        :disabled="loading || submitting" />
-                </div>
 
                 <BaseSelect v-model="form.typeOrigine" label="Type" required placeholder="Sélectionner un type"
                     :options="typeOptions" :error="errors.typeOrigine" :disabled="loading || submitting" />
+
+                <BaseInput :model-value="codePropose" label="Code attribué" readonly
+                    placeholder="Sélectionnez un type pour obtenir le code" :loading="codeLoading"
+                    helper="Le code est généré automatiquement selon le type et l'année." />
+
+                <BaseInput v-model="form.designation" label="Désignation" required
+                    placeholder="Résumé court du signalement" :error="errors.designation"
+                    :disabled="loading || submitting" />
             </section>
 
             <section class="sig-form__section">
