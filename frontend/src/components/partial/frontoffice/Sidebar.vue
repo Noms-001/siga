@@ -100,6 +100,24 @@
                     </router-link>
                 </li>
 
+                <li class="nav-item">
+                    <span class="nav-label">Signalements</span>
+                </li>
+                <li class="nav-item">
+                    <router-link class="nav-link" to="/signalements"
+                        :class="{ active: isActive('/signalements') && route.path !== '/signalements/nouveau' }">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <span>Liste des signalements</span>
+                    </router-link>
+                </li>
+                <li class="nav-item">
+                    <router-link class="nav-link" to="/signalements/nouveau"
+                        :class="{ active: isActive('/signalements/nouveau') }">
+                        <i class="bi bi-plus-circle"></i>
+                        <span>Nouveau signalement</span>
+                    </router-link>
+                </li>
+
                 <!-- ========================================== -->
                 <!-- 📈 INDICATEURS                            -->
                 <!-- ========================================== -->
@@ -200,7 +218,7 @@ const route = useRoute()
 
 // --- Computed ---
 const isActive = (path: string) => {
-    return route.path === path 
+    return route.path === path
 }
 
 // --- Methods ---

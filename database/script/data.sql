@@ -1871,16 +1871,16 @@ FROM sous_activite sa;
 INSERT INTO origine (code, designation, type_origine, description, date_creation, id_utilisateur)
 SELECT v.code, v.designation, v.type_origine, v.description, v.date_creation::timestamp, u.id_utilisateur
 FROM (VALUES
-('RSQ-001', 'Risque de défaillance du système de vidéosurveillance', 'RISQUE', 'Risque de panne ou de dysfonctionnement des caméras et du système d''enregistrement vidéo.', '2026-01-10 08:00:00', 'sonia.gharbi@bfm.tn'),
-('RSQ-002', 'Risque d''accès non autorisé', 'RISQUE', 'Risque d''intrusion ou d''accès non autorisé dans les locaux ou zones sensibles.', '2026-01-10 08:00:00', 'sonia.gharbi@bfm.tn'),
-('RSQ-003', 'Risque de panne du système d''alarme', 'RISQUE', 'Risque de défaillance du système d''alarme anti-intrusion.', '2026-01-10 08:00:00', 'mohamed.khelifi@bfm.tn'),
-('RSQ-004', 'Risque de défaillance du contrôle d''accès', 'RISQUE', 'Risque de panne des lecteurs de badges, portails et dispositifs de contrôle d''accès.', '2026-01-10 08:00:00', 'mohamed.khelifi@bfm.tn'),
-('RSQ-005', 'Risque de dégradation des équipements de sécurité', 'RISQUE', 'Risque de détérioration physique des équipements de sûreté et de sécurité.', '2026-01-10 08:00:00', 'sonia.gharbi@bfm.tn'),
-('RSQ-006', 'Risque de non-conformité des procédures de sûreté', 'RISQUE', 'Risque que les procédures ne soient pas conformes aux normes en vigueur.', '2026-01-10 08:00:00', 'nadia.bouazizi@bfm.tn'),
-('RSQ-007', 'Risque de défaut de maintenance préventive', 'RISQUE', 'Risque que la maintenance préventive ne soit pas réalisée dans les délais.', '2026-01-10 08:00:00', 'sonia.gharbi@bfm.tn'),
-('RSQ-008', 'Risque de perte de communication avec les équipements de sécurité', 'RISQUE', 'Risque de perte de liaison réseau avec les équipements de sécurité.', '2026-01-10 08:00:00', 'mohamed.khelifi@bfm.tn'),
-('RSQ-009', 'Risque de défaillance du système de détection incendie', 'RISQUE', 'Risque de panne du système de détection et d''extinction incendie.', '2026-01-10 08:00:00', 'sonia.gharbi@bfm.tn'),
-('RSQ-010', 'Risque de vulnérabilité périmétrique des sites', 'RISQUE', 'Risque lié à la faiblesse des clôtures et dispositifs périmétriques.', '2026-01-10 08:00:00', 'mohamed.khelifi@bfm.tn')
+('RSQ-2026-001', 'Risque de défaillance du système de vidéosurveillance', 'RISQUE', 'Risque de panne ou de dysfonctionnement des caméras et du système d''enregistrement vidéo.', '2026-01-10 08:00:00', 'sonia.gharbi@bfm.tn'),
+('RSQ-2026-002', 'Risque d''accès non autorisé', 'RISQUE', 'Risque d''intrusion ou d''accès non autorisé dans les locaux ou zones sensibles.', '2026-01-10 08:00:00', 'sonia.gharbi@bfm.tn'),
+('RSQ-2026-003', 'Risque de panne du système d''alarme', 'RISQUE', 'Risque de défaillance du système d''alarme anti-intrusion.', '2026-01-10 08:00:00', 'mohamed.khelifi@bfm.tn'),
+('RSQ-2026-004', 'Risque de défaillance du contrôle d''accès', 'RISQUE', 'Risque de panne des lecteurs de badges, portails et dispositifs de contrôle d''accès.', '2026-01-10 08:00:00', 'mohamed.khelifi@bfm.tn'),
+('RSQ-2026-005', 'Risque de dégradation des équipements de sécurité', 'RISQUE', 'Risque de détérioration physique des équipements de sûreté et de sécurité.', '2026-01-10 08:00:00', 'sonia.gharbi@bfm.tn'),
+('RSQ-2026-006', 'Risque de non-conformité des procédures de sûreté', 'RISQUE', 'Risque que les procédures ne soient pas conformes aux normes en vigueur.', '2026-01-10 08:00:00', 'nadia.bouazizi@bfm.tn'),
+('RSQ-2026-007', 'Risque de défaut de maintenance préventive', 'RISQUE', 'Risque que la maintenance préventive ne soit pas réalisée dans les délais.', '2026-01-10 08:00:00', 'sonia.gharbi@bfm.tn'),
+('RSQ-2026-008', 'Risque de perte de communication avec les équipements de sécurité', 'RISQUE', 'Risque de perte de liaison réseau avec les équipements de sécurité.', '2026-01-10 08:00:00', 'mohamed.khelifi@bfm.tn'),
+('RSQ-2026-009', 'Risque de défaillance du système de détection incendie', 'RISQUE', 'Risque de panne du système de détection et d''extinction incendie.', '2026-01-10 08:00:00', 'sonia.gharbi@bfm.tn'),
+('RSQ-2026-010', 'Risque de vulnérabilité périmétrique des sites', 'RISQUE', 'Risque lié à la faiblesse des clôtures et dispositifs périmétriques.', '2026-01-10 08:00:00', 'mohamed.khelifi@bfm.tn')
 ) AS v(code, designation, type_origine, description, date_creation, email)
 JOIN utilisateur u ON u.email = v.email;
 
@@ -1888,16 +1888,16 @@ JOIN utilisateur u ON u.email = v.email;
 INSERT INTO origine (code, designation, type_origine, description, date_creation, id_utilisateur)
 SELECT v.code, v.designation, v.type_origine, v.description, v.date_creation::timestamp, u.id_utilisateur
 FROM (VALUES
-('INC-001', 'Panne d''une caméra de surveillance au hall principal', 'INCIDENT', 'La caméra du hall principal du siège a cessé de fonctionner le 20 janvier 2026.', '2026-01-20 09:00:00', 'slim.ayari@bfm.tn'),
-('INC-002', 'Déclenchement intempestif d''une alarme au siège', 'INCIDENT', 'Le système d''alarme du siège s''est déclenché sans raison apparente le 5 janvier 2026.', '2026-01-05 22:00:00', 'slim.ayari@bfm.tn'),
-('INC-003', 'Défaillance d''un lecteur de badge à l''entrée du personnel', 'INCIDENT', 'Le lecteur de badge de l''entrée du personnel du siège est tombé en panne le 10 février 2026.', '2026-02-10 07:30:00', 'anis.mejri@bfm.tn'),
-('INC-004', 'Perte de communication avec un équipement de sécurité au site technique', 'INCIDENT', 'Perte de communication avec le détecteur d''intrusion du site technique le 5 mars 2026.', '2026-03-05 14:00:00', 'slim.ayari@bfm.tn'),
-('INC-005', 'Détection d''un accès non autorisé à l''agence de Sfax', 'INCIDENT', 'Une personne non autorisée a tenté d''accéder à la zone sécurisée de l''agence de Sfax le 25 mars 2026.', '2026-03-25 10:15:00', 'slim.ayari@bfm.tn'),
-('INC-006', 'Coupure d''alimentation du système de sécurité du siège', 'INCIDENT', 'Le système de sécurité du siège a été privé d''alimentation électrique le 1er mars 2026.', '2026-03-01 03:00:00', 'slim.ayari@bfm.tn'),
-('INC-007', 'Dysfonctionnement du contrôle d''accès de l''agence d''Ariana', 'INCIDENT', 'Le portail automatique de l''agence d''Ariana est resté bloqué le 20 avril 2026.', '2026-04-20 08:45:00', 'anis.mejri@bfm.tn'),
-('INC-008', 'Détection d''une anomalie sur le réseau de caméras', 'INCIDENT', 'Plusieurs caméras du réseau ont perdu leur connexion le 5 juillet 2026.', '2026-07-05 16:30:00', 'ines.ferchichi@bfm.tn'),
-('INC-009', 'Panne du système de détection incendie du bâtiment administratif', 'INCIDENT', 'Le système de détection incendie du bâtiment administratif a signalé une panne le 1er mai 2026.', '2026-05-01 06:00:00', 'slim.ayari@bfm.tn'),
-('INC-010', 'Incident de sûreté au centre de stockage', 'INCIDENT', 'Tentative d''intrusion détectée au centre de stockage le 1er septembre 2026.', '2026-09-01 23:30:00', 'anis.mejri@bfm.tn')
+('INC-2026-001', 'Panne d''une caméra de surveillance au hall principal', 'INCIDENT', 'La caméra du hall principal du siège a cessé de fonctionner le 20 janvier 2026.', '2026-01-20 09:00:00', 'slim.ayari@bfm.tn'),
+('INC-2026-002', 'Déclenchement intempestif d''une alarme au siège', 'INCIDENT', 'Le système d''alarme du siège s''est déclenché sans raison apparente le 5 janvier 2026.', '2026-01-05 22:00:00', 'slim.ayari@bfm.tn'),
+('INC-2026-003', 'Défaillance d''un lecteur de badge à l''entrée du personnel', 'INCIDENT', 'Le lecteur de badge de l''entrée du personnel du siège est tombé en panne le 10 février 2026.', '2026-02-10 07:30:00', 'anis.mejri@bfm.tn'),
+('INC-2026-004', 'Perte de communication avec un équipement de sécurité au site technique', 'INCIDENT', 'Perte de communication avec le détecteur d''intrusion du site technique le 5 mars 2026.', '2026-03-05 14:00:00', 'slim.ayari@bfm.tn'),
+('INC-2026-005', 'Détection d''un accès non autorisé à l''agence de Sfax', 'INCIDENT', 'Une personne non autorisée a tenté d''accéder à la zone sécurisée de l''agence de Sfax le 25 mars 2026.', '2026-03-25 10:15:00', 'slim.ayari@bfm.tn'),
+('INC-2026-006', 'Coupure d''alimentation du système de sécurité du siège', 'INCIDENT', 'Le système de sécurité du siège a été privé d''alimentation électrique le 1er mars 2026.', '2026-03-01 03:00:00', 'slim.ayari@bfm.tn'),
+('INC-2026-007', 'Dysfonctionnement du contrôle d''accès de l''agence d''Ariana', 'INCIDENT', 'Le portail automatique de l''agence d''Ariana est resté bloqué le 20 avril 2026.', '2026-04-20 08:45:00', 'anis.mejri@bfm.tn'),
+('INC-2026-008', 'Détection d''une anomalie sur le réseau de caméras', 'INCIDENT', 'Plusieurs caméras du réseau ont perdu leur connexion le 5 juillet 2026.', '2026-07-05 16:30:00', 'ines.ferchichi@bfm.tn'),
+('INC-2026-009', 'Panne du système de détection incendie du bâtiment administratif', 'INCIDENT', 'Le système de détection incendie du bâtiment administratif a signalé une panne le 1er mai 2026.', '2026-05-01 06:00:00', 'slim.ayari@bfm.tn'),
+('INC-2026-010', 'Incident de sûreté au centre de stockage', 'INCIDENT', 'Tentative d''intrusion détectée au centre de stockage le 1er septembre 2026.', '2026-09-01 23:30:00', 'anis.mejri@bfm.tn')
 ) AS v(code, designation, type_origine, description, date_creation, email)
 JOIN utilisateur u ON u.email = v.email;
 
