@@ -1,72 +1,78 @@
 <template>
-    <div class="backoffice-auth-wrapper">
-        <BaseCard class="backoffice-auth-card" custom-class="border-0 shadow-lg">
-            <!-- En-tête -->
-            <div class="backoffice-auth-header text-center">
-                <div class="backoffice-auth-brand">
-                    <span class="backoffice-brand-name"><i class="bi bi-shield-shaded"></i>DTS</span>
-                    <span class="backoffice-brand-sub d-block">
-                        Backoffice · Administration
-                    </span>
-                </div>
-            </div>
+    <div class="auth-wrapper">
+        <button type="button" class="auth-back-btn" @click="goBack" title="Retour" aria-label="Retour">
+            <i class="bi bi-arrow-left"></i>
+        </button>
 
-            <div class="backoffice-auth-body">
-                <h2 class="backoffice-auth-title text-center">Connexion au Backoffice</h2>
-                <p class="backoffice-auth-subtitle text-center">
-                    Accédez à l'interface d'administration
-                </p>
+        <BaseCard class="auth-card" :custom-class="['border-0', 'shadow-lg']">
+            <template #default>
 
-                <form @submit.prevent="handleLogin" class="backoffice-auth-form">
-                    <!-- Email -->
-                    <BaseInput v-model="email" label="Adresse email" placeholder="admin@dts.mg" type="email"
-                        name="email" :required="true" :error="emailError" size="lg" icon="bi bi-envelope"
-                        custom-class="mb-3" />
+                <!-- En-tête : logo + titre -->
+                <header class="auth-header">
+                    <div class="auth-logo-ring">
+                        <img src="/logo/logo.png" alt="Logo" class="brand-logo">
+                    </div>
 
-                    <!-- Mot de passe -->
-                    <BaseInput v-model="password" label="Mot de passe" placeholder="••••••••" type="password"
-                        name="password" :required="true" :error="passwordError" size="lg" icon="bi bi-lock"
-                        custom-class="mb-4" />
+                    <img src="/logo/titre.jpeg" alt="GESTIA" class="brand-title-img">
+
+                    <span class="auth-divider" aria-hidden="true"></span>
+                </header>
+
+                <div id="loginSection">
+                    <h2 class="auth-title text-center">Connexion au Backoffice</h2>
+
+                    <p class="auth-subtitle text-center">
+                        Accédez à l'interface d'administration
+                    </p>
 
                     <!-- Session fermée pour inactivité -->
-                    <div v-if="sessionExpiree" class="backoffice-alert backoffice-alert-warning" role="alert">
-                        <i class="bi bi-clock-history"></i>
-                        <span>Votre session a été fermée après une période d’inactivité. Veuillez vous reconnecter.</span>
+                    <div v-if="sessionExpiree" class="alert alert-warning" role="alert">
+                        Votre session a été fermée après une période d’inactivité.
+                        Veuillez vous reconnecter.
                     </div>
 
-                    <!-- Message d'erreur général -->
-                    <div v-if="loginError" class="backoffice-alert backoffice-alert-danger" role="alert">
-                        <i class="bi bi-exclamation-circle-fill"></i>
-                        <span>{{ loginError }}</span>
+                    <form @submit.prevent="handleLogin">
+                        <!-- Champ Email -->
+                        <BaseInput v-model="email" label="Adresse email" placeholder="admin@dts.mg"
+                            type="email" name="email" :required="true" :error="emailError" size="md"
+                            custom-class="mb-3" />
+
+                        <!-- Champ Mot de passe -->
+                        <BaseInput v-model="password" label="Mot de passe" placeholder="••••••••" type="password"
+                            name="password" :required="true" :error="passwordError" size="md"
+                            custom-class="mb-4" />
+
+                        <!-- Message d'erreur général -->
+                        <div v-if="loginError" class="alert alert-danger" role="alert">
+                            {{ loginError }}
+                        </div>
+
+                        <!-- Bouton de connexion -->
+                        <BaseButton type="submit" variant="primary" size="md" :loading="loading"
+                            :disabled="loading" custom-class="w-100">
+                            {{ loading ? 'Connexion en cours...' : 'Se connecter' }}
+                        </BaseButton>
+                    </form>
+
+                    <!-- Lien mot de passe oublié -->
+                    <div class="auth-links text-center mt-3">
+                        <RouterLink to="/forgot-password" class="forgot-link">
+                            Mot de passe oublié ?
+                        </RouterLink>
                     </div>
-
-                    <!-- Bouton de connexion -->
-                    <BaseButton type="submit" variant="primary" size="lg" :loading="loading" :disabled="loading"
-                        custom-class="w-100 backoffice-login-btn">
-                        <i class="bi bi-box-arrow-in-right"></i>
-                        {{ loading ? 'Connexion en cours...' : 'Se connecter' }}
-                    </BaseButton>
-                </form>
-
-                <!-- Lien mot de passe oublié -->
-                <div class="backoffice-auth-links text-center mt-3">
-                    <RouterLink to="/forgot-password" class="backoffice-forgot-link">
-                        Mot de passe oublié ?
-                    </RouterLink>
                 </div>
-            </div>
 
-            <!-- Pied de page -->
-            <div class="backoffice-auth-footer text-center mt-4 pt-3 border-top">
-                &copy; {{ currentYear }} &middot; DTS — Département Études, Sûreté et Sécurité
-                <span class="backoffice-footer-badge">Backoffice</span>
-            </div>
+                <!-- Pied de page -->
+                <div class="auth-footer text-center border-top mt-4 pt-3">
+                    &copy; {{ currentYear }} &middot; Département Études, Sûreté et Sécurité
+                </div>
+            </template>
         </BaseCard>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BaseCard, BaseInput, BaseButton } from '@/components/base'
 import { useAuthStore } from '@/stores/auth'
@@ -96,30 +102,30 @@ const currentYear = computed(() => new Date().getFullYear())
  */
 const sessionExpiree = computed(() => route.query.session === 'expiree')
 
-// --- Methods ---
-const validateEmail = (value: string): boolean => {
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
-    return emailRegex.test(value)
+const goBack = () => {
+    router.push('/').catch(() => {
+        // Navigation annulée par un guard — on ne fait rien
+    })
 }
 
+// --- Methods ---
 const handleLogin = async () => {
-    // Réinitialiser les erreurs
     emailError.value = ''
     passwordError.value = ''
     loginError.value = ''
 
-    // --- Validation frontend ---
-    // Email
+    // Validation de l'email
     if (!email.value.trim()) {
-        emailError.value = 'L\'adresse email est obligatoire'
+        emailError.value = 'L’adresse email est obligatoire'
         return
     }
-    if (!validateEmail(email.value)) {
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
         emailError.value = 'Veuillez saisir une adresse email valide'
         return
     }
 
-    // Mot de passe
+    // Validation du mot de passe
     if (!password.value) {
         passwordError.value = 'Le mot de passe est obligatoire'
         return
@@ -128,29 +134,23 @@ const handleLogin = async () => {
     try {
         loading.value = true
 
-        // Appel au store
+        // Connexion backoffice (2e argument = true)
         await authStore.login({
             email: email.value.trim(),
             password: password.value
-        }, true) // true pour indiquer que c'est une connexion backoffice
+        }, true)
 
-        // Vérifier que l'utilisateur est bien connecté
         if (authStore.isAuthenticated) {
-            // Redirection vers le dashboard
-            await router.push('/backoffice/dashboard')
+            await router.replace('/backoffice/dashboard')
         } else {
             loginError.value = 'Une erreur est survenue lors de la connexion'
         }
     } catch (error: unknown) {
-        console.error('Erreur de connexion:', error)
-
-        // Récupérer le message d'erreur du backend
         const err = error as any
         loginError.value =
             err?.response?.data?.error ??
             err?.response?.data?.message ??
-            err?.message ??
-            'Une erreur est survenue. Veuillez réessayer.'
+            (error instanceof Error ? error.message : 'Erreur de connexion')
     } finally {
         loading.value = false
     }
@@ -158,209 +158,231 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-/* ============================================
-   BACKOFFICE LOGIN - Styles
-   ============================================ */
-
-.backoffice-auth-wrapper {
+/* ============ Page ============ */
+.auth-wrapper {
     position: fixed;
     inset: 0;
     width: 100%;
-    height: 100vh;
+    min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-color, #eef2f8f4);
-    padding: 1.5rem;
+    padding: 1rem;
     overflow-y: auto;
+
+    background:
+        radial-gradient(circle at 12% 10%, rgba(26, 42, 108, 0.10) 0, transparent 38%),
+        radial-gradient(circle at 90% 92%, rgba(212, 175, 55, 0.14) 0, transparent 36%),
+        linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
 }
 
-/* --- Carte --- */
-.backoffice-auth-card {
-    max-width: 580px;
+/* ============ Carte ============ */
+.auth-card {
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
     width: 100%;
-    padding: 2.5rem 2rem 2rem;
-    border-radius: 24px !important;
-    background: var(--card-bg, #ffffff);
-    box-shadow: var(--shadow-lg, 0 30px 80px rgba(15, 23, 42, 0.15));
-    transition: transform 0.2s ease;
-    border: 1px solid var(--border-color, #dee2e6) !important;
-}
-
-/* --- En-tête --- */
-.backoffice-auth-header {
-    margin-bottom: 1.5rem;
-}
-
-.backoffice-auth-brand {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-}
-
-.backoffice-brand-name {
-    font-size: 2rem;
-    font-weight: 800;
-    color: var(--text-color, #0f172a);
-    letter-spacing: -0.02em;
-}
-
-.backoffice-brand-name i {
-    margin-right: 0.65rem;
-}
-
-.backoffice-brand-sub {
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-muted-custom, #64748b);
-    margin-top: 0.1rem;
-}
-
-/* --- Corps --- */
-.backoffice-auth-body {
-    margin-top: 0.5rem;
-}
-
-.backoffice-auth-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-color, #0f172a);
-    margin-bottom: 0.25rem;
-}
-
-.backoffice-auth-subtitle {
-    font-size: 0.9rem;
-    color: var(--text-muted-custom, #64748b);
-    margin-bottom: 1.75rem;
-}
-
-/* --- Formulaire --- */
-.backoffice-auth-form {
-    display: flex;
-    flex-direction: column;
-}
-
-/* --- Alertes --- */
-.backoffice-alert {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    border-radius: 12px;
-    font-size: 0.9rem;
-    margin-bottom: 1rem;
-}
-
-.backoffice-alert i {
-    font-size: 1.1rem;
+    max-width: 490px;
+    max-height: 97%;
+    padding: 0 2rem 1.5rem;
+    border-radius: 22px !important;
+    background: #fff;
+    box-shadow: 0 20px 60px rgba(26, 42, 108, 0.12);
     flex-shrink: 0;
 }
 
-.backoffice-alert-danger {
-    background-color: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #dc2626;
+/* Liseré décoratif bleu → doré en haut de la carte */
+.auth-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #1a2a6c 0%, #4a6cf7 55%, #d4af37 100%);
 }
 
-.backoffice-alert-warning {
-    background-color: #fffbeb;
-    border: 1px solid #fde68a;
-    color: #b45309;
+/* ============ En-tête (logo + titre) ============ */
+.auth-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 0.5rem;
 }
 
-/* --- Bouton --- */
-.backoffice-login-btn {
-    font-weight: 600;
-    padding: 0.75rem 1.5rem;
-    border-radius: 12px !important;
-    transition: all 0.2s ease;
+/* Logo dans un médaillon */
+.auth-logo-ring {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 120px;
+    height: 120px;
+    padding: 8px;
 }
 
-.backoffice-login-btn i {
-    font-size: 1.1rem;
+.brand-logo {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 }
 
-.backoffice-login-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(8, 56, 105, 0.25);
+/* Titre : largeur maîtrisée, fond blanc du JPEG fondu dans la carte */
+.brand-title-img {
+    display: block;
+    width: 100%;
+    max-width: 260px;
+    max-height: 58px;
+    height: auto;
+    object-fit: contain;
+    mix-blend-mode: multiply;
 }
 
-/* --- Liens --- */
-.backoffice-auth-links {
-    margin-top: 0.5rem;
+/* Séparateur doré sous l'en-tête */
+.auth-divider {
+    display: block;
+    width: 200px;
+    height: 3px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #1a2a6c, #d4af37);
 }
 
-.backoffice-forgot-link {
-    color: var(--text-muted-custom, #64748b);
-    font-size: 0.85rem;
+/* ============ Section connexion ============ */
+.auth-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1a2a6c;
+    margin-bottom: 0.25rem;
+}
+
+.auth-subtitle {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-bottom: 1.25rem;
+}
+
+/* Lien mot de passe oublié */
+.forgot-link {
+    color: #1a2a6c;
+    font-size: 0.9rem;
     font-weight: 500;
     text-decoration: none;
     transition: color 0.2s ease;
 }
 
-.backoffice-forgot-link:hover {
-    color: var(--primary-color, #083869);
+.forgot-link:hover {
+    color: #4a6cf7;
     text-decoration: underline;
 }
 
-/* --- Footer --- */
-.backoffice-auth-footer {
+/* Pied de page */
+.auth-footer {
     font-size: 0.75rem;
-    color: var(--text-muted-custom, #64748b);
-    border-top-color: var(--border-color, #dee2e6) !important;
-    display: flex;
+    color: #9ca3af;
+}
+
+/* Messages */
+.alert {
+    border-radius: 12px;
+    font-size: 0.9rem;
+    padding: 0.75rem 1rem;
+}
+
+.alert-danger {
+    background-color: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+}
+
+.alert-warning {
+    background-color: #fffbeb;
+    border-color: #fde68a;
+    color: #b45309;
+}
+
+/* ============ Bouton retour ============ */
+.auth-back-btn {
+    position: fixed;
+    top: 1.5rem;
+    left: 1.5rem;
+    z-index: 10;
+
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
+
+    width: 42px;
+    height: 42px;
+
+    background-color: #1a2a6c;
+    color: #ffffff;
+
+    border: 1px solid #1a2a6c;
+    border-radius: 50%;
+
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+
+    transition:
+        color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease,
+        background 0.2s ease;
 }
 
-.backoffice-footer-badge {
-    font-size: 0.55rem;
-    font-weight: 700;
-    background: var(--primary-color, #083869);
+.auth-back-btn:hover {
     color: white;
-    padding: 2px 10px;
-    border-radius: 12px;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
+    border-color: white;
+    box-shadow:
+        0 0 5px 3px rgba(212, 175, 55, 0.25),
+        0 6px 16px rgba(212, 175, 55, 0.35);
+    transform: translateY(-1px);
+    background: #d4af37;
 }
 
-/* ============================================
-   RESPONSIVE
-   ============================================ */
-@media (max-width: 575.98px) {
-    .backoffice-auth-card {
-        padding: 2rem 1.25rem 1.5rem;
-        border-radius: 16px !important;
-    }
-
-    .backoffice-auth-title {
-        font-size: 1.25rem;
-    }
-
-    .backoffice-brand-name {
-        font-size: 1.5rem;
-    }
-
-    .backoffice-brand-icon {
-        width: 52px;
-        height: 52px;
-        font-size: 1.5rem;
-    }
-
-    .backoffice-auth-wrapper {
-        padding: 1rem;
-    }
+.auth-back-btn:active {
+    transform: translateY(0);
 }
 
-@media (min-width: 576px) and (max-width: 991.98px) {
-    .backoffice-auth-card {
-        padding: 2.5rem 2rem;
-    }
+.auth-back-btn:focus-visible {
+    outline: 2px solid #d4af37;
+    outline-offset: 2px;
 }
 
+/* ============ Responsive ============ */
+@media (max-width: 480px) {
+    .auth-wrapper {
+        padding: 0.75rem;
+    }
+
+    .auth-back-btn {
+        top: 1rem;
+        left: 1rem;
+        width: 38px;
+        height: 38px;
+        font-size: 1rem;
+    }
+
+    .auth-card {
+        padding: 1.75rem 1.25rem 1.25rem;
+    }
+
+    .auth-logo-ring {
+        width: 76px;
+        height: 76px;
+        padding: 7px;
+    }
+
+    .brand-title-img {
+        max-width: 100%;
+        max-height: 48px;
+    }
+
+    .auth-title {
+        font-size: 1.4rem;
+    }
+}
 </style>

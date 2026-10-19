@@ -2,12 +2,17 @@
     <div class="accueil-page">
         <div class="accueil-container">
             <!-- En-tête -->
-            <div class="accueil-header text-center">
+            <div class="accueil-header section text-center">
                 <div class="accueil-brand">
-                    <div class="accueil-brand-icon">
-                        <i class="bi bi-shield-fill-check"></i>
+                    <div class="auth-logo-ring">
+                        <img src="/logo/logo.png" alt="Logo" class="brand-logo">
                     </div>
-                    <h1 class="accueil-title">Système d'Alerte et de Gestion des Activités</h1>
+
+                    <img src="/logo/titre.jpeg" alt="GESTIA" class="brand-title-img">
+
+                    <span class="auth-divider" aria-hidden="true"></span>
+
+                    <h1 class="accueil-title">Gestion Intelligente et Automatisée des Activités</h1>
                     <p class="accueil-subtitle">
                         Bienvenue sur la plateforme de gestion. Veuillez choisir votre espace d'accès.
                     </p>
@@ -84,7 +89,7 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
 
 <style scoped>
 /* ============================================
-   ACCUEIL - Styles
+   ACCUEIL - Styles (alignés sur les pages auth)
    ============================================ */
 
 .accueil-page {
@@ -95,10 +100,13 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at top, rgba(8, 56, 105, 0.06), transparent 28%),
-        var(--bg-color, #eef2f8f4);
     padding: 2rem 1.5rem;
     overflow-y: auto;
+
+    background:
+        radial-gradient(circle at 12% 10%, rgba(26, 42, 108, 0.10) 0, transparent 38%),
+        radial-gradient(circle at 90% 92%, rgba(212, 175, 55, 0.14) 0, transparent 36%),
+        linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
 }
 
 .accueil-container {
@@ -106,7 +114,7 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
     max-width: 1100px;
     display: flex;
     flex-direction: column;
-    gap: 2.5rem;
+    gap: 1rem;
 }
 
 /* --- En-tête --- */
@@ -118,35 +126,60 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
 }
 
-.accueil-brand-icon {
+/* Logo dans un médaillon (identique au login) */
+.auth-logo-ring {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 72px;
-    height: 72px;
-    border-radius: 20px;
-    background: linear-gradient(135deg, var(--primary-color, #083869), var(--secondary-color, #164493));
-    color: white;
-    font-size: 2.5rem;
-    box-shadow: 0 4px 20px rgba(8, 56, 105, 0.3);
-    margin-bottom: 0.5rem;
+
+    width: 90px;
+    height: 90px;
+    padding: 8px;
+}
+
+.brand-logo {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Titre : largeur maîtrisée, fond blanc du JPEG fondu dans la page */
+.brand-title-img {
+    display: block;
+    width: 100%;
+    max-width: 260px;
+    max-height: 58px;
+    height: auto;
+    object-fit: contain;
+    mix-blend-mode: multiply;
+}
+
+/* Séparateur doré sous le titre */
+.auth-divider {
+    display: block;
+    width: 200px;
+    height: 3px;
+    border-radius: 3px;
+    margin: 0.5rem 0 0.75rem;
+    background: linear-gradient(90deg, #1a2a6c, #d4af37);
 }
 
 .accueil-title {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    color: var(--text-color, #0f172a);
+    color: #1a2a6c;
     margin: 0;
     letter-spacing: -0.02em;
+    max-width: 720px;
 }
 
 .accueil-subtitle {
-    font-size: 1rem;
-    color: var(--text-muted-custom, #64748b);
-    margin: 0.25rem 0 0;
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin: 0.35rem 0 0;
 }
 
 /* --- Grille des cartes --- */
@@ -158,21 +191,21 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
 
 /* --- Cartes --- */
 .accueil-card {
-    padding: 2rem 1.75rem;
-    border-radius: 20px !important;
-    background: var(--card-bg, #ffffff);
-    border: 1px solid var(--border-color, #dee2e6) !important;
-    box-shadow: var(--shadow-sm, 0 2px 4px rgba(0, 0, 0, 0.05));
+    padding: 1rem 1.75rem;
+    border-radius: 22px !important;
+    background: #fff;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: 0 20px 60px rgba(26, 42, 108, 0.08);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .accueil-card:hover {
     transform: translateY(-4px);
-    box-shadow: var(--shadow-lg, 0 20px 60px rgba(15, 23, 42, 0.12));
+    box-shadow: 0 20px 60px rgba(26, 42, 108, 0.14);
 }
 
 .accueil-card.admin-card:hover {
-    box-shadow: 0 20px 60px rgba(8, 56, 105, 0.18);
+    box-shadow: 0 20px 60px rgba(212, 175, 55, 0.18);
 }
 
 .accueil-card-content {
@@ -195,25 +228,25 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
 }
 
 .user-icon {
-    background: rgba(8, 56, 105, 0.08);
-    color: var(--primary-color, #083869);
+    background: rgba(26, 42, 108, 0.08);
+    color: #1a2a6c;
 }
 
 .admin-icon {
-    background: rgba(220, 38, 38, 0.08);
-    color: #dc2626;
+    background: rgba(212, 175, 55, 0.15);
+    color: #b45309;
 }
 
 .accueil-card-title {
     font-size: 1.25rem;
     font-weight: 700;
-    color: var(--text-color, #0f172a);
+    color: #1a2a6c;
     margin: 0;
 }
 
 .accueil-card-description {
     font-size: 0.9rem;
-    color: var(--text-muted-custom, #64748b);
+    color: #6b7280;
     margin: 0;
     line-height: 1.5;
     max-width: 320px;
@@ -243,14 +276,14 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
 
 /* Variante secondaire (backoffice) */
 .accueil-card .base-btn--secondary {
-    background: var(--primary-color, #083869);
+    background: #1a2a6c;
     color: white;
     border: none;
 }
 
 .accueil-card .base-btn--secondary:hover:not(:disabled) {
-    background: var(--secondary-color, #164493);
-    box-shadow: 0 8px 24px rgba(8, 56, 105, 0.25);
+    background: #4a6cf7;
+    box-shadow: 0 8px 24px rgba(26, 42, 108, 0.25);
 }
 
 /* --- Footer --- */
@@ -260,21 +293,20 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
     justify-content: center;
     gap: 0.75rem;
     flex-wrap: wrap;
-    padding-top: 0.5rem;
-    border-top: 1px solid var(--border-color, #dee2e6);
-    margin-top: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e5e7eb;
 }
 
 .accueil-footer-text {
     font-size: 0.8rem;
-    color: var(--text-muted-custom, #64748b);
+    color: #9ca3af;
 }
 
 .accueil-footer-badge {
     font-size: 0.6rem;
     font-weight: 600;
-    background: var(--border-color, #dee2e6);
-    color: var(--text-muted-custom, #64748b);
+    background: #e5e7eb;
+    color: #6b7280;
     padding: 2px 10px;
     border-radius: 12px;
     letter-spacing: 0.3px;
@@ -290,13 +322,22 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
     }
 
     .accueil-title {
-        font-size: 1.5rem;
+        font-size: 1.25rem;
     }
 
-    .accueil-brand-icon {
-        width: 56px;
-        height: 56px;
-        font-size: 2rem;
+    .auth-logo-ring {
+        width: 96px;
+        height: 96px;
+        padding: 7px;
+    }
+
+    .brand-title-img {
+        max-width: 220px;
+        max-height: 50px;
+    }
+
+    .auth-divider {
+        width: 160px;
     }
 
     .accueil-card {
@@ -316,15 +357,30 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
 
 @media (max-width: 480px) {
     .accueil-page {
-        padding: 1rem;
+        padding: 1rem 0.75rem;
     }
 
     .accueil-container {
         gap: 1.5rem;
     }
 
+    .auth-logo-ring {
+        width: 76px;
+        height: 76px;
+        padding: 7px;
+    }
+
+    .brand-title-img {
+        max-width: 100%;
+        max-height: 48px;
+    }
+
+    .auth-divider {
+        width: 140px;
+    }
+
     .accueil-title {
-        font-size: 1.25rem;
+        font-size: 1.15rem;
     }
 
     .accueil-subtitle {
@@ -340,5 +396,4 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
         padding: 0.6rem 1rem !important;
     }
 }
-
 </style>
