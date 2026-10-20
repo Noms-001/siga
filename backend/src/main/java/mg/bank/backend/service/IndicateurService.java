@@ -69,14 +69,6 @@ public class IndicateurService {
         String codeHopex = videSiBlanc(request.getCodeHopex());
         String indicateurHopex = videSiBlanc(request.getIndicateurHopex());
 
-        /*
-         * Contrôle d'unicité conditionnel : PostgreSQL accepte plusieurs
-         * NULL dans une colonne UNIQUE, mais refuse deux valeurs égales.
-         * On ne teste donc l'unicité que quand la valeur est fournie —
-         * sinon existsByCodeHopex(null) renverrait faux (aucune ligne avec
-         * codeHopex null n'est *distinctement* comparable), et le contrôle
-         * serait sans effet.
-         */
         if (codeHopex != null && indicateurRepository.existsByCodeHopex(codeHopex)) {
             throw new ApiException(
                     "Un indicateur avec ce code HOPEx existe déjà",
@@ -213,15 +205,6 @@ public class IndicateurService {
 
     /* -------------------- historique des valeurs -------------------- */
 
-    /**
-     * Historique complet des valeurs d'un indicateur, du plus récent au plus
-     * ancien.
-     *
-     * La vérification d'existence de l'indicateur distingue "aucun relevé"
-     * (liste vide) de "indicateur inconnu" (404). Sans elle, un id erroné
-     * renverrait une liste vide, que le front interpréterait comme un
-     * indicateur sans valeur.
-     */
     @Transactional(readOnly = true)
     public List<mg.bank.backend.dto.backoffice.ValeurIndicateurResponse> listerValeurs(
             Integer idIndicateur) {

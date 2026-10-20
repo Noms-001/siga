@@ -74,10 +74,6 @@ public class OrigineService {
         try {
             return OrigineMapper.toResponse(origineRepository.save(entity));
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            // Le seul cas où l'INSERT peut échouer ici est un conflit sur
-            // `code` (toutes les autres colonnes sont validées en amont, ou
-            // nullable). On traduit en 409 — l'utilisateur n'a rien à faire
-            // de la trace SQL.
             throw new ApiException(
                     "Un signalement avec ce code vient d'être créé. "
                             + "Rechargez la page pour obtenir un code à jour.",
@@ -112,19 +108,6 @@ public class OrigineService {
         return mg.bank.backend.mapper.OrigineMapper.toDetail(origine, plans);
     }
 
-    /**
-     * Code proposé pour un nouveau signalement du type demandé.
-     *
-     * Le code est calculé à la volée à partir du dernier numéro utilisé
-     * dans la base pour ce préfixe et cette année. Il est appelé par le
-     * frontend à chaque changement de type, pour affichage dans un champ
-     * en lecture seule — c'est un APERÇU, pas une réservation.
-     *
-     * Deux appels concurrents pour le même type avant toute création
-     * renverront la même proposition. Le second enregistrement qui suivra
-     * sera refusé par la contrainte UNIQUE(code), ce qui reste une erreur
-     * de saisie (double clic, onglet dupliqué) et non une panne.
-     */
     @Transactional(readOnly = true)
     public String prochainCode(String typeOrigine) {
         if (typeOrigine == null || typeOrigine.isBlank()) {
@@ -145,17 +128,6 @@ public class OrigineService {
         return prefix + "-" + annee + "-" + String.format("%0" + LONGUEUR_SEQUENCE + "d", suivant);
     }
 
-    /**
-     * Préfixe du code pour un type de signalement.
-     *
-     * Trois types nommés (INCIDENT, RISQUE, AUTRE) ont un préfixe explicite.
-     * Tout autre type tombe sur ses trois premières lettres, en majuscules —
-     * si le référentiel des origines gagne un jour un type « OBSERVATION »,
-     * son code sera `OBS-2026-001` sans qu'il faille modifier le code Java.
-     *
-     * Le repli évite un 500 sur un type inconnu, et la contrainte UNIQUE sur
-     * `code` reste la garantie d'unicité, pas le format.
-     */
     private String prefixPour(String typeOrigine) {
         String t = typeOrigine.trim().toUpperCase();
         return switch (t) {

@@ -15,38 +15,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Livrable attendu d une sous-activite.
- *
- * MEME JUSTIFICATION QUE SousActivite ET ResultatIntermediaire
- *
- * Cette table n etait lue qu en SQL natif, via une projection
- * (LivrableDetailRow). Aucun mapping JPA n existait, parce que rien ne
- * l ecrivait. Le formulaire de redaction devant pouvoir declarer les livrables
- * d une sous-activite dans la meme transaction que l activite mere, le mapping
- * est ajoute ici plutot qu un INSERT en SQL brut.
- *
- * CONTRAIREMENT AUX DEUX AUTRES, LA SUPPRESSION EST CONTROLEE
- *
- * fichier_sous_activite reference livrable_sous_activite : un livrable porte
- * les depots de fichiers, et supprimer la ligne les laisserait orphelins. Un
- * livrable qui porte des fichiers est donc refuse a la suppression, comme
- * une sous-activite qui porte un livrable. Voir
- * LivrableRepository.compterDependances, et le meme garde deja present sur
- * SousActiviteRepository pour les lignes qui portent un livrable.
- *
- * Les FICHIERS NE SONT PAS ECRITS ICI
- *
- * Le depot et le telechargement relevent du suivi, sur une page dediee. La
- * colonne description est un texte libre de cadrage, pas le contenu d un
- * fichier : l exposer dans le mapping n inventerait pas de donnee, mais le
- * remplir par formulaire non plus.
- *
- * CE QUI N EST PAS DANS LE MODELE
- *
- * Ni quantite, ni unite, ni echeance, ni statut de reception : la table ne
- * porte que ces quatre colonnes.
- */
 @Entity
 @Table(name = "livrable_sous_activite")
 @Getter

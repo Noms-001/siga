@@ -1,6 +1,7 @@
 package mg.bank.backend.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -20,10 +21,13 @@ public interface PrioriteRepository extends JpaRepository<Priorite, Integer> {
             FROM priorite
             WHERE actif = TRUE
             ORDER BY code
-            """,
-            nativeQuery = true)
+            """, nativeQuery = true)
     List<OptionRow> findOptionsActives();
 
     List<Priorite> findByActifTrue();
+
+    boolean existsByCodeIgnoreCase(String code);
+
+    Optional<Priorite> findByCodeIgnoreCase(String code);
 
 }

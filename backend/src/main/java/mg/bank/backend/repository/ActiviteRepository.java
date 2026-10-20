@@ -12,7 +12,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import jakarta.persistence.LockModeType;
-import mg.bank.backend.enums.DecisionValidation;
 import mg.bank.backend.enums.StatutsActivite;
 import mg.bank.backend.model.Activite;
 import mg.bank.backend.repository.projection.ActiviteDetailRow;
@@ -35,15 +34,6 @@ import mg.bank.backend.repository.projection.ValeurIndicateurRow;
 
 public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
 
-       /**
-        * 
-        * Codes de statut pretats pour le SQL : la constante Java entouree de
-        * guillemets simples.
-        *
-        * Ils doivent etre concatenes HORS d un bloc de texte : dans un bloc
-        * """...""" le + reste un caractere litteral, et la comparaison
-        * porterait sur la chaine '..." + ... + "...' au lieu du code.
-        */
        String SQL_EN_COURS = "'" + StatutsActivite.EN_COURS + "'";
        String SQL_TERMINEE = "'" + StatutsActivite.TERMINEE + "'";
        String SQL_ANNULEE = "'" + StatutsActivite.ANNULEE + "'";
@@ -52,53 +42,10 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
        String SQL_NON_COMMENCEE = "'" + StatutsActivite.NON_COMMENCEE + "'";
        String SQL_SUSPENDUE = "'" + StatutsActivite.SUSPENDUE + "'";
 
-       /**
-        * Codes des statuts invisibles dans le suivi, SANS parentheses.
-        *
-        * Une activite encore dans le circuit de validation n est pas publiee :
-        * la montrer dans une liste de suivi exposerait un travail en cours de
-        * validation. La regle porte sur le STATUT COURANT, pas sur l historique,
-        * et elle s'applique aussi aux cards, sinon le total afficherait des
-        * activites absentes du tableau.
-        *
-        * Aucun chemin de code ne produit plus ces trois statuts ; ils sont la
-        * que parce que le jeu de donnees en contient (voir StatutsActivite).
-        *
-        * Le nom "non publiees" est choisi plutot qu "exclues" : il dit ce que
-        * la regle EST, pas ce qu elle fait.
-        *
-        * Les parentheses sont mises par l appelant, et c est volontaire : si
-        * elles etaient ici, un appelant qui ajoute les siennes ecrit
-        * NOT IN ((...)), que PostgreSQL lit comme une comparaison
-        * varchar = record et refuse ("operator does not exist").
-        */
        String SQL_NON_PUBLIEES = "'" + StatutsActivite.EN_ATTENTE_VALIDATION + "', '"
                      + StatutsActivite.VALIDEE + "', '"
                      + StatutsActivite.REJETE + "'";
 
-       /**
-        * Colonnes et jointures communes a la liste et aux statistiques.
-        *
-        * L'activite ne porte ni son statut ni sa date de creation : les deux
-        * sont reconstruits depuis historique_activite, par LATERAL.
-        *
-        * REGLE ABSOLUE pour toute requete paginee de ce fichier : aucun
-        * "ORDER BY" dans ce SQL, ni dans ce bloc ni dans aucun autre. Le
-        * ORDER BY de la liste est produit par le Pageable, et Spring Data ne
-        * l injecte que si hasOrderByClause() renvoie false. Cette methode
-        * compte les "order by" du texte mais ne retire qu UNE occurrence de
-        * sous-requete (regex gloutonne), donc 2 ORDER BY dans des LATERAL
-        * suffisent a la tromper : elle concatene alors le tri sans le mot-cle
-        * et PostgreSQL repond "syntax error at or near ','".
-        *
-        * Cette regle ne concerne pas autocomplete, qui ne recoit pas de
-        * Pageable et n appelle donc jamais hasOrderByClause.
-        *
-        * La derniere ligne de chaque table est donc designee par un NOT EXISTS a
-        * comparaison de tuples, ce qui est exactement equivalent a
-        * "ORDER BY date_changement DESC, id DESC LIMIT 1" : la ligne retenue est
-        * celle pour laquelle aucune ligne plus recente n existe.
-        */
        String SELECT_BASE = """
                      FROM activite act
                      LEFT JOIN service srv
@@ -147,24 +94,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      ) av ON TRUE
                      """;
 
-       /**
-        * Filtres, tous facultatifs.
-        *
-        * Chaque contrainte s'active uniquement si le parametre est non nul.
-        * Les valeurs nulles signifient donc "pas de contrainte" et non
-        * "egal a NULL", d'ou le motif (:p IS NULL OR ...).
-        *
-        * La regle metier reste dans le service : c'est lui qui decide
-        * quels parametres il transmet (voir ActiviteService).
-        *
-        * REGLE ABSOLUE pour tout @Query natif de ce projet : aucune
-        * apostrophe, ni dans un litteral ni dans un commentaire "--".
-        * Spring Data analyse la chaine pour distinguer SQL et litteraux, et
-        * bascule un booleen a chaque apostrophe : la premiere fait basculer tout
-        * le reste en "chaine", et les parametres nommes qui suivent cessent
-        * d etre enregistres. Symptome : QueryParameterException sur un
-        * parametre qui est bien present dans la methode.
-        */
        String FILTRES = """
                      WHERE 1 = 1
 
@@ -229,14 +158,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                                           OR act.date_fin_prevue <= CAST(:dateFin AS DATE))
                                    """;
 
-       /**
-        * Liste paginee et filtree.
-        *
-        * Le ORDER BY n'est pas ecrit ici : il vient du Pageable, et le service
-        * impose par defaut la recurrence decroissante. La colonne de tri
-        * dateCreationTri n'est jamais nulle, donc aucune clause NULLS LAST
-        * n'est necessaire.
-        */
        @Query(value = """
                      SELECT act.id_activite                       AS id,
                             act.code                              AS code,
@@ -288,15 +209,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("dateFin") java.time.LocalDate dateFin,
                      Pageable pageable);
 
-       /**
-        * Compteurs des cards.
-        *
-        * Le parametre de statut n'est PAS pris en compte ici, volontairement :
-        * si les compteurs etaient filtres par statut, cliquer sur une card
-        * mettrait toutes les autres a zero et la navigation serait perdue.
-        * Les cards montrent donc la repartition des autres filtres filtres, et
-        * la card active est signalee au front par le filtre qu elle pose.
-        */
        @Query(value = """
                      SELECT COUNT(*)                                                  AS total,
                             COUNT(*) FILTER (WHERE sta.code = """
@@ -351,14 +263,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("dateDebut") java.time.LocalDate dateDebut,
                      @Param("dateFin") java.time.LocalDate dateFin);
 
-       /**
-        * Autocomplete activite : code, reference ou designation.
-        * Deja restreint au perimetre du demandeur, et aux activites publiees.
-        *
-        * Le ORDER BY act.code est sans danger ici : cette requete ne recoit pas
-        * de Pageable, donc Spring Data n injecte aucun tri et n appelle pas
-        * hasOrderByClause.
-        */
        @Query(value = """
                      SELECT act.id_activite AS id,
                             act.code        AS code,
@@ -407,24 +311,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
        // ------------------------------------------------------------------
        // Detail
        // ------------------------------------------------------------------
-
-       /**
-        * Detail d UNE activite, dans le perimetre de l appelant.
-        *
-        * Meme construction que la liste : SELECT_BASE est reutilise tel quel, de
-        * sorte que le statut courant, la date de creation et l avancement affiches
-        * dans le detail ne puissent pas diverger de ceux affiches dans la liste.
-        * Les deux lectures ne partagent que leur source, pas leur SQL.
-        *
-        * Le perimetre est applique ICI et non apres coup dans le service : une
-        * ligne qui ne correspond pas n est jamais chargee, donc jamais presente
-        * en memoire. C est ce qui permet de distinguer un identifiant absent d un
-        * identifiant interdit.
-        *
-        * Cette requete ne recoit pas de Pageable : elle porte un seul
-        * identifiant, donc aucun ORDER BY n est necessaire, et la regle des
-        * LATERAL sans ORDER BY ne s applique pas.
-        */
        @Query(value = """
                      SELECT act.id_activite                       AS id,
                             act.code                              AS code,
@@ -472,19 +358,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("departementPerimetre") Integer departementPerimetre,
                      @Param("codesTerminaux") String codesTerminaux);
 
-       /**
-        * L activite existe-t-elle pour cet appelant, meme si le detail n a pas pu
-        * etre lu ?
-        *
-        * C est ce qui permet de repondre 403 plutot que 404 lorsqu une activite
-        * existe mais appartient a un autre perimetre : sans cette verification,
-        * l appelant ne verrait que 404, ce qui ferait croire a une faute de
-        * frappe alors que l activite est ailleurs.
-        *
-        * Elle n estPAS executee dans le cas nominal. Le service ne l appelle
-        * qu apres un echec de findActiviteDetail, donc uniquement sur un acces
-        * refuse : le cout n est paye que lorsqu il ya a quelque chose a signaler.
-        */
        @Query(value = """
                      SELECT COUNT(*)
                      FROM activite act
@@ -494,23 +367,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        long compterActivite(@Param("id") Integer id);
 
-       /**
-        * Statut courant d une activite, restreint au perimetre de l appelant.
-        *
-        * SELECT_BASE est reapplique tel quel plutot que redonne : la definition
-        * de "statut courant" (la ligne d historique la plus recente) est celle
-        * de la liste, et la dupliquer ici expose a ce qu une des deux evolution
-        * soit oubliee -- un service d ecriture decidant alors sur un statut
-        * different de celui affiche a l utilisateur.
-        *
-        * Le perimetre est celui de la liste, sur les memes colonnes. La requete
-        * n applique volontairement pas SQL_NON_PUBLIEES : une activite masquee
-        * de la liste reste lisible ici, pour pouvoir dire "introuvable dans le
-        * tableau" plutot que "inexistante".
-        *
-        * Absente = activite inexistante ou hors perimetre : les deux cas se
-        * distinguent par compterActivite.
-        */
        @Query(value = """
                      SELECT act.id_activite AS id,
                             sta.code       AS statutCode
@@ -528,100 +384,15 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("servicePerimetre") Integer servicePerimetre,
                      @Param("departementPerimetre") Integer departementPerimetre);
 
-       /**
-        * Un code d activite est-il deja pris ?
-        *
-        * Verifie avant l insert ou la mise a jour, parce que UNIQUE(code) est
-        * global et qu une violation remonterait en 500 avec un message SQL.
-        *
-        * IgnoreCase, alors que l index UNIQUE reste sensible a la casse : un
-        * code se recopie et se retape, "ACT-1" et "act-1" ne sont pas deux
-        * activites pour un lecteur. La base les accepterait tous deux, et
-        * l utilisateur verrait des codes qu il ne distingue pas. Le controle
-        * etant fait ici, la base ne tranche qu en cas de race -- et le
-        * verrou de la ligne activite, pris avant, ferme cette fenetre.
-        *
-        * Requete derivee, sans @Query : il n y a rien a ecrire qui n soit
-        * deja le nom de la methode.
-        */
        boolean existsByCodeIgnoreCase(String code);
 
-       /**
-        * Reservation exclusive de l activite le temps de l ecriture.
-        *
-        * SELECT ... FOR UPDATE sur la ligne activite, et non sur la ligne d
-        * historique qui va etre ajoutee : celle-ci n existe pas encore, donc
-        * rien ne la protege.
-        *
-        * Deux modifications simultanees du meme brouillon se serialisent donc
-        * ici. La seconde attend, puis relit le statut et constate que la premiere
-        * a deja abouti : elle est refusee au lieu d ecrire une seconde ligne
-        * d historique identique. Sans ce verrou, la double validation d un
-        * bouton par un utilisateur reste possible, et le controle "le statut
-        * est-il encore BROUILLON" -- lu avant l ecriture -- ne protege de rien.
-        *
-        * La ligne d historique portee par l activite reste modifiable sans ce
-        * verrou : seul le depot du statut passe par ici.
-        *
-        * L entite est retournee et non son seul identifiant : le code de
-        * l activite est alors deja la, pour le commentaire d historique et la
-        * reponse, sans une lecture de plus.
-        */
        @Lock(LockModeType.PESSIMISTIC_WRITE)
        @Query("SELECT a FROM Activite a WHERE a.idActivite = :id")
        Optional<Activite> verrouillerActivite(@Param("id") Integer id);
 
-       /**
-        * Rang de l'activite dans l'ordre des identifiants, en 1.
-        *
-        * C'est le "numero d'activite" du format de code des sous-activites,
-        * SA-ANNEE-RANG-SEQUENCE, et il doit rester identique a celui que
-        * produit le jeu de donnees : la section 9 de data.sql le calcule par
-        * ROW_NUMBER() OVER (ORDER BY id_activite), ce que COUNT reproduit
-        * exactement.
-        *
-        * Le numero est GLOBAL, et c'est obligatoire : un rang remis a zero par
-        * objectif produirait deux activites distinctes portant le meme code de
-        * sous-activite, et UNIQUE(code) les refuserait. Voir documents/index-bdd.md
-        * et le debut de data.sql.
-        *
-        * Un COUNT plutot qu'un ROW_NUMBER : la reponse tient en un entier, ne
-        * demande pas de fenetre, et reste juste apres une suppression puisque
-        * le rang est recalcule a chaque appel. Une suppression d'activite n'existe
-        * pas dans le projet, mais la propriete ne doit pas reposer sur cela.
-        */
        @Query("SELECT COUNT(a) FROM Activite a WHERE a.idActivite <= :id")
        int compterActivitesJusqua(@Param("id") Integer id);
 
-       /**
-        * Dernier numero de sequence d une activite NON PTA de l annee, pour
-        * proposer le suivant.
-        *
-        * Un MAX sur le numero extrait du code, et non un COUNT : c'est ce que
-        * demande le formulaire, qui veut la suite de la derniere, et surtout c'est
-        * ce qui reste juste apres une suppression. Un COUNT donnerait un numero
-        * deja porte par une activite restante des que la serie aurait un trou,
-        * et le code propose serait refuse a l'enregistrement.
-        *
-        * Le motif '^A-<annee>-\\d+$' ne retient que les NON PTA : un code PTA a
-        * quatre groupes (A-2027-01-01) et ne correspond donc pas, ce qui evite
-        * d'avoir a tester id_objectif_specifique, non necessaire puisque la forme
-        * du code suffit.
-        *
-        * UN SEUL GROUPE CAPTURE, ET IL EST CELUI DE LA SEQUENCE
-        *
-        * Ecrire le motif entier, annee comprise, ferait renvoyer l ANNEE :
-        * SUBSTRING ne renvoie que le PREMIER groupe d une capture, et le maximum
-        * porterait alors sur 2027, pas sur le numero -- la proposition devenait
-        * A-2027-2028. L annee est donc ecartee par une classe de caracteres, et
-        * seul le numero est capture. `[0-9]` plutot que `\d` : meme portee en
-        * PostgreSQL, mais sans la double echappement du motif Java, dont
-        * l'oubli donnerait un motif muet qui ne Selectionne rien.
-        *
-        * COALESCE a 0 pour qu une annee sans aucune activite NON PTA propose 1
-        * plutot que de ne rien proposer : un champ vide se lirait comme un oubli,
-        * la comme une regle.
-        */
        @Query(value = """
                      SELECT COALESCE(MAX(CAST(SUBSTRING(a.code FROM '^A-[0-9]{4}-([0-9]+)$')
                                            AS INTEGER)), 0)
@@ -630,37 +401,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        int dernierNumeroNonPta(@Param("annee") int annee);
 
-       /**
-        * Depot d un changement de statut : une ligne d historique, et rien
-        * d autre.
-        *
-        * L activite n a pas de colonne statut, donc changer son etat EST ajouter
-        * une ligne. L id_statut est resolu depuis le code pour que l appelant
-        * n ait pas a connaitre la table de reference, ni ses identifiants, qui
-        * dependent du jeu de donnees.
-        *
-        * LA DATE N EST PAS CELLE DE L HORLOGE
-        * Le statut courant est la ligne d historique la plus recente, et "la
-        * plus recente" se lit sur le couple (date_changement,
-        * id_historique_activite). Horodater la transition a CURRENT_TIMESTAMP
-        * la ferait passer sous toute ligne deja datee plus tard, et elle ne
-        * deviendrait jamais le statut courant : l ecriture reussirait et
-        * l activite garderait son statut precedent.
-        *
-        * Ce n est pas une hypothethe. Le jeu de donnees est planifie en 2027,
-        * donc ses transitions y sont datees en 2027, alors que l application
-        * tourne elle aussi en 2026 : toute transition ecrite a l heure du
-        * serveur serait invisible. La date retenue est donc celle de la
-        * transition dans la chronologie de l activite -- maintenant, ou juste
-        * apres son dernier evenement si celui-ci est deja dans le futur.
-        *
-        * Aucun controle de statut attendu ici : la transition est verifiee par
-        * l appelant, sous verrou (voir verrouillerActivite). Dupliquer la
-        * regle ici la rendrait floue entre les deux requetes.
-        *
-        * Aucun ORDER BY dans cette requete-la : elle n est pas paginee, donc
-        * l analyses de Spring Data n a rien a y retirer.
-        */
        @Modifying
        @Query(value = """
                      INSERT INTO historique_activite
@@ -684,13 +424,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("codeStatut") String codeStatut,
                      @Param("commentaire") String commentaire);
 
-       /**
-        * Sous-activites d une activite.
-        *
-        * Tri par date de debut puis par code : un ordre stable, independant de
-        * l ordre physique des lignes. Le code en second critere tranche les
-        * sous-activites qui commenceraient le meme jour.
-        */
        @Query(value = """
                      SELECT sa.id_sous_activite  AS id,
                             sa.code              AS code,
@@ -705,16 +438,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        List<SousActiviteDetailRow> findSousActivites(@Param("id") Integer id);
 
-       /**
-        * Tous les releves d avancement des sous-activites d une activite.
-        *
-        * UNE seule requete pour toutes les sous-activites : c est la condition
-        * pour que le nombre de requetes ne depende pas du nombre de
-        * sous-activites. Le ORDER BY commence par la sous-activite, ce qui
-        * permet de regrouper les lignes en memoire, puis trie chaque groupe du
-        * plus recent au plus ancien : la premiere ligne de chaque groupe est
-        * donc l avancement courant.
-        */
        @Query(value = """
                      SELECT av.id_historique_sous_activite AS id,
                             av.id_sous_activite             AS idSousActivite,
@@ -741,13 +464,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        List<AvancementDetailRow> findAvancements(@Param("id") Integer id);
 
-       /**
-        * Affectations de toutes les sous-activites d une activite, en une requete.
-        *
-        * Les plus recentes d abord : une affectation close reste dans la liste
-        * pour l historique des responsables, et c est la plus recente qui
-        * interesse en premier.
-        */
        @Query(value = """
                      SELECT a.id_affectation_sous_activite AS id,
                             a.id_sous_activite            AS idSousActivite,
@@ -771,9 +487,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        List<AffectationDetailRow> findAffectations(@Param("id") Integer id);
 
-       /**
-        * Livrables de toutes les sous-activites d une activite, en une requete.
-        */
        @Query(value = """
                      SELECT l.id_livrable_sous_activite AS id,
                             l.id_sous_activite           AS idSousActivite,
@@ -787,13 +500,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        List<LivrableDetailRow> findLivrables(@Param("id") Integer id);
 
-       /**
-        * Fichiers de tous les livrables de toutes les sous-activites d une
-        * activite, en une requete.
-        *
-        * chemin_fichier n est volontairement pas selectionne : c est un chemin de
-        * stockage interne, sans usage tant qu aucun telechargement n existe.
-        */
        @Query(value = """
                      SELECT f.id_fichier_sous_activite    AS id,
                             f.id_livrable_sous_activite   AS idLivrable,
@@ -821,14 +527,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        List<FichierDetailRow> findFichiers(@Param("id") Integer id);
 
-       /**
-        * Indicateurs rattaches a l activite, tries par code.
-        *
-        * activite_indicateur est une table de jointure pure, sans colonne
-        * propre : il n existe donc aucun indicateur propre a cette activite, et
-        * les mesures partagees par plusieurs activites apparaissent chez
-        * chacune d entre elles.
-        */
        @Query(value = """
                      SELECT i.id_indicateur              AS id,
                             i.code                       AS code,
@@ -854,13 +552,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        List<IndicateurDetailRow> findIndicateurs(@Param("id") Integer id);
 
-       /**
-        * Mesures de tous les indicateurs de l activite, en une requete.
-        *
-        * Comme pour les avancements, le tri groupe d abord par indicateur puis
-        * classe chaque groupe par periode decroissante : la premiere ligne d un
-        * groupe est la valeur courante.
-        */
        @Query(value = """
                      SELECT v.id_valeur_indicateur AS id,
                             v.id_indicateur        AS idIndicateur,
@@ -896,15 +587,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        List<ResultatIntermediaireRow> findResultatsIntermediaires(@Param("id") Integer id);
 
-       /**
-        * Historique de statut de l activite, du plus recent au plus ancien.
-        *
-        * Le second critere de tri n est pas decoratif : plusieurs changements
-        * peuvent partager la meme date_changement, et c est alors la plus grande
-        * cle qui fixe l ordre. Sans lui, deux lignes de meme date pourraient
-        * changer de place d une requete a l autre, et la premiere ligne -- celle
-        * qui porte le statut courant -- ne serait pas stable.
-        */
        @Query(value = """
                      SELECT h.id_historique_activite AS id,
                             h.date_changement        AS dateChangement,
@@ -928,30 +610,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
        // ------------------------------------------------------------------
        // Detail d une sous-activite
        // ------------------------------------------------------------------
-
-       /**
-        * Sous-activite precise, dans le perimetre de l appelant.
-        *
-        * Le perimetre porte sur l activite parente : il est joint ici pour que
-        * soit refusees (403) les sous-activites d une activite hors perimetre,
-        * avec la meme distinction 403/404 que le detail d activite.
-        *
-        * LE STATUT DE L ACTIVITE MERE REMONTE ICI, ET PAS SEULEMENT CELUI DE LA
-        * SOUS-ACTIVITE
-        *
-        * Une sous-activite n a pas de statut propre : ce qui la regit, c est le
-        * statut de son activite. Or c est lui qui decide de ce qu on peut
-        * ecrire -- deposer un livrable n est possible que sur une activite en
-        * cours. Sans lui dans cette reponse, le formulaire devrait refaire une
-        * requete pour savoir s il a le droit d afficher le bouton, et il le
-        * ferait avec une information qu il n a pas : seul le backend sait lire
-        * l historique.
-        *
-        * Le statut courant est celui de la derniere entree d historique, d ou
-        * le LATERAL, a l identique du detail d activite. Nullable : une activite
-        * sans historique n a pas de statut courant, et l affichage doit pouvoir
-        * dire "je ne sais pas" plutot que pretendre qu elle est en cours.
-        */
        @Query(value = """
                      SELECT sa.id_sous_activite  AS id,
                             sa.code              AS code,
@@ -992,13 +650,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("servicePerimetre") Integer servicePerimetre,
                      @Param("departementPerimetre") Integer departementPerimetre);
 
-       /**
-        * La sous-activite existe-t-elle, quel que soit son rattachement ?
-        *
-        * Executee seulement sur le chemin d erreur, apres l echec de
-        * findSousActivite : elle distingue une sous-activite inexistante d une
-        * sous-activite interdite, sans payer ce cout en fonctionnement normal.
-        */
        @Query(value = """
                      SELECT COUNT(*)
                      FROM sous_activite
@@ -1006,14 +657,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        long compterSousActivite(@Param("id") Integer id);
 
-       /**
-        * La sous-activite est-elle rattachee a cette activite ?
-        *
-        * Sans filtre de perimetre : le rattachement est une propriete de la
-        * donnee, pas de l appelant. Une sous-activite d une autre activite est
-        * une ressource inexistante dans le parent demande, donc un 404, pas un
-        * 403.
-        */
        @Query(value = """
                      SELECT COUNT(*)
                      FROM sous_activite
@@ -1024,13 +667,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("idActivite") Integer idActivite,
                      @Param("idSousActivite") Integer idSousActivite);
 
-       /**
-        * Releves d avancement d UNE sous-activite, du plus recent au plus ancien.
-        *
-        * C est le pendant de findAvancements, restreint a une sous-activite :
-        * la premiere ligne porte le releve courant, les suivantes le suivi. Le
-        * second critere de tri tranche les releves partageant une meme date.
-        */
        @Query(value = """
                      SELECT av.id_historique_sous_activite AS id,
                             av.id_sous_activite             AS idSousActivite,
@@ -1092,12 +728,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        List<LivrableDetailRow> findLivrablesSousActivite(@Param("id") Integer id);
 
-       /**
-        * Fichiers de tous les livrables d UNE sous-activite, en une requete.
-        *
-        * Memes colonnes que findFichiers, sans chemin_fichier, et meme tri :
-        * groupe par livrable, puis par nom d origine et version decroissante.
-        */
        @Query(value = """
                      SELECT f.id_fichier_sous_activite    AS id,
                             f.id_livrable_sous_activite   AS idLivrable,
@@ -1123,17 +753,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        List<FichierDetailRow> findFichiersSousActivite(@Param("id") Integer id);
 
-       /**
-        * Fichiers d UN livrable, memes colonnes et meme tri que ci-dessus.
-        *
-        * Sert apres l ajout de fichiers a un livrable deja enregistre, pour
-        * decrire la reponse. Cette lecture est preferee a la reconstitution de la
-        * liste depuis les lignes viennent d etre ecrites, pour deux raisons qui
-        * ne dependent pas du cas d usage : le tri est celui du detail, donc la
-        * reponse est indiscernable d un rechargement ; et l auteur vient de la
-        * table utilisateur, donc un fichier depose plus tot par quelqu un d
-        * autre n est pas attribue a celui qui vient de deposer.
-        */
        @Query(value = """
                      SELECT f.id_fichier_sous_activite    AS id,
                             f.id_livrable_sous_activite   AS idLivrable,
@@ -1159,16 +778,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
        // ------------------------------------------------------------------
        // Telechargement d un fichier
        // ------------------------------------------------------------------
-
-       /**
-        * Fichier precise, au bout de la chaine livrable -> sous-activite ->
-        * activite, dans le perimetre de l appelant.
-        *
-        * Meme distinction 403/404 que le detail : une ligne absente ici peut
-        * etre un fichier inconnu, un fichier d une autre sous-activite, ou un
-        * fichier d une activite hors perimetre. Le service departage ensuite
-        * sur le chemin d erreur.
-        */
        @Query(value = """
                      SELECT f.id_fichier_sous_activite AS id,
                             f.nom_fichier              AS nomFichier,
@@ -1374,4 +983,19 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      WHERE sa.id_activite = :id
                      """, nativeQuery = true)
        Double findAvancementActivite(@Param("id") Integer idActivite);
+
+       @Query(value = "SELECT pg_advisory_xact_lock(:cle)", nativeQuery = true)
+       void verrouillerImport(@Param("cle") long cle);
+
+       @Modifying
+       @Query(value = "INSERT INTO activite_indicateur (id_activite, id_indicateur) "
+                     + "VALUES (:idActivite, :idIndicateur)", nativeQuery = true)
+       void lierIndicateur(@Param("idActivite") Integer idActivite,
+                     @Param("idIndicateur") Integer idIndicateur);
+
+       @Modifying
+       @Query(value = "INSERT INTO activite_origine (id_activite, id_origine) "
+                     + "VALUES (:idActivite, :idOrigine)", nativeQuery = true)
+       void lierOrigine(@Param("idActivite") Integer idActivite,
+                     @Param("idOrigine") Integer idOrigine);
 }

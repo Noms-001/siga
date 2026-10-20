@@ -113,7 +113,7 @@ CREATE TABLE "procedure"(
    PRIMARY KEY(id_procedure)
 );
 
-CREATE TABLE activite(
+CREATE TABLE activite (
    id_activite SERIAL,
    code VARCHAR(20)  NOT NULL,
    reference VARCHAR(20),

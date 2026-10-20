@@ -68,4 +68,10 @@ public interface IndicateurRepository extends JpaRepository<Indicateur, Integer>
         boolean existsByIndicateurHopex(String indicateurHopex);
 
         boolean existsByIndicateurHopexAndIdIndicateurNot(String indicateurHopex, Integer id);
+
+        long countByDesignationIgnoreCase(String designation);
+
+        Optional<Indicateur> findByDesignationIgnoreCase(String designation);
+
+        boolean existsByCodeIgnoreCase(String code);
 }

@@ -1,12 +1,12 @@
 package mg.bank.backend.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import mg.bank.backend.model.Site;
-import mg.bank.backend.model.Statut;
 import mg.bank.backend.repository.projection.OptionRow;
 
 public interface SiteRepository extends JpaRepository<Site, Integer> {
@@ -31,5 +31,8 @@ public interface SiteRepository extends JpaRepository<Site, Integer> {
 
     boolean existsByNomAndIdSiteNot(String nom, Integer idSite);
 
+    long countByNomIgnoreCase(String nom);
+
+    Optional<Site> findByNomIgnoreCase(String nom);
 
 }
