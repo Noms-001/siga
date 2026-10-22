@@ -113,6 +113,7 @@ const route = useRoute()
    ============================================================ */
 const principalItems: MenuItem[] = [
     { path: '/backoffice/dashboard', label: 'Tableau de bord', icon: 'bi bi-grid-1x2' },
+    { path: '/backoffice/import-activites', label: "Import d'activités", icon: 'bi bi-file-earmark-arrow-up' },
 ]
 
 /* ============================================================
