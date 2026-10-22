@@ -521,3 +521,93 @@ FOR EACH ROW EXECUTE FUNCTION check_affectation_role_singulier();
 CREATE TRIGGER trg_affectation_sous_activite_role_singulier
 BEFORE INSERT OR UPDATE ON affectation_sous_activite
 FOR EACH ROW EXECUTE FUNCTION check_affectation_role_singulier();
+CREATE OR REPLACE FUNCTION notify_indicateur_seuil()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_seuil_min      NUMERIC(15,2);
+    v_seuil_max      NUMERIC(15,2);
+    v_designation    VARCHAR(250);
+    v_code           VARCHAR(50);
+    v_type           VARCHAR(20);
+    v_titre          VARCHAR(255);
+    v_message        TEXT;
+    v_hors_seuil     BOOLEAN := FALSE;
+    v_priorite_id    INTEGER;
+    v_recipient      RECORD;
+BEGIN
+    -- 1. Récupérer les informations de l'indicateur.
+    SELECT seuil_min, seuil_max, designation, code, type_indicateur
+    INTO   v_seuil_min, v_seuil_max, v_designation, v_code, v_type
+    FROM   indicateur
+    WHERE  id_indicateur = NEW.id_indicateur;
+
+    -- 2. Déterminer si la valeur sort des seuils.
+    --    Bornes exclusives : valeur = seuil reste dans la zone acceptable.
+    IF v_seuil_min IS NOT NULL AND NEW.valeur < v_seuil_min THEN
+        v_hors_seuil := TRUE;
+        v_titre := 'Alerte indicateur : valeur sous le seuil minimum';
+        v_message :=
+            'L''indicateur ' || COALESCE(v_type, '') || ' « '
+            || COALESCE(v_code, '') || ' - ' || COALESCE(v_designation, '')
+            || ' » a une valeur de ' || NEW.valeur
+            || ', inférieure au seuil minimum de ' || v_seuil_min
+            || ' pour la période du '
+            || TO_CHAR(NEW.periode_debut, 'DD/MM/YYYY')
+            || ' au ' || TO_CHAR(NEW.periode_fin, 'DD/MM/YYYY') || '.';
+
+    ELSIF v_seuil_max IS NOT NULL AND NEW.valeur > v_seuil_max THEN
+        v_hors_seuil := TRUE;
+        v_titre := 'Alerte indicateur : valeur au-dessus du seuil maximum';
+        v_message :=
+            'L''indicateur ' || COALESCE(v_type, '') || ' « '
+            || COALESCE(v_code, '') || ' - ' || COALESCE(v_designation, '')
+            || ' » a une valeur de ' || NEW.valeur
+            || ', supérieure au seuil maximum de ' || v_seuil_max
+            || ' pour la période du '
+            || TO_CHAR(NEW.periode_debut, 'DD/MM/YYYY')
+            || ' au ' || TO_CHAR(NEW.periode_fin, 'DD/MM/YYYY') || '.';
+    END IF;
+
+    IF NOT v_hors_seuil THEN
+        RETURN NEW;
+    END IF;
+
+    -- 3. Trouver une priorité active. Convention : code 'HAUTE' si présent,
+    --    sinon la première priorité active par id. Si aucune, on renonce
+    --    à notifier sans faire échouer la saisie de la valeur.
+    SELECT id_priorite INTO v_priorite_id
+    FROM   priorite
+    WHERE  actif = TRUE
+    ORDER BY (CASE WHEN code = 'HAUTE' THEN 0 ELSE 1 END), id_priorite
+    LIMIT 1;
+
+    IF v_priorite_id IS NULL THEN
+        RAISE WARNING 'Aucune priorité active : notification non envoyée '
+                      '(indicateur %, valeur %)', NEW.id_indicateur, NEW.valeur;
+        RETURN NEW;
+    END IF;
+
+    -- 4. Notifier les RESPONSABLE et SUPPLEANT actifs des activités liées.
+    --    DISTINCT : un même utilisateur peut être responsable de plusieurs
+    --    activités liées à l'indicateur ; il ne reçoit qu'une notification.
+    FOR v_recipient IN
+        SELECT DISTINCT aa.id_utilisateur
+        FROM   activite_indicateur ai
+        JOIN   affectation_activite aa ON aa.id_activite = ai.id_activite
+        JOIN   role r                  ON r.id_role      = aa.id_role
+        WHERE  ai.id_indicateur      = NEW.id_indicateur
+          AND  aa.date_desaffectation IS NULL
+          AND  r.code IN ('RESPONSABLE', 'SUPPLEANT')
+    LOOP
+        INSERT INTO notification (
+            titre, message, id_priorite, id_utilisateur,
+            id_reference, resource
+        ) VALUES (
+            v_titre, v_message, v_priorite_id, v_recipient.id_utilisateur,
+            NEW.id_indicateur, 'INDICATEUR'
+        );
+    END LOOP;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;

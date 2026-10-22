@@ -1,5 +1,7 @@
 package mg.bank.backend.repository.projection;
 
+import java.math.BigDecimal;
+
 /**
  * Projection d un indicateur rattache a une activite.
  *
@@ -34,11 +36,11 @@ public interface IndicateurDetailRow {
 
     String getObjectif();
 
-    Double getValeurCible();
+    BigDecimal getValeurCible();
 
-    Double getSeuilMin();
+    BigDecimal getSeuilMin();
 
-    Double getSeuilMax();
+    BigDecimal getSeuilMax();
 
     Boolean getActif();
 
