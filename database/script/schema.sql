@@ -257,6 +257,25 @@ CREATE TABLE permission(
    PRIMARY KEY(id_permission)
 );
 
+CREATE TABLE affectation_activite (
+   id_affectation_activite SERIAL,
+   date_affectation TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+   date_desaffectation TIMESTAMP,
+   id_role INTEGER NOT NULL,
+   id_activite INTEGER NOT NULL,
+   id_utilisateur INTEGER NOT NULL,
+   PRIMARY KEY (id_affectation_activite),
+   FOREIGN KEY (id_role) REFERENCES role(id_role),
+   FOREIGN KEY (id_activite) REFERENCES activite(id_activite),
+   FOREIGN KEY (id_utilisateur) REFERENCES utilisateur(id_utilisateur)
+);
+
+CREATE INDEX ix_affectation_activite_activite
+ON affectation_activite (id_activite, date_affectation DESC);
+
+CREATE INDEX ix_affectation_activite_utilisateur
+ON affectation_activite (id_utilisateur, date_desaffectation);
+
 CREATE TABLE affectation_sous_activite(
    id_affectation_sous_activite SERIAL,
    date_affectation TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

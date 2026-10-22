@@ -41,6 +41,18 @@ import { formatDateSeule } from '@/utils/date'
 // Constantes de presentation
 // ------------------------------------------------------------------
 
+/* Date du jour en français, majuscules — alimente l'eyebrow */
+const dateDuJour = computed(() =>
+    new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    })
+        .format(new Date())
+        .toUpperCase()
+)
+
 const TAILLE_PAGE = 10
 const DELAI_RECHERCHE = 350
 
@@ -69,6 +81,12 @@ const vue = ref<VueActivite>('PTA')
  * seul le clic sur une card peut le poser ou l'enlever.
  */
 const statutActif = ref<string | null>(null)
+
+/**
+ * Etat du panneau de filtres : replie par defaut, l'utilisateur l'ouvre
+ * d'un clic sur l'en-tete et le referme quand il a termine.
+ */
+const filtresOuverts = ref(false)
 
 const filtres = reactive<ActiviteFiltres>({
     search: '',
@@ -121,11 +139,33 @@ const router = useRouter()
 /**
  * Le filtre Service n'est propose que si le backend a envoye des services.
  * Il ne les envoie pas a un utilisateur rattache a un service : le filtre
- * n'est donc pas masque, il n'a simplyment rien a offrir.
+ * n'est donc pas masque, il n'a simplement rien a offrir.
  */
 const filtreServiceDisponible = computed(() => options.value.services.length > 0)
 
 const estVuePta = computed(() => vue.value === 'PTA')
+
+/**
+ * Compte les filtres reellement actifs (hors annee, qui a toujours une valeur
+ * par defaut). Utilise par l'en-tete du panneau pour afficher
+ * « X filtres actifs » et faire apparaitre le bouton « Tout effacer »,
+ * y compris quand le panneau est replie.
+ */
+const nombreFiltresActifs = computed(() => {
+    let n = 0
+    if (filtres.search) n++
+    if (filtres.objectifSearch) n++
+    if (filtres.objectifSpecifiqueId !== null) n++
+    if (filtres.serviceId !== null) n++
+    if (filtres.prioriteId !== null) n++
+    if (filtres.typeActiviteId !== null) n++
+    if (filtres.siteId !== null) n++
+    if (filtres.trimestre !== null) n++
+    if (filtres.dateDebut) n++
+    if (filtres.dateFin) n++
+    if (statutActif.value) n++
+    return n
+})
 
 /** Libelles de priorite : badges derives du code, jamais du libelle. */
 const COULEURS_PRIORITE: Record<string, string> = {
@@ -229,10 +269,6 @@ const cartes = computed(() => [
     },
 ])
 
-/**
- * Options des selects, construites depuis les referentiels du backend.
- * Si le referentiel est vide, aucun libelle n'est invente.
- */
 /**
  * Conversion vers le format attendu par BaseSelect.
  * Le code est conserve quand il existe : priorite et statut en ont un.
@@ -447,6 +483,11 @@ function surRechercheObjectif() {
 // Actions de l'interface
 // ------------------------------------------------------------------
 
+/** Bascule l'etat replie / deplie du panneau de filtres. */
+function basculerPanneauFiltres() {
+    filtresOuverts.value = !filtresOuverts.value
+}
+
 /** Toute modification de filtre repart de la page 1. */
 function appliquerFiltres() {
     // Annule un rechargement encore en attente : une selection de suggestion
@@ -596,22 +637,29 @@ watch(
 <template>
     <div class="liste-activites">
         <!-- ============ EN-TETE ============ -->
-        <div class="page-header d-flex flex-wrap justify-content-between align-items-start gap-3">
-            <div>
-                <h1 class="page-title">Activités</h1>
-                <p class="page-subtitle">Gestion et suivi des activités DTS-TSS</p>
+        <header class="welcome-row">
+            <div class="welcome-row__left">
+                <div class="eyebrow">
+                    <span class="live-dot"></span>
+                    {{ dateDuJour }}
+                </div>
+                <h1>
+                    Activités 
+                    <span class="wave" aria-hidden="true">✳</span>
+                </h1>
+                <span class="title-divider" aria-hidden="true"></span>
+                <p class="subheading">
+                    Gestion et suivi des activités DTS-TSS
+                </p>
             </div>
 
-            <!--
-                La page de creation n'existe pas encore dans le projet :
-                /activites/nouvelle est un lien mort de la sidebar.
-                Bouton desactive plutot que route fictive.
-            -->
-            <BaseButton variant="primary" disabled title="Page de création non encore disponible">
-                <i class="bi bi-plus-lg"></i>
-                Ajouter une activité
-            </BaseButton>
-        </div>
+            <div class="welcome-row__right">
+                <BaseButton variant="primary" disabled title="Page de création non encore disponible">
+                    <i class="bi bi-plus-lg"></i>
+                    Ajouter une activité
+                </BaseButton>
+            </div>
+        </header>
 
         <!-- ============ ERREUR ============ -->
         <div v-if="erreur" class="alert alert-danger d-flex align-items-center gap-2" role="alert">
@@ -620,21 +668,36 @@ watch(
             <button type="button" class="btn-close ms-auto" @click="erreur = null"></button>
         </div>
 
+        <!-- ============ BASCULE PTA / NON PTA ============ -->
+        <div class="vue-switch mb-3" role="tablist" aria-label="Type d'activité">
+            <button v-for="v in VUES" :key="v.value" type="button" role="tab" class="vue-switch__btn"
+                :class="{ 'vue-switch__btn--active': vue === v.value }" :aria-selected="vue === v.value"
+                @click="changerVue(v.value)">
+                <i class="bi" :class="v.value === 'PTA' ? 'bi-clipboard-check' : 'bi-clipboard'"></i>
+                {{ v.label }}
+            </button>
+        </div>
+
         <!-- ============ CARDS STATISTIQUES ============ -->
-        <!--
-            col-lg sans largeur fixe : avec 8 cards, une largeur en colonne 2
-            (col-lg-2) deborderait la ligne sur les ecrans moyens.
-        -->
         <div class="row g-3 mb-4">
             <div v-for="carte in cartes" :key="carte.label" class="col-12 col-sm-6 col-lg-3">
-                <BaseCard class="stat-card h-100" :class="{
-                    'stat-card--active': estCarteActive(carte.cle),
-                    'stat-card--static': carte.cle === null,
-                }" :title="carte.label">
-                    <div class="stat-card__body">
-                        <i class="stat-card__icon" :class="`bi ${carte.icone} text-${carte.variante}`"></i>
-                        <span class="stat-card__value">{{ carte.valeur }}</span>
-                    </div>
+                <article class="stat-card h-100" :class="[
+                    `stat-card--${carte.variante}`,
+                    {
+                        'stat-card--active': estCarteActive(carte.cle),
+                        'stat-card--static': carte.cle === null,
+                    },
+                ]">
+                    <header class="stat-card__head">
+                        <span class="stat-card__label">{{ carte.label }}</span>
+                        <span class="stat-card__icon-wrap" aria-hidden="true">
+                            <i class="stat-card__icon" :class="`bi ${carte.icone}`"></i>
+                        </span>
+                    </header>
+                    <div class="stat-card__value">{{ carte.valeur }}</div>
+                    <footer class="stat-card__hint">
+                        {{ carte.cle ? 'Cliquer pour filtrer' : 'Toutes les activités' }}
+                    </footer>
 
                     <template v-if="carte.cle">
                         <button type="button" class="stat-card__overlay" :aria-pressed="estCarteActive(carte.cle)"
@@ -642,132 +705,179 @@ watch(
                             <span class="visually-hidden">Filtrer sur {{ carte.label }}</span>
                         </button>
                     </template>
-                </BaseCard>
+                </article>
             </div>
         </div>
 
-        <!-- ============ PTA / NON PTA ============ -->
-        <div class="vue-switch mb-3" role="tablist" aria-label="Type d'activité">
-            <button v-for="v in VUES" :key="v.value" type="button" role="tab" class="vue-switch__btn"
-                :class="{ 'vue-switch__btn--active': vue === v.value }" :aria-selected="vue === v.value"
-                @click="changerVue(v.value)">
-                {{ v.label }}
-            </button>
-        </div>
+        <!-- ============ FILTRES (repliables) ============ -->
+        <BaseCard class="filtres mb-4" noPadding>
+            <!-- En-tete cliquable : ouvre / referme le panneau -->
+            <header class="filtres__header">
+                <button type="button" class="filtres__toggle" :aria-expanded="filtresOuverts"
+                    aria-controls="filtres-body" @click="basculerPanneauFiltres">
+                    <span class="filtres__header-icon" aria-hidden="true">
+                        <i class="bi bi-sliders"></i>
+                    </span>
+                    <span class="filtres__header-text">
+                        <span class="filtres__header-title">Filtres</span>
+                        <span class="filtres__header-sub">
+                            {{ filtresOuverts ? 'Cliquez pour replier' : 'Cliquez pour déplier' }}
+                        </span>
+                    </span>
+                    <span v-if="nombreFiltresActifs > 0" class="filtres__count">
+                        {{ nombreFiltresActifs }} {{ nombreFiltresActifs > 1 ? 'actifs' : 'actif' }}
+                    </span>
+                    <i class="bi bi-chevron-down filtres__chev" :class="{ 'filtres__chev--open': filtresOuverts }"
+                        aria-hidden="true"></i>
+                </button>
 
-        <!-- ============ FILTRES ============ -->
-        <BaseCard class="filtres mb-4" title="Filtres" noPadding>
-            <div class="filtres__grid">
-                <!--
-                    La div englobe le champ ET la liste : c'est elle qui porte
-                    la ref racine du composable, pour que le clic dans la liste
-                    ne la ferme pas avant d'etre traite.
-                -->
-                <div class="row">
-                    <div ref="autocompleteActivite.racine" class="filtres__col filtres__col--large col-md-6"
-                        @keydown="autocompleteActivite.surTouche">
-                        <BaseInput v-model="autocompleteActivite.saisie.value" label="Recherche activité" type="search"
-                            icon="bi bi-search" placeholder="Code, référence ou désignation" autocomplete="off"
-                            :aria-expanded="autocompleteActivite.ouvert.value" @input="surRechercheActivite" />
-                        <ul v-if="autocompleteActivite.ouvert.value && autocompleteActivite.suggestions.value.length"
-                            class="autocomplete" role="listbox" aria-label="Suggestions d'activité">
-                            <li v-for="(s, i) in autocompleteActivite.suggestions.value" :key="s.id" role="option"
-                                :aria-selected="i === autocompleteActivite.indexActif.value"
-                                :class="{ 'autocomplete__item--actif': i === autocompleteActivite.indexActif.value }"
-                                @mouseenter="autocompleteActivite.survoler(i)">
-                                <button type="button" tabindex="-1" @click="autocompleteActivite.selectionner(s)">
-                                    {{ formatSuggestion(s) }}
-                                </button>
-                            </li>
-                        </ul>
+                <button v-if="nombreFiltresActifs > 0" type="button" class="filtres__clear" @click="reinitialiser">
+                    <i class="bi bi-x-lg"></i>
+                    Tout effacer
+                </button>
+            </header>
+
+            <!-- Zone repliable -->
+            <div id="filtres-body" class="filtres__collapse" :class="{ 'filtres__collapse--open': filtresOuverts }">
+                <div class="filtres__collapse-inner">
+                    <div class="filtres__body">
+                        <!-- Section Recherche -->
+                        <div class="filtres__section">
+                            <span class="filtres__section-label">Recherche</span>
+                            <div class="filtres__section-grid">
+                                <div ref="autocompleteActivite.racine" class="filtres__col"
+                                    @keydown="autocompleteActivite.surTouche">
+                                    <BaseInput v-model="autocompleteActivite.saisie.value" label="Recherche activité"
+                                        type="search" icon="bi bi-search" placeholder="Code, référence ou désignation"
+                                        autocomplete="off" :aria-expanded="autocompleteActivite.ouvert.value"
+                                        @input="surRechercheActivite" />
+                                    <ul v-if="autocompleteActivite.ouvert.value && autocompleteActivite.suggestions.value.length"
+                                        class="autocomplete" role="listbox" aria-label="Suggestions d'activité">
+                                        <li v-for="(s, i) in autocompleteActivite.suggestions.value" :key="s.id"
+                                            role="option" :aria-selected="i === autocompleteActivite.indexActif.value"
+                                            :class="{ 'autocomplete__item--actif': i === autocompleteActivite.indexActif.value }"
+                                            @mouseenter="autocompleteActivite.survoler(i)">
+                                            <button type="button" tabindex="-1"
+                                                @click="autocompleteActivite.selectionner(s)">
+                                                {{ formatSuggestion(s) }}
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <div v-if="estVuePta" ref="autocompleteObjectif.racine" class="filtres__col"
+                                    @keydown="autocompleteObjectif.surTouche">
+                                    <BaseInput v-model="autocompleteObjectif.saisie.value"
+                                        label="Recherche objectif spécifique" type="search" icon="bi bi-bullseye"
+                                        placeholder="Code ou désignation" autocomplete="off"
+                                        :aria-expanded="autocompleteObjectif.ouvert.value"
+                                        @input="surRechercheObjectif" />
+                                    <ul v-if="autocompleteObjectif.ouvert.value && autocompleteObjectif.suggestions.value.length"
+                                        class="autocomplete" role="listbox" aria-label="Suggestions d'objectif">
+                                        <li v-for="(s, i) in autocompleteObjectif.suggestions.value" :key="s.id"
+                                            role="option" :aria-selected="i === autocompleteObjectif.indexActif.value"
+                                            :class="{ 'autocomplete__item--actif': i === autocompleteObjectif.indexActif.value }"
+                                            @mouseenter="autocompleteObjectif.survoler(i)">
+                                            <button type="button" tabindex="-1"
+                                                @click="autocompleteObjectif.selectionner(s)">
+                                                {{ formatSuggestion(s) }}
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section Critères -->
+                        <div class="filtres__section">
+                            <span class="filtres__section-label">Critères</span>
+                            <div class="filtres__section-grid">
+                                <div v-if="filtreServiceDisponible" class="filtres__col">
+                                    <BaseSelect :model-value="filtres.serviceId ?? undefined" label="Service"
+                                        placeholder="Tous les services" :options="optionsService" option-label="libelle"
+                                        option-value="id"
+                                        @update:model-value="filtres.serviceId = $event as number | null; appliquerFiltres()" />
+                                </div>
+
+                                <div class="filtres__col">
+                                    <BaseSelect :model-value="filtres.prioriteId ?? undefined" label="Priorité"
+                                        placeholder="Toutes" :options="optionsPriorite" option-label="libelle"
+                                        option-value="id"
+                                        @update:model-value="filtres.prioriteId = $event as number | null; appliquerFiltres()" />
+                                </div>
+
+                                <div class="filtres__col">
+                                    <BaseSelect :model-value="filtres.typeActiviteId ?? undefined"
+                                        label="Type d'activité" placeholder="Tous" :options="optionsType"
+                                        option-label="libelle" option-value="id"
+                                        @update:model-value="filtres.typeActiviteId = $event as number | null; appliquerFiltres()" />
+                                </div>
+
+                                <div class="filtres__col">
+                                    <BaseSelect :model-value="filtres.siteId ?? undefined" label="Site"
+                                        placeholder="Tous" :options="optionsSite" option-label="libelle"
+                                        option-value="id"
+                                        @update:model-value="filtres.siteId = $event as null | number; appliquerFiltres()" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section Période -->
+                        <div class="filtres__section">
+                            <span class="filtres__section-label">Période</span>
+                            <div class="filtres__section-grid filtres__section-grid--4">
+                                <div class="filtres__col">
+                                    <BaseSelect :model-value="filtres.annee" label="Année" :options="anneesOptions"
+                                        option-label="libelle" option-value="id"
+                                        @update:model-value="filtres.annee = $event as number; appliquerFiltres()" />
+                                </div>
+
+                                <div class="filtres__col">
+                                    <BaseSelect :model-value="filtres.trimestre ?? undefined" label="Trimestre"
+                                        placeholder="Tous" :options="trimestresOptions" option-label="libelle"
+                                        option-value="id"
+                                        @update:model-value="filtres.trimestre = ($event as Trimestre) ?? null; appliquerFiltres()" />
+                                </div>
+
+                                <div class="filtres__col">
+                                    <BaseInput v-model="filtres.dateDebut" label="Date début" type="date"
+                                        @change="appliquerFiltres()" />
+                                </div>
+
+                                <div class="filtres__col">
+                                    <BaseInput v-model="filtres.dateFin" label="Date fin" type="date"
+                                        @change="appliquerFiltres()" />
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Recherche objectif : PTA uniquement -->
-                    <div v-if="estVuePta" ref="autocompleteObjectif.racine"
-                        class="filtres__col filtres__col--large col-md-6" @keydown="autocompleteObjectif.surTouche">
-                        <BaseInput v-model="autocompleteObjectif.saisie.value" label="Recherche objectif spécifique"
-                            type="search" icon="bi bi-bullseye" placeholder="Code ou désignation" autocomplete="off"
-                            :aria-expanded="autocompleteObjectif.ouvert.value" @input="surRechercheObjectif" />
-                        <ul v-if="autocompleteObjectif.ouvert.value && autocompleteObjectif.suggestions.value.length"
-                            class="autocomplete" role="listbox" aria-label="Suggestions d'objectif">
-                            <li v-for="(s, i) in autocompleteObjectif.suggestions.value" :key="s.id" role="option"
-                                :aria-selected="i === autocompleteObjectif.indexActif.value"
-                                :class="{ 'autocomplete__item--actif': i === autocompleteObjectif.indexActif.value }"
-                                @mouseenter="autocompleteObjectif.survoler(i)">
-                                <button type="button" tabindex="-1" @click="autocompleteObjectif.selectionner(s)">
-                                    {{ formatSuggestion(s) }}
-                                </button>
-                            </li>
-                        </ul>
-                    </div>
+                    <!-- Pied du panneau -->
+                    <footer class="filtres__footer">
+                        <span v-if="statutActif" class="filtres__badge">
+                            <i class="bi bi-funnel"></i>
+                            {{ libelleStatut(statutActif) }}
+                            <button type="button" @click="retirerStatut" title="Retirer le filtre de statut">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </span>
+                        <span v-else class="filtres__hint">
+                            <i class="bi bi-info-circle"></i>
+                            Les résultats se mettent à jour automatiquement
+                        </span>
+
+                        <div class="filtres__footer-actions">
+                            <button type="button" class="filtres__reset" @click="reinitialiser">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                                Réinitialiser
+                            </button>
+                            <button type="button" class="filtres__close" @click="basculerPanneauFiltres">
+                                <i class="bi bi-chevron-up"></i>
+                                Replier
+                            </button>
+                        </div>
+                    </footer>
                 </div>
-
-                <!-- Service : uniquement si le backend en fournit -->
-                <div v-if="filtreServiceDisponible" class="filtres__col col-md-6">
-                    <BaseSelect :model-value="filtres.serviceId ?? undefined" label="Service"
-                        placeholder="Tous les services" :options="optionsService" option-label="libelle"
-                        option-value="id"
-                        @update:model-value="filtres.serviceId = $event as number | null; appliquerFiltres()" />
-                </div>
-
-                <div class="row">
-                    <div class="filtres__col col-md-4">
-                        <BaseSelect :model-value="filtres.prioriteId ?? undefined" label="Priorité" placeholder="Toutes"
-                            :options="optionsPriorite" option-label="libelle" option-value="id"
-                            @update:model-value="filtres.prioriteId = $event as number | null; appliquerFiltres()" />
-                    </div>
-
-                    <div class="filtres__col col-md-4">
-                        <BaseSelect :model-value="filtres.typeActiviteId ?? undefined" label="Type d'activité"
-                            placeholder="Tous" :options="optionsType" option-label="libelle" option-value="id"
-                            @update:model-value="filtres.typeActiviteId = $event as number | null; appliquerFiltres()" />
-                    </div>
-
-                    <div class="filtres__col col-md-4">
-                        <BaseSelect :model-value="filtres.siteId ?? undefined" label="Site" placeholder="Tous"
-                            :options="optionsSite" option-label="libelle" option-value="id"
-                            @update:model-value="filtres.siteId = $event as null | number; appliquerFiltres()" />
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="filtres__col col-md-3">
-                        <BaseSelect :model-value="filtres.annee" label="Année" :options="anneesOptions"
-                            option-label="libelle" option-value="id"
-                            @update:model-value="filtres.annee = $event as number; appliquerFiltres()" />
-                    </div>
-
-                    <div class="filtres__col col-md-3">
-                        <BaseSelect :model-value="filtres.trimestre ?? undefined" label="Trimestre" placeholder="Tous"
-                            :options="trimestresOptions" option-label="libelle" option-value="id"
-                            @update:model-value="filtres.trimestre = ($event as Trimestre) ?? null; appliquerFiltres()" />
-                    </div>
-
-                    <div class="filtres__col col-md-3">
-                        <BaseInput v-model="filtres.dateDebut" label="Date début" type="date"
-                            @change="appliquerFiltres()" />
-                    </div>
-
-                    <div class="filtres__col col-md-3">
-                        <BaseInput v-model="filtres.dateFin" label="Date fin" type="date"
-                            @change="appliquerFiltres()" />
-                    </div>
-                </div>
-            </div>
-
-            <div class="filtres__actions">
-                <span v-if="statutActif" class="filtres__badge">
-                    <i class="bi bi-funnel"></i>
-                    {{ libelleStatut(statutActif) }}
-                    <button type="button" @click="retirerStatut" title="Retirer le filtre de statut">
-                        <i class="bi bi-x"></i>
-                    </button>
-                </span>
-
-                <BaseButton variant="secondary" @click="reinitialiser">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                    Réinitialiser les filtres
-                </BaseButton>
             </div>
         </BaseCard>
 
@@ -805,7 +915,6 @@ watch(
                     </thead>
                     <tbody>
                         <tr v-for="item in activites" :key="item.id">
-                            <!-- Code + référence empilés -->
                             <td class="col-code">
                                 <span class="cell-code">{{ item.code }}</span>
                                 <span class="cell-reference">{{ item.reference }}</span>
@@ -827,7 +936,6 @@ watch(
                                 <span class="cell-truncate">{{ item.service?.libelle ?? '—' }}</span>
                             </td>
 
-                            <!-- Type + Site empilés -->
                             <td class="col-type-site">
                                 <span class="cell-type">{{ item.typeActivite?.libelle ?? '—' }}</span>
                                 <span class="cell-site">
@@ -865,8 +973,8 @@ watch(
                                     </span>
                                     <div class="avancement__bar" role="progressbar"
                                         :aria-valuenow="avancementAffiche(item)" aria-valuemin="0" aria-valuemax="100">
-                                        <div class="avancement__fill"
-                                            :style="{ width: avancementAffiche(item) + '%' }"></div>
+                                        <div class="avancement__fill" :style="{ width: avancementAffiche(item) + '%' }">
+                                        </div>
                                     </div>
                                 </div>
                             </td>
@@ -898,54 +1006,223 @@ watch(
 
 <style scoped>
 .liste-activites {
-    padding: 1.5rem 0 2rem;
+    --primary-color: #1a2a6c;
+    --secondary-color: #2a3f94;
+    --bg-color: #f5f7fa;
+    --surface-color: #fff;
+    --card-bg: #fff;
+    --text-color: #15233c;
+    --text-muted-custom: #6b7280;
+    --border-color: #e6ebf3;
+    --radius-xl: 16px;
+    min-height: calc(100vh - 68px);
+    padding: 34px 38px 24px;
+    color: #15233c;
+    font-family: "DM Sans", "Segoe UI", sans-serif;
+    background:
+        radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .055) 0, transparent 38%),
+        radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .065) 0, transparent 36%),
+        #f5f7fa;
 }
 
-/* --- En-tete --- */
-.page-header {
-    margin-bottom: 1.5rem;
+/* --- Bascule PTA / NON PTA --- */
+.vue-switch {
+    display: inline-flex;
+    gap: 6px;
+    padding: 5px;
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(26, 42, 108, .04);
 }
 
-.page-title {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #1a2b3c;
-    margin: 0;
+.vue-switch__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.15rem;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #6b7280;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease, box-shadow .15s ease;
 }
 
-.page-subtitle {
-    font-size: 0.9rem;
-    color: #74879b;
-    margin: 0.2rem 0 0;
+.vue-switch__btn i {
+    font-size: 1rem;
+    color: #8a95a8;
+    transition: color .15s ease;
 }
 
-/* --- Cards --- */
+.vue-switch__btn:hover:not(.vue-switch__btn--active) {
+    background: #f7f9fd;
+    color: #1a2a6c;
+}
+
+.vue-switch__btn:hover:not(.vue-switch__btn--active) i {
+    color: #4a6cf7;
+}
+
+.vue-switch__btn--active {
+    background: linear-gradient(135deg, #1a2a6c 0%, #2a3f94 100%);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(26, 42, 108, .25);
+}
+
+.vue-switch__btn--active i {
+    color: #ffd04a;
+}
+
+/* --- Cards KPI --- */
 .stat-card {
     position: relative;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.stat-card--static {
-    opacity: 0.92;
-}
-
-.stat-card__body {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow: hidden;
+    min-height: 110px;
+    padding: 1.15rem 1.2rem 1rem;
+    background: #fff;
+    border: 1px solid #e6ebf3 !important;
+    border-top: 3px solid #c8d6fb !important;
+    border-radius: 16px !important;
+    box-shadow: 0 1px 2px rgba(26, 42, 108, .04), 0 8px 24px rgba(26, 42, 108, .06);
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(26, 42, 108, .05), 0 14px 34px rgba(26, 42, 108, .10);
+}
+
+.stat-card__head {
+    display: flex;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 0.5rem;
 }
 
+.stat-card__label {
+    color: #7b8799;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    line-height: 1.4;
+    text-transform: uppercase;
+}
+
+.stat-card__icon-wrap {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    place-items: center;
+    border-radius: 9px;
+    background: #eaf0ff;
+    color: #3b63d9;
+}
+
 .stat-card__icon {
-    font-size: 1.35rem;
-    opacity: 0.85;
+    font-size: 1.05rem;
+    line-height: 1;
 }
 
 .stat-card__value {
     font-size: 1.75rem;
     font-weight: 700;
-    color: #1a2b3c;
+    color: #1a2a6c;
     line-height: 1;
+}
+
+.stat-card__hint {
+    margin-top: auto;
+    color: #7b8799;
+    font-size: 0.72rem;
+}
+
+.stat-card--primary {
+    border-top-color: #4a6cf7 !important;
+}
+
+.stat-card--info {
+    border-top-color: #72a8ed !important;
+}
+
+.stat-card--success {
+    border-top-color: #55d6ad !important;
+}
+
+.stat-card--warning {
+    border-top-color: #f4b91f !important;
+}
+
+.stat-card--danger {
+    border-top-color: #ff8790 !important;
+}
+
+.stat-card--secondary {
+    border-top-color: #c8d6fb !important;
+}
+
+.stat-card--purple {
+    border-top-color: #a99aef !important;
+}
+
+.stat-card--info .stat-card__icon-wrap {
+    background: #eaf0ff;
+    color: #3b63d9;
+}
+
+.stat-card--success .stat-card__icon-wrap {
+    background: #e4f7f0;
+    color: #138a68;
+}
+
+.stat-card--warning .stat-card__icon-wrap {
+    background: #fff6dd;
+    color: #b8860b;
+}
+
+.stat-card--danger .stat-card__icon-wrap {
+    background: #fff0f0;
+    color: #d84e5b;
+}
+
+.stat-card--purple .stat-card__icon-wrap {
+    background: #f1edff;
+    color: #7a68d6;
+}
+
+.stat-card--secondary .stat-card__icon-wrap {
+    background: #f1edff;
+    color: #7a68d6;
+}
+
+.stat-card--success .stat-card__value {
+    color: #138a68;
+}
+
+.stat-card--warning .stat-card__value {
+    color: #b8860b;
+}
+
+.stat-card--danger .stat-card__value {
+    color: #d84e5b;
+}
+
+.stat-card--info .stat-card__value {
+    color: #3b63d9;
+}
+
+.stat-card--purple .stat-card__value {
+    color: #7a68d6;
+}
+
+.stat-card--secondary .stat-card__value {
+    color: #6b7280;
 }
 
 .stat-card__overlay {
@@ -958,81 +1235,278 @@ watch(
 }
 
 .stat-card__overlay:focus-visible {
-    outline: 2px solid #1e88a8;
+    outline: 2px solid #d4af37;
     outline-offset: 2px;
 }
 
 .stat-card--active {
-    border-color: #1e88a8;
-    box-shadow: 0 0 0 2px rgba(30, 136, 168, 0.18);
+    border-color: #4a6cf7 !important;
+    border-top-color: #4a6cf7 !important;
+    box-shadow: 0 0 0 3px rgba(74, 108, 247, .14), 0 8px 24px rgba(26, 42, 108, .08);
     transform: translateY(-2px);
 }
 
-/* --- Bascule PTA / NON PTA --- */
-.vue-switch {
-    display: inline-flex;
-    padding: 3px;
-    background: #eef2f6;
-    border-radius: 8px;
+/* --- Panneau de filtres --- */
+.filtres {
+    overflow: hidden;
 }
 
-.vue-switch__btn {
-    padding: 0.5rem 1.1rem;
+/* En-tete : le conteneur flex separe le bouton-toggle du bouton "Tout effacer" */
+.filtres__header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.9rem 1.25rem;
+    background: linear-gradient(140deg, #f7f9fd, #fff);
+    border-bottom: 1px solid #e6ebf3;
+}
+
+/* Le toggle occupe tout l'espace disponible pour être facile à cliquer */
+.filtres__toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+    padding: 0.25rem;
     border: none;
-    border-radius: 6px;
     background: transparent;
-    color: #5a6b7f;
-    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background .15s ease;
+}
+
+.filtres__toggle:hover {
+    background: rgba(74, 108, 247, .04);
+}
+
+.filtres__toggle:focus-visible {
+    outline: 2px solid #4a6cf7;
+    outline-offset: 2px;
+}
+
+.filtres__header-icon {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: #eaf0ff;
+    color: #3b63d9;
+    font-size: 1rem;
+    flex: 0 0 34px;
+}
+
+.filtres__header-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.filtres__header-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1a2a6c;
+    letter-spacing: -0.015em;
+    font-family: Manrope, "DM Sans", sans-serif;
+    line-height: 1.2;
+}
+
+.filtres__header-sub {
+    font-size: 0.75rem;
+    color: #6b7280;
+    line-height: 1.2;
+    margin-top: 2px;
+}
+
+.filtres__count {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.65rem;
+    background: #eaf0ff;
+    border: 1px solid #d9e2ff;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #3b63d9;
+    flex: none;
+}
+
+.filtres__chev {
+    font-size: 0.9rem;
+    color: #8a95a8;
+    flex: none;
+    transition: transform .25s ease, color .15s ease;
+}
+
+.filtres__chev--open {
+    transform: rotate(180deg);
+    color: #4a6cf7;
+}
+
+.filtres__clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.32rem 0.65rem;
+    border: 1px solid #e6ebf3;
+    border-radius: 8px;
+    background: #fff;
+    color: #6b7280;
+    font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s ease;
+    flex: none;
+    transition: background .15s, color .15s, border-color .15s;
 }
 
-.vue-switch__btn--active {
-    background: #fff;
-    color: #1e88a8;
-    box-shadow: 0 1px 3px rgba(26, 43, 60, 0.12);
+.filtres__clear:hover {
+    border-color: #d84e5b;
+    color: #d84e5b;
+    background: #fff0f0;
 }
 
-/* --- Filtres --- */
-.filtres__grid {
+/* --- Zone repliable (animation fluide avec grid-template-rows) --- */
+.filtres__collapse {
     display: grid;
-    gap: 1rem;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows .3s ease;
+}
+
+.filtres__collapse--open {
+    grid-template-rows: 1fr;
+}
+
+.filtres__collapse-inner {
+    overflow: hidden;
+    min-height: 0;
+}
+
+.filtres__body {
+    display: grid;
+    gap: 1.25rem;
     padding: 1.25rem;
+}
+
+.filtres__section {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.filtres__section-label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8a95a8;
+}
+
+.filtres__section-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.filtres__section-grid--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .filtres__col {
     position: relative;
+    min-width: 0;
 }
 
-.filtres__actions {
+.filtres__footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
     flex-wrap: wrap;
-    padding: 0 1.25rem 1.25rem;
+    padding: 0.85rem 1.25rem;
+    background: #f7f9fd;
+    border-top: 1px solid #e6ebf3;
+}
+
+.filtres__hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: #8a95a8;
+}
+
+.filtres__footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.filtres__reset,
+.filtres__close {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid #e6ebf3;
+    border-radius: 8px;
+    background: #fff;
+    color: #1a2a6c;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+}
+
+.filtres__reset:hover {
+    border-color: #4a6cf7;
+    color: #4a6cf7;
+    background: #f3f6fc;
+}
+
+.filtres__close {
+    background: linear-gradient(135deg, #1a2a6c 0%, #2a3f94 100%);
+    color: #fff;
+    border-color: transparent;
+}
+
+.filtres__close:hover {
+    background: linear-gradient(135deg, #22358a 0%, #3350b3 100%);
+    color: #fff;
 }
 
 .filtres__badge {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.3rem 0.6rem;
-    background: #e7f2f7;
-    border: 1px solid #bcdcea;
+    padding: 0.32rem 0.65rem;
+    background: #eaf0ff;
+    border: 1px solid #d9e2ff;
     border-radius: 20px;
     font-size: 0.78rem;
-    color: #14657f;
+    font-weight: 600;
+    color: #3b63d9;
 }
 
 .filtres__badge button {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
     border: none;
+    border-radius: 50%;
     background: transparent;
     color: inherit;
     cursor: pointer;
-    padding: 0;
-    line-height: 1;
+    transition: background .15s;
+}
+
+.filtres__badge button:hover {
+    background: rgba(59, 99, 217, .14);
 }
 
 /* --- Autocomplete --- */
@@ -1046,9 +1520,9 @@ watch(
     padding: 0.25rem;
     list-style: none;
     background: #fff;
-    border: 1px solid #dde4ec;
-    border-radius: 7px;
-    box-shadow: 0 6px 18px rgba(26, 43, 60, 0.12);
+    border: 1px solid #e6ebf3;
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(26, 42, 108, .12);
     max-height: 240px;
     overflow-y: auto;
 }
@@ -1062,61 +1536,59 @@ watch(
     background: transparent;
     text-align: left;
     font-size: 0.82rem;
-    color: #33475c;
+    color: #40516b;
     cursor: pointer;
 }
 
 .autocomplete button:hover {
-    background: #eef5f8;
+    background: #f3f6fc;
 }
 
-/*
-    Mise en avant de la suggestion selectionnee au clavier.
-    Placee apres :hover pour que l emphasizing reste le meme que celui du survol,
-    une seule couleur pour les deux affordances.
-*/
 .autocomplete__item--actif button {
-    background: #eef5f8;
+    background: #edf1fd;
+    color: #1a2a6c;
     font-weight: 600;
 }
 
 /* --- Tableau --- */
 .table-wrapper {
     width: 100%;
-    overflow: visible;
+    overflow-x: auto;
+    border-radius: 8px 8px 0 0;
 }
 
 .table-activites {
     width: 100%;
     border-collapse: collapse;
+    min-width: 1050px;
     font-size: 0.82rem;
     table-layout: fixed;
-    /* clé : respecte les largeurs de colonnes */
 }
 
 .table-activites th,
 .table-activites td {
-    padding: 0.65rem 0.6rem;
-    border-bottom: 1px solid #eef2f6;
+    padding: 14px 8px;
+    border-bottom: 1px solid #e6ebf3;
     vertical-align: middle;
     overflow: hidden;
+    background: #fff;
 }
 
 .table-activites thead th {
-    background: #f6f8fa;
-    color: #5a6b7f;
-    font-size: 0.7rem;
+    background: #f7f9fd;
+    color: #7b8799;
+    font-size: 9.5px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: .9px;
     white-space: nowrap;
 }
 
-.table-activites tbody tr:hover {
-    background: #f9fbfc;
+.table-activites tbody tr:hover,
+.table-activites tbody tr:hover td {
+    background: #f7f9fd;
 }
 
-/* --- Largeurs de colonnes --- */
 .col-code {
     width: 9%;
 }
@@ -1158,17 +1630,16 @@ watch(
     text-align: center;
 }
 
-/* --- Cellules --- */
 .cell-code {
     display: block;
     font-weight: 700;
-    color: #1a2b3c;
+    color: #1a2a6c;
     font-size: 0.82rem;
 }
 
 .cell-reference {
     display: block;
-    color: #8a9aac;
+    color: #8a95a8;
     font-size: 0.72rem;
     margin-top: 1px;
 }
@@ -1176,12 +1647,11 @@ watch(
 .cell-designation {
     display: -webkit-box;
     -webkit-line-clamp: 2;
-    /* max 2 lignes */
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
     line-height: 1.3;
-    color: #33475c;
+    color: #40516b;
 }
 
 .cell-truncate {
@@ -1193,7 +1663,7 @@ watch(
 
 .col-type-site .cell-type {
     display: block;
-    color: #33475c;
+    color: #40516b;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1201,7 +1671,7 @@ watch(
 
 .col-type-site .cell-site {
     display: block;
-    color: #8a9aac;
+    color: #8a95a8;
     font-size: 0.72rem;
     margin-top: 1px;
     white-space: nowrap;
@@ -1214,17 +1684,16 @@ watch(
     flex-direction: column;
     gap: 1px;
     font-size: 0.74rem;
-    color: #5a6b7f;
+    color: #6b7280;
     line-height: 1.25;
 }
 
 .cell-periode__arrow {
-    color: #b6c2ce;
+    color: #aeb8c6;
     font-size: 0.68rem;
     line-height: 1;
 }
 
-/* --- Objectif --- */
 .objectif {
     display: flex;
     flex-direction: column;
@@ -1233,7 +1702,7 @@ watch(
 
 .objectif__code {
     font-weight: 600;
-    color: #14657f;
+    color: #3b63d9;
     font-size: 0.78rem;
 }
 
@@ -1242,11 +1711,10 @@ watch(
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    color: #5a6b7f;
+    color: #6b7280;
     font-size: 0.74rem;
 }
 
-/* --- Badges --- */
 .badge-soft {
     display: inline-block;
     padding: 0.15rem 0.45rem;
@@ -1256,52 +1724,37 @@ watch(
     white-space: nowrap;
 }
 
-.badge-soft--primary {
-    background: #e3edf6;
-    color: #14507a;
-}
-
+.badge-soft--primary,
 .badge-soft--info {
-    background: #e0f0f4;
-    color: #14657f;
+    background: #eaf0ff;
+    color: #3b63d9;
 }
 
 .badge-soft--success {
-    background: #e4f4ea;
-    color: #1c6b40;
+    background: #e4f7f0;
+    color: #138a68;
 }
 
 .badge-soft--warning {
-    background: #fdf0dc;
-    color: #8a5a10;
+    background: #fff6dd;
+    color: #b8860b;
 }
 
 .badge-soft--danger {
-    background: #fbe6e4;
-    color: #9c2a20;
+    background: #fff0f0;
+    color: #d84e5b;
 }
 
-.badge-soft--secondary {
-    background: #eceff2;
-    color: #55636f;
-}
-
-/*
-    "Suspendu" n'a pas de couleur Bootstrap et ne peut pas emprunter celle
-    d'un autre statut : la partagere avec "Reportee" ou "Non commencee"
-    rendrait les deux badges indistinguables dans le tableau.
-*/
+.badge-soft--secondary,
 .badge-soft--purple {
-    background: #ebe6f7;
-    color: #523a91;
+    background: #f1edff;
+    color: #7a68d6;
 }
 
-/* Couleur de l icone des cards : meme role que text-* de Bootstrap. */
 .text-purple {
-    color: #6b4fa0;
+    color: #7a68d6;
 }
 
-/* --- Avancement --- */
 .avancement {
     display: flex;
     flex-direction: column;
@@ -1311,26 +1764,25 @@ watch(
 .avancement__valeur {
     font-size: 0.72rem;
     font-weight: 600;
-    color: #33475c;
+    color: #40516b;
     text-align: center;
 }
 
 .avancement__bar {
     width: 100%;
     height: 6px;
-    background: #eef2f6;
-    border-radius: 3px;
+    background: #e6ebf3;
+    border-radius: 5px;
     overflow: hidden;
 }
 
 .avancement__fill {
     height: 100%;
-    background: #1e88a8;
-    border-radius: 3px;
+    background: linear-gradient(90deg, #4a6cf7, #d4af37);
+    border-radius: 5px;
     transition: width 0.25s ease;
 }
 
-/* --- Actions --- */
 .actions {
     display: inline-flex;
     gap: 0.3rem;
@@ -1342,18 +1794,18 @@ watch(
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #dde4ec;
-    border-radius: 6px;
+    border: 1px solid #e6ebf3;
+    border-radius: 8px;
     background: #fff;
-    color: #42556b;
+    color: #6b7280;
     font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
 .btn-icone:hover:not(:disabled) {
-    border-color: #1e88a8;
-    color: #1e88a8;
+    border-color: #4a6cf7;
+    color: #4a6cf7;
 }
 
 .btn-icone:disabled {
@@ -1361,7 +1813,6 @@ watch(
     cursor: not-allowed;
 }
 
-/* --- Etats --- */
 .table-state {
     display: flex;
     flex-direction: column;
@@ -1373,25 +1824,30 @@ watch(
 
 .empty-icon {
     font-size: 2.6rem;
-    color: #c3ced9;
+    color: #c8d6fb;
     margin-bottom: 0.75rem;
 }
 
 .empty-title {
     font-size: 1.05rem;
     font-weight: 600;
-    color: #33475c;
+    color: #1a2a6c;
     margin: 0 0 0.35rem;
 }
 
 .empty-text {
     font-size: 0.85rem;
-    color: #74879b;
+    color: #6b7280;
     margin: 0 0 1.1rem;
 }
 
 /* --- Responsive --- */
 @media (max-width: 1199.98px) {
+    .liste-activites {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+
     .table-activites {
         font-size: 0.78rem;
     }
@@ -1404,7 +1860,6 @@ watch(
 
 @media (max-width: 991.98px) {
 
-    /* En dessous de 992px, on masque les colonnes secondaires */
     .col-objectif,
     .col-type-site,
     .col-service {
@@ -1438,22 +1893,63 @@ watch(
     .col-actions {
         width: 10%;
     }
+
+    .table-activites {
+        min-width: 760px;
+    }
+
+    .filtres__section-grid,
+    .filtres__section-grid--4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 767.98px) {
-    .filtres__actions {
-        flex-direction: column;
-        align-items: stretch;
+    .liste-activites {
+        padding: 24px 16px 20px;
     }
 
     .stat-card__value {
         font-size: 1.5rem;
     }
+
+    .filtres__header {
+        flex-wrap: wrap;
+    }
+
+    .filtres__toggle {
+        flex-basis: 100%;
+    }
+
+    .filtres__clear {
+        margin-left: auto;
+    }
+
+    .filtres__footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filtres__footer-actions {
+        margin-left: 0;
+        flex-direction: column-reverse;
+    }
+
+    .filtres__reset,
+    .filtres__close {
+        justify-content: center;
+    }
 }
 
 @media (max-width: 575.98px) {
+    .liste-activites {
+        padding: 20px 12px 16px;
+    }
 
-    /* Sur mobile : on cache encore plus */
+    .page-title {
+        font-size: 1.35rem;
+    }
+
     .col-priorite,
     .col-periode {
         display: none;
@@ -1477,6 +1973,56 @@ watch(
 
     .col-actions {
         width: 10%;
+    }
+
+    .table-activites {
+        min-width: 620px;
+    }
+
+    .filtres__section-grid,
+    .filtres__section-grid--4 {
+        grid-template-columns: 1fr;
+    }
+
+    .filtres__header,
+    .filtres__body,
+    .filtres__footer {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .vue-switch {
+        width: 100%;
+    }
+
+    .vue-switch__btn {
+        flex: 1;
+        justify-content: center;
+        padding: 0.55rem 0.65rem;
+        font-size: 0.8rem;
+    }
+
+    .filtres__header-title {
+        font-size: 0.88rem;
+    }
+
+    .filtres__header-sub {
+        font-size: 0.7rem;
+    }
+
+    .filtres__count {
+        font-size: 0.68rem;
+        padding: 0.15rem 0.55rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .filtres__collapse,
+    .filtres__chev,
+    .stat-card,
+    .avancement__fill {
+        transition: none !important;
     }
 }
 </style>

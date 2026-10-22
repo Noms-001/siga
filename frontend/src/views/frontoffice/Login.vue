@@ -111,7 +111,7 @@ const handleLogin = async () => {
                         <img src="/logo/logo.png" alt="Logo" class="brand-logo">
                     </div>
 
-                    <img src="/logo/titre.jpeg" alt="GESTIA" class="brand-title-img">
+                    <img src="/logo/titre.png" alt="GESTIA" class="brand-title-img">
 
                     <span class="auth-divider" aria-hidden="true"></span>
                 </header>

@@ -8,13 +8,22 @@
 
             <div class="back-nav__brand">
                 <span class="back-nav__brand-mark" @click="toggleSidebar">
-                    <i class="bi bi-shield-check"></i>
+                    <img src="/logo/logo.png" alt="GESTIA">
                 </span>
                 <span class="back-nav__brand-text">
-                    <strong>DTS</strong>
-                    <small>Administration</small>
+                    <img src="/logo/titre.png" alt="GESTIA" class="back-nav__wordmark">
+                    <small>GESTION D’ACTIVITÉ</small>
                 </span>
             </div>
+
+            <nav class="back-nav__breadcrumbs" aria-label="Fil d’Ariane">
+                <template v-for="(label, index) in breadcrumbs" :key="`${label}-${index}`">
+                    <span v-if="index > 0" class="back-nav__breadcrumb-separator" aria-hidden="true">/</span>
+                    <span v-if="index === breadcrumbs.length - 1" class="back-nav__breadcrumb-current"
+                        aria-current="page">{{ label }}</span>
+                    <span v-else class="back-nav__breadcrumb-parent">{{ label }}</span>
+                </template>
+            </nav>
         </div>
 
         <div class="back-nav__right">
@@ -114,8 +123,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { getPageBreadcrumbs } from '@/utils/navigation'
 
 // --- Store ---
 const authStore = useAuthStore()
@@ -138,6 +148,7 @@ const emit = defineEmits<{
 
 // --- Router ---
 const router = useRouter()
+const route = useRoute()
 
 // --- State ---
 const searchQuery = ref('')
@@ -162,6 +173,8 @@ const userInitials = computed(() => {
     if (!authStore.user) return 'U'
     return `${authStore.user.prenom.charAt(0)}${authStore.user.nom.charAt(0)}`.toUpperCase()
 })
+
+const breadcrumbs = computed(() => getPageBreadcrumbs(route))
 
 // --- Notifications simulées ---
 const notifications = ref<Notification[]>([
@@ -266,17 +279,25 @@ onUnmounted(() => {
     top: 0;
     left: 0;
     right: 0;
-    height: var(--dts-navbar-h);
+    height: 58px;
     z-index: 1050;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0 1rem 0 0.85rem;
+    padding: 0 1.5rem 0 1rem;
     background: var(--dts-surface);
     border-bottom: 1px solid var(--dts-border);
     box-shadow: var(--dts-shadow-xs);
     color: var(--dts-text);
+}
+
+.back-nav::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    background: linear-gradient(90deg, #1a2a6c, #4a6cf7 55%, #d4af37);
 }
 
 .back-nav__left,
@@ -288,6 +309,35 @@ onUnmounted(() => {
 
 .back-nav__left {
     min-width: 0;
+}
+
+.back-nav__breadcrumbs {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin-left: 6.5rem;
+    overflow: hidden;
+    color: #8a95a8;
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.back-nav__breadcrumb-parent {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.back-nav__breadcrumb-current {
+    overflow: hidden;
+    color: #1a2a6c;
+    font-weight: 700;
+    text-overflow: ellipsis;
+}
+
+.back-nav__breadcrumb-separator {
+    flex: 0 0 auto;
+    padding: 0 0.55rem;
+    color: #c3cad5;
 }
 
 .back-nav__sep {
@@ -336,16 +386,19 @@ onUnmounted(() => {
 }
 
 .back-nav__brand-mark {
-    width: 34px;
-    height: 34px;
-    flex: 0 0 34px;
-    border-radius: 9px;
-    display: grid;
-    place-items: center;
-    color: #fff;
-    font-size: 1.05rem;
-    background: linear-gradient(145deg, var(--dts-navy) 0%, var(--dts-blue) 115%);
-    box-shadow: 0 2px 6px rgba(13, 43, 78, 0.28);
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    display: block;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.back-nav__brand-mark img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .back-nav__brand-text {
@@ -361,8 +414,18 @@ onUnmounted(() => {
     letter-spacing: 0.02em;
 }
 
+.back-nav__brand-text .back-nav__wordmark {
+    display: block;
+    width: 88px;
+    max-height: 24px;
+    object-fit: contain;
+    object-position: left center;
+}
+
 .back-nav__brand-text small {
-    font-size: 0.69rem;
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: .1em;
     color: var(--dts-muted);
     white-space: nowrap;
 }
@@ -787,12 +850,16 @@ onUnmounted(() => {
 }
 
 @media (max-width: 767.98px) {
+    .back-nav__breadcrumbs { margin-left: .5rem; font-size: .68rem; }
     .back-nav__brand-text small {
         display: none;
     }
 }
 
 @media (max-width: 575.98px) {
+    .back-nav__breadcrumbs .back-nav__breadcrumb-parent,
+    .back-nav__breadcrumbs .back-nav__breadcrumb-separator { display: none; }
+
     .back-nav {
         padding: 0 0.65rem;
     }

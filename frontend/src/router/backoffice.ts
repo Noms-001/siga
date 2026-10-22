@@ -18,6 +18,11 @@ export const backofficeRoutes: RouteRecordRaw[] = [
                 name: 'backoffice-dashboard',
                 component: () => import('@/views/backoffice/Dashboard.vue'),
             },
+            {
+                path: 'import-activites',
+                name: 'backoffice-import-activites',
+                component: () => import('@/views/backoffice/ImportTest.vue'),
+            },
 
             /* ------------------ DÉPARTEMENTS ------------------ */
             {

@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/auth'
 
 import { frontofficeRoutes } from './frontoffice'
 import { backofficeRoutes } from './backoffice'
+import { getPageTitle } from '@/utils/navigation'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -16,6 +17,10 @@ const router = createRouter({
         ...frontofficeRoutes,
         ...backofficeRoutes,
     ],
+})
+
+router.afterEach((to) => {
+    document.title = `GESTIA — ${getPageTitle(to)}`
 })
 
 router.beforeEach(async (to) => {

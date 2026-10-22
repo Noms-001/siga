@@ -1040,13 +1040,6 @@ onMounted(async () => {
 
 <template>
     <div class="ajout-activite">
-        <!--
-            ============ CONFIRMATION ============
-
-            Une seule instance pour toute la page : enregistrer l'activite et
-            ajouter un objectif ne se font pas au meme moment, et deux modales
-            superposees rendraient la page inextricable.
-        -->
         <BaseConfirm
             v-model="confirmation.ouvert.value"
             :demande="confirmation.demande.value"
@@ -1055,25 +1048,34 @@ onMounted(async () => {
             @annule="confirmation.annuler"
         />
 
-        <!-- ============ EN-TETE ============ -->
-        <div class="page-header">
-            <button type="button" class="btn-retour" @click="annuler">
-                <i class="bi bi-arrow-left"></i>
-                Retour
-            </button>
+        <!-- ============ EN-TÊTE ============ -->
+        <header class="welcome-row">
+            <div class="welcome-row__left">
+                <div class="eyebrow">
+                    <span class="live-dot"></span>
+                    ESPACE DE TRAVAIL · ACTIVITÉS
+                </div>
+                <h1>
+                    {{ estModification ? "Modifier l'activité" : "Nouvelle activité" }}
+                    <span class="wave" aria-hidden="true">✳</span>
+                </h1>
+                <span class="title-divider" aria-hidden="true"></span>
+                <p class="subheading">
+                    {{
+                        estModification
+                            ? 'Seule une activité restée en brouillon peut être modifiée.'
+                            : 'Renseignez les informations ci-dessous pour créer et planifier une activité.'
+                    }}
+                </p>
+            </div>
 
-            <h1 class="page-title">
-                {{ estModification ? "Modifier l'activité" : "Nouvelle activité" }}
-            </h1>
-
-            <p class="page-subtitle">
-                {{
-                    estModification
-                        ? "Seule une activité restée en brouillon peut être modifiée."
-                        : "L'activité sera créée en brouillon, puis soumise à la validation."
-                }}
-            </p>
-        </div>
+            <div class="welcome-row__right">
+                <BaseButton variant="secondary" @click="annuler">
+                    <i class="bi bi-arrow-left"></i>
+                    Retour
+                </BaseButton>
+            </div>
+        </header>
 
         <!-- ============ MESSAGES ============ -->
         <div v-if="erreurGlobale" class="alert alert-danger alert-dismissible" role="alert">
@@ -1081,13 +1083,12 @@ onMounted(async () => {
             {{ erreurGlobale }}
             <button type="button" class="btn-close" @click="erreurGlobale = null"></button>
         </div>
-
         <div v-if="succes" class="alert alert-success" role="alert">
             <i class="bi bi-check-circle me-2"></i>
             {{ succes }}
         </div>
 
-        <!-- ============ CHARGEMENT / ERREUR DE CHARGEMENT ============ -->
+        <!-- ============ CHARGEMENT ============ -->
         <div v-if="chargement" class="detail-state">
             <div class="spinner-border text-primary" role="status"></div>
             <p class="mt-3 mb-0">Chargement de l'activité…</p>
@@ -1104,25 +1105,28 @@ onMounted(async () => {
         </div>
 
         <!-- ============ FORMULAIRE ============ -->
-        <form v-else novalidate @submit.prevent="enregistrer">
-            <!-- ============ 1. TYPE D'ACTIVITE ============ -->
-            <BaseCard class="section">
-                <template #title>
-                    <div class="section-head d-flex align-items-center gap-2">
-                        <i class="bi bi-signpost-split"></i>
-                        <h3 class="card-title h6 mb-0">Type d'activité</h3>
+        <form v-else class="form-layout" novalidate @submit.prevent="enregistrer">
+            <div class="form-main">
+
+                <!-- 01 — TYPE D'ACTIVITÉ -->
+                <section class="panel form-section">
+                    <div class="section-head">
+                        <span class="section-num">01</span>
+                        <div>
+                            <h2>Type d'activité</h2>
+                            <p>Ce choix détermine les champs applicables.</p>
+                        </div>
                     </div>
-                </template>
 
-                <p class="section-intro">
-                    Ce choix détermine les champs applicables. Il peut être modifié tant que
-                    l'activité est en brouillon.
-                </p>
-
-                <div class="row g-3" role="radiogroup" aria-label="Type d'activité">
-                    <div class="col-md-6">
-                        <button type="button" class="choix-type" :class="{ 'choix-type--actif': form.pta }" role="radio"
-                            :aria-checked="form.pta" @click="changerPta(true)">
+                    <div class="choix-type-grid" role="radiogroup" aria-label="Type d'activité">
+                        <button
+                            type="button"
+                            class="choix-type"
+                            :class="{ 'choix-type--actif': form.pta }"
+                            role="radio"
+                            :aria-checked="form.pta"
+                            @click="changerPta(true)"
+                        >
                             <span class="choix-type__icone"><i class="bi bi-bullseye"></i></span>
                             <span class="choix-type__titre">PTA</span>
                             <span class="choix-type__detail">
@@ -1132,11 +1136,15 @@ onMounted(async () => {
                                 <i class="bi bi-check-lg"></i>
                             </span>
                         </button>
-                    </div>
 
-                    <div class="col-md-6">
-                        <button type="button" class="choix-type" :class="{ 'choix-type--actif': !form.pta }"
-                            role="radio" :aria-checked="!form.pta" @click="changerPta(false)">
+                        <button
+                            type="button"
+                            class="choix-type"
+                            :class="{ 'choix-type--actif': !form.pta }"
+                            role="radio"
+                            :aria-checked="!form.pta"
+                            @click="changerPta(false)"
+                        >
                             <span class="choix-type__icone"><i class="bi bi-circle"></i></span>
                             <span class="choix-type__titre">Non PTA</span>
                             <span class="choix-type__detail">
@@ -1147,376 +1155,480 @@ onMounted(async () => {
                             </span>
                         </button>
                     </div>
-                </div>
-            </BaseCard>
+                </section>
 
-            <!-- ============ 2. INFORMATIONS GENERALES ============ -->
-            <BaseCard class="section">
-                <template #title>
-                    <div class="section-head d-flex align-items-center gap-2">
-                        <i class="bi bi-info-circle"></i>
-                        <h3 class="card-title h6 mb-0">Informations générales</h3>
+                <!-- 02 — INFORMATIONS GÉNÉRALES -->
+                <section class="panel form-section">
+                    <div class="section-head">
+                        <span class="section-num">02</span>
+                        <div>
+                            <h2>Informations générales</h2>
+                            <p>Identifiez l'activité et planifiez sa période.</p>
+                        </div>
                     </div>
-                </template>
 
-                <div class="row g-3">
-                    <!-- Objectif specifique : PTA seulement -->
-                    <div v-if="form.pta" class="col-12">
-                        <div :ref="autocompleteObjectif.racine">
-                            <span class="form-label">Objectif spécifique<span class="requis">*</span></span>
-
-                            <!--
-                                Le positionnement est porte par cette seule div, et non
-                                par celle du ref : celle-ci ne sert qu'a detecter un
-                                clic exterieur. Sans cette separation, la liste
-                                descendrait sous la mention d'aide au lieu de se
-                                coller au champ.
-                            -->
-                            <div class="position-relative">
-                                <div class="objectif-champ row">
-                                    <BaseInput :model-value="autocompleteObjectif.saisie.value" type="search"
-                                        placeholder="Code, désignation ou année" autocomplete="off"
-                                        :error="erreurs.idObjectifSpecifique"
-                                        :aria-expanded="autocompleteObjectif.ouvert.value" @update:model-value="(valeur: string) => {
-                                            autocompleteObjectif.saisie.value = valeur
-                                            autocompleteObjectif.charger()
-                                        }" class="col-md-11" />
-
-                                    <!--
-                                        Creer l'objectif manquant, sans quitter la
-                                        page : un PTA sans objectif ne peut pas
-                                        etre enregistre, donc refuser ici
-                                        empecherait meme d'enregistrer le
-                                        brouillon.
-                                    -->
-                                    <button type="button" class="objectif-champ__creer" title="Créer un objectif"
-                                        aria-label="Créer un objectif" :disabled="enregistrementObjectif"
-                                        @click="ouvrirModalObjectif">
-                                        <i class="bi bi-plus-lg"></i>
-                                    </button>
-                                </div>
-
-                                <ul v-if="autocompleteObjectif.ouvert.value && autocompleteObjectif.suggestions.value.length"
-                                    class="autocomplete" role="listbox" aria-label="Suggestions d'objectif">
-                                    <li v-for="(s, i) in autocompleteObjectif.suggestions.value" :key="s.id"
-                                        role="option" :aria-selected="i === autocompleteObjectif.indexActif.value"
-                                        :class="{ 'autocomplete__item--actif': i === autocompleteObjectif.indexActif.value }"
-                                        @mouseenter="autocompleteObjectif.survoler(i)">
-                                        <button type="button" tabindex="-1"
-                                            @click="autocompleteObjectif.selectionner(s)">
-                                            {{ formatSuggestion(s) }}
+                    <div class="field-grid">
+                        <!-- Objectif spécifique -->
+                        <div v-if="form.pta" class="field full">
+                            <div :ref="autocompleteObjectif.racine">
+                                <div class="position-relative">
+                                    <div class="objectif-champ">
+                                        <BaseInput
+                                            :model-value="autocompleteObjectif.saisie.value"
+                                            label="Objectif spécifique"
+                                            type="search"
+                                            required
+                                            placeholder="Code, désignation ou année"
+                                            autocomplete="off"
+                                            :error="erreurs.idObjectifSpecifique"
+                                            :aria-expanded="autocompleteObjectif.ouvert.value"
+                                            @update:model-value="(valeur: string) => {
+                                                autocompleteObjectif.saisie.value = valeur
+                                                autocompleteObjectif.charger()
+                                            }"
+                                        />
+                                        <button
+                                            type="button"
+                                            class="objectif-champ__creer"
+                                            title="Créer un objectif"
+                                            aria-label="Créer un objectif"
+                                            :disabled="enregistrementObjectif"
+                                            @click="ouvrirModalObjectif"
+                                        >
+                                            <i class="bi bi-plus-lg"></i>
                                         </button>
-                                    </li>
-                                </ul>
-                            </div>
+                                    </div>
 
-                            <p class="helper-text">
-                                Le code et la référence sont proposés d'après cet objectif.
-                                <template v-if="form.idObjectifSpecifique !== null">
-                                    Objectif retenu : vider le champ le retire.
-                                </template>
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Code et reference : deux colonnes en PTA, une seule sinon -->
-                    <div v-if="form.pta" class="col-md-6">
-                        <BaseInput v-model="form.code" label="Code" required :error="erreurs.code"
-                            placeholder="A-2027-01-01" helper="Proposé après le choix de l'objectif. Modifiable."
-                            @update:model-value="surSaisieCode" />
-                    </div>
-
-                    <div v-if="form.pta" class="col-md-6">
-                        <BaseInput v-model="form.reference" label="Référence" required :error="erreurs.reference"
-                            placeholder="BCT/1_1"
-                            helper="Format : code de l'objectif suivi du numéro d'activité. Modifiable."
-                            @update:model-value="surSaisieReference" />
-                    </div>
-
-                    <div v-else class="col-12">
-                        <BaseInput v-model="form.code" label="Code" required :error="erreurs.code"
-                            placeholder="A-2027-01"
-                            helper="Proposé d'après la dernière activité non PTA de l'année. Modifiable."
-                            @update:model-value="surSaisieCode" />
-                    </div>
-
-                    <div class="col-12">
-                        <BaseInput v-model="form.designation" label="Désignation" required :error="erreurs.designation"
-                            placeholder="Objet de l'activité" />
-                    </div>
-
-                    
-
-                    <!-- Resultats intermediaires -->
-                    <div class="col-12">
-                        <div class="bloc-ajoutable">
-                            <div class="bloc-ajoutable__entete">
-                                <span class="form-label mb-0">Résultats intermédiaires</span>
-
-                                <button type="button" class="lien-ajout" @click="ajouterResultatIntermediaire">
-                                    <i class="bi bi-plus-lg"></i>
-                                    Ajouter
-                                </button>
-                            </div>
-
-                            <p class="helper-text">
-                                Facultatif. Un résultat est un état atteint en cours d'activité, pas sa
-                                finalité.
-                            </p>
-
-                            <p v-if="form.resultatsIntermediaires.length === 0" class="aucun-resultat">
-                                Aucun résultat intermédiaire déclaré.
-                            </p>
-
-                            <div v-for="(resultat, index) in form.resultatsIntermediaires" :key="index"
-                                class="ligne-ajoutable">
-                                <div class="ligne-ajoutable__champ">
-                                    <BaseInput v-model="resultat.designation" type="textarea"
-                                        placeholder="Le système de contrôle d'accès est installé et opérationnel"
-                                        :error="erreurs[`resultat_${index}`]" />
+                                    <ul
+                                        v-if="autocompleteObjectif.ouvert.value && autocompleteObjectif.suggestions.value.length"
+                                        class="autocomplete"
+                                        role="listbox"
+                                        aria-label="Suggestions d'objectif"
+                                    >
+                                        <li
+                                            v-for="(s, i) in autocompleteObjectif.suggestions.value"
+                                            :key="s.id"
+                                            role="option"
+                                            :aria-selected="i === autocompleteObjectif.indexActif.value"
+                                            :class="{ 'autocomplete__item--actif': i === autocompleteObjectif.indexActif.value }"
+                                            @mouseenter="autocompleteObjectif.survoler(i)"
+                                        >
+                                            <button type="button" tabindex="-1" @click="autocompleteObjectif.selectionner(s)">
+                                                {{ formatSuggestion(s) }}
+                                            </button>
+                                        </li>
+                                    </ul>
                                 </div>
-
-                                <div class="ligne-ajoutable__meta">
-                                    <span v-if="estResultatEnregistre(resultat)" class="badge-enregistree">
-                                        enregistrée
-                                    </span>
-
-                                    <button type="button" class="ligne-ajoutable__supprimer"
-                                        :aria-label="`Retirer le résultat intermédiaire ${index + 1}`"
-                                        @click="retirerResultatIntermediaire(index)">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
+                                <p class="hint">
+                                    Le code et la référence sont proposés d'après cet objectif.
+                                    <template v-if="form.idObjectifSpecifique !== null">
+                                        Vider le champ le retire.
+                                    </template>
+                                </p>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="col-md-6">
-                        <BaseInput v-model="form.dateDebutPrevue" label="Date de début prévue" type="date" required
-                            :error="erreurs.dateDebutPrevue" />
-                    </div>
-
-                    <div class="col-md-6">
-                        <BaseInput v-model="form.dateFinPrevue" label="Date de fin prévue" type="date"
-                            :error="erreurs.dateFinPrevue"
-                            helper="Facultatif : une activité peut être ouverte sans échéance." />
-                    </div>
-                </div>
-            </BaseCard>
-
-            <!-- ============ 3. CLASSEMENT ============ -->
-            <BaseCard class="section">
-                <template #title>
-                    <div class="section-head d-flex align-items-center gap-2">
-                        <i class="bi bi-sliders"></i>
-                        <h3 class="card-title h6 mb-0">Classement</h3>
-                    </div>
-                </template>
-
-                <p class="section-intro">
-                    Ces éléments servent au filtrage et au suivi, indépendamment du type d'activité.
-                </p>
-
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <BaseSelect :model-value="form.idPriorite ?? undefined" label="Priorité" required
-                            placeholder="Sélectionner" :options="optionsPriorite" option-label="libelle"
-                            option-value="id" :error="erreurs.idPriorite"
-                            @update:model-value="form.idPriorite = ($event as number | null) ?? null" />
-                    </div>
-
-                    <div class="col-md-6">
-                        <BaseSelect :model-value="form.idTypeActivite ?? undefined" label="Type d'activité"
-                            placeholder="Aucun" :options="optionsType" option-label="libelle" option-value="id"
-                            @update:model-value="form.idTypeActivite = ($event as number | null) ?? null" />
-                    </div>
-
-                    <div class="col-md-6">
-                        <BaseSelect :model-value="form.idSite ?? undefined" label="Site" placeholder="Aucun"
-                            :options="optionsSite" option-label="libelle" option-value="id"
-                            @update:model-value="form.idSite = ($event as number | null) ?? null" />
-                    </div>
-
-                    <div class="col-md-6">
-                        <template v-if="serviceImpose">
-                            <!--
-                                Service impose : ce n'est pas un select vide, qui
-                                ressemblerait a un oubli, mais un champ desactive
-                                qui dit pourquoi il n'y a rien a choisir.
-                            -->
-                            <span class="form-label">Service</span>
-                            <BaseInput :model-value="libelleServiceImpose ?? 'Votre service'" disabled readonly />
-                            <p class="helper-text">Imposé par votre rattachement.</p>
+                        <!-- Code + Référence (PTA) -->
+                        <template v-if="form.pta">
+                            <div class="field">
+                                <BaseInput
+                                    v-model="form.code"
+                                    label="Code"
+                                    required
+                                    :error="erreurs.code"
+                                    placeholder="A-2027-01-01"
+                                    helper="Proposé après le choix de l'objectif. Modifiable."
+                                    @update:model-value="surSaisieCode"
+                                />
+                            </div>
+                            <div class="field">
+                                <BaseInput
+                                    v-model="form.reference"
+                                    label="Référence"
+                                    required
+                                    :error="erreurs.reference"
+                                    placeholder="BCT/1_1"
+                                    helper="Code de l'objectif suivi du numéro d'activité. Modifiable."
+                                    @update:model-value="surSaisieReference"
+                                />
+                            </div>
                         </template>
 
-                        <BaseSelect v-else :model-value="form.idService ?? undefined" label="Service" required
-                            placeholder="Sélectionner" :options="optionsService" option-label="libelle"
-                            option-value="id"
-                            @update:model-value="form.idService = ($event as number | null) ?? null" />
+                        <!-- Code seul (NON PTA) -->
+                        <div v-else class="field full">
+                            <BaseInput
+                                v-model="form.code"
+                                label="Code"
+                                required
+                                :error="erreurs.code"
+                                placeholder="A-2027-01"
+                                helper="Proposé d'après la dernière activité non PTA de l'année. Modifiable."
+                                @update:model-value="surSaisieCode"
+                            />
+                        </div>
+
+                        <!-- Désignation -->
+                        <div class="field full">
+                            <BaseInput
+                                v-model="form.designation"
+                                label="Désignation"
+                                required
+                                :error="erreurs.designation"
+                                placeholder="Objet de l'activité"
+                            />
+                        </div>
+
+                        <!-- Résultats intermédiaires -->
+                        <div class="field full">
+                            <div class="bloc-ajoutable">
+                                <div class="bloc-ajoutable__entete">
+                                    <span class="label">Résultats intermédiaires</span>
+                                    <button type="button" class="lien-ajout" @click="ajouterResultatIntermediaire">
+                                        <i class="bi bi-plus-lg"></i>
+                                        Ajouter
+                                    </button>
+                                </div>
+                                <p class="hint">Facultatif. Un résultat est un état atteint en cours d'activité, pas sa finalité.</p>
+
+                                <p v-if="form.resultatsIntermediaires.length === 0" class="aucun-resultat">
+                                    Aucun résultat intermédiaire déclaré.
+                                </p>
+
+                                <div
+                                    v-for="(resultat, index) in form.resultatsIntermediaires"
+                                    :key="index"
+                                    class="ligne-ajoutable"
+                                >
+                                    <div class="ligne-ajoutable__champ">
+                                        <BaseInput
+                                            v-model="resultat.designation"
+                                            type="textarea"
+                                            placeholder="Le système de contrôle d'accès est installé et opérationnel"
+                                            :error="erreurs[`resultat_${index}`]"
+                                        />
+                                    </div>
+                                    <div class="ligne-ajoutable__meta">
+                                        <span v-if="estResultatEnregistre(resultat)" class="badge-enregistree">
+                                            enregistrée
+                                        </span>
+                                        <button
+                                            type="button"
+                                            class="ligne-ajoutable__supprimer"
+                                            :aria-label="`Retirer le résultat intermédiaire ${index + 1}`"
+                                            @click="retirerResultatIntermediaire(index)"
+                                        >
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dates -->
+                        <div class="field">
+                            <BaseInput
+                                v-model="form.dateDebutPrevue"
+                                label="Date de début prévue"
+                                type="date"
+                                required
+                                :error="erreurs.dateDebutPrevue"
+                            />
+                        </div>
+                        <div class="field">
+                            <BaseInput
+                                v-model="form.dateFinPrevue"
+                                label="Date de fin prévue"
+                                type="date"
+                                :error="erreurs.dateFinPrevue"
+                                helper="Facultatif : une activité peut être ouverte sans échéance."
+                            />
+                        </div>
                     </div>
-                </div>
-            </BaseCard>
+                </section>
 
-            <!-- ============ 4. SOUS-ACTIVITES ============ -->
-            <BaseCard class="section">
-                <template #title>
-                    <div class="section-head d-flex align-items-center gap-2">
-                        <i class="bi bi-diagram-3"></i>
-                        <h3 class="card-title h6 mb-0">Sous-activités</h3>
+                <!-- 03 — CLASSEMENT -->
+                <section class="panel form-section">
+                    <div class="section-head">
+                        <span class="section-num">03</span>
+                        <div>
+                            <h2>Classement</h2>
+                            <p>Éléments de filtrage et de suivi, indépendamment du type d'activité.</p>
+                        </div>
                     </div>
-                </template>
 
-                <template #actions>
-                    <BaseButton variant="secondary" @click="ajouterSousActivite">
-                        <i class="bi bi-plus-lg"></i>
-                        Ajouter
-                    </BaseButton>
-                </template>
+                    <div class="field-grid">
+                        <div class="field">
+                            <BaseSelect
+                                :model-value="form.idPriorite ?? undefined"
+                                label="Priorité"
+                                required
+                                placeholder="Sélectionner"
+                                :options="optionsPriorite"
+                                option-label="libelle"
+                                option-value="id"
+                                :error="erreurs.idPriorite"
+                                @update:model-value="form.idPriorite = ($event as number | null) ?? null"
+                            />
+                        </div>
 
-                <p class="section-intro">
-                    Facultatif. Le code est proposé d'après celui de l'activité et reste modifiable&nbsp;;
-                    laissé vide, il est généré à l'enregistrement.
-                </p>
+                        <div class="field">
+                            <BaseSelect
+                                :model-value="form.idTypeActivite ?? undefined"
+                                label="Type d'activité"
+                                placeholder="Aucun"
+                                :options="optionsType"
+                                option-label="libelle"
+                                option-value="id"
+                                @update:model-value="form.idTypeActivite = ($event as number | null) ?? null"
+                            />
+                        </div>
 
-                <p v-if="form.sousActivites.length === 0" class="aucun-resultat">
-                    Aucune sous-activité. L'activité peut être créée sans.
-                </p>
+                        <div class="field">
+                            <BaseSelect
+                                :model-value="form.idSite ?? undefined"
+                                label="Site"
+                                placeholder="Aucun"
+                                :options="optionsSite"
+                                option-label="libelle"
+                                option-value="id"
+                                @update:model-value="form.idSite = ($event as number | null) ?? null"
+                            />
+                        </div>
 
-                <div v-for="(sous, index) in form.sousActivites" :key="index" class="sous-activite">
-                    <div class="sous-activite__entete">
-                        <span class="sous-activite__titre">
-                            Sous-activité {{ index + 1 }}
-                            <span v-if="estEnregistree(sous)" class="badge-enregistree">enregistrée</span>
-                        </span>
+                        <div class="field">
+                            <template v-if="serviceImpose">
+                                <span class="label">Service</span>
+                                <BaseInput :model-value="libelleServiceImpose ?? 'Votre service'" disabled readonly />
+                                <p class="hint">Imposé par votre rattachement.</p>
+                            </template>
+                            <BaseSelect
+                                v-else
+                                :model-value="form.idService ?? undefined"
+                                label="Service"
+                                required
+                                placeholder="Sélectionner"
+                                :options="optionsService"
+                                option-label="libelle"
+                                option-value="id"
+                                @update:model-value="form.idService = ($event as number | null) ?? null"
+                            />
+                        </div>
+                    </div>
+                </section>
 
-                        <button type="button" class="sous-activite__supprimer"
-                            :aria-label="`Retirer la sous-activité ${index + 1}`" @click="retirerSousActivite(index)">
-                            <i class="bi bi-trash"></i>
+                <!-- 04 — SOUS-ACTIVITÉS -->
+                <section class="panel form-section">
+                    <div class="section-head section-head--with-action">
+                        <span class="section-num">04</span>
+                        <div>
+                            <h2>Sous-activités</h2>
+                            <p>Facultatif. Le code est proposé d'après celui de l'activité et reste modifiable.</p>
+                        </div>
+                        <button type="button" class="lien-ajout lien-ajout--cta" @click="ajouterSousActivite">
+                            <i class="bi bi-plus-lg"></i>
+                            Ajouter
                         </button>
                     </div>
 
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <BaseInput v-model="sous.code" label="Code" placeholder="généré"
-                                @update:model-value="surSaisieCodeSousActivite(sous)" />
-                        </div>
+                    <p v-if="form.sousActivites.length === 0" class="aucun-resultat">
+                        Aucune sous-activité. L'activité peut être créée sans.
+                    </p>
 
-                        <div class="col-md-8">
-                            <BaseInput v-model="sous.designation" label="Désignation" required
-                                :error="erreurs[`sous_${index}`]" />
-                        </div>
-
-                        <div class="col-md-6">
-                            <BaseInput v-model="sous.dateDebutPrevue" label="Début" type="date" required />
-                        </div>
-
-                        <div class="col-md-6">
-                            <BaseInput v-model="sous.dateFinPrevue" label="Fin" type="date" required />
-                        </div>
-                    </div>
-
-                    <!--
-                        Livrables, a l'interieur de la sous-activite et non dans
-                        une section a part : ils n'existent pas sans elle, et le
-                        backend les recoit dans la meme requete.
-                    -->
-                    <div class="livrables">
-                        <div class="livrables__entete">
-                            <span class="livrables__titre">
-                                <i class="bi bi-box-seam"></i>
-                                Livrables
-                                <span v-if="sous.livrables.length > 0" class="livrables__compteur">
-                                    {{ sous.livrables.length }}
-                                </span>
+                    <div v-for="(sous, index) in form.sousActivites" :key="index" class="sous-activite">
+                        <div class="sous-activite__entete">
+                            <span class="sous-activite__titre">
+                                Sous-activité {{ index + 1 }}
+                                <span v-if="estEnregistree(sous)" class="badge-enregistree">enregistrée</span>
                             </span>
-
-                            <BaseButton variant="secondary" size="sm" custom-class="livrables__ajouter"
-                                @click="ajouterLivrable(sous)">
-                                <i class="bi bi-plus-lg"></i>
-                                Ajouter un livrable
-                            </BaseButton>
+                            <button
+                                type="button"
+                                class="sous-activite__supprimer"
+                                :aria-label="`Retirer la sous-activité ${index + 1}`"
+                                @click="retirerSousActivite(index)"
+                            >
+                                <i class="bi bi-trash"></i>
+                            </button>
                         </div>
 
-                        <p v-if="sous.livrables.length === 0" class="livrables__vide">
-                            Aucun livrable déclaré.
-                        </p>
+                        <div class="field-grid">
+                            <div class="field">
+                                <BaseInput
+                                    v-model="sous.code"
+                                    label="Code"
+                                    placeholder="généré"
+                                    @update:model-value="surSaisieCodeSousActivite(sous)"
+                                />
+                            </div>
+                            <div class="field">
+                                <BaseInput
+                                    v-model="sous.designation"
+                                    label="Désignation"
+                                    required
+                                    :error="erreurs[`sous_${index}`]"
+                                />
+                            </div>
+                            <div class="field">
+                                <BaseInput v-model="sous.dateDebutPrevue" label="Début" type="date" required />
+                            </div>
+                            <div class="field">
+                                <BaseInput v-model="sous.dateFinPrevue" label="Fin" type="date" required />
+                            </div>
+                        </div>
 
-                        <div v-for="(livrable, position) in sous.livrables" :key="position" class="livrable">
-                            <div class="livrable__ligne">
-                                <div class="livrable__designation">
-                                    <BaseInput v-model="livrable.designation" placeholder="Désignation du livrable"
-                                        required :error="erreurs[`livrable_${index}_${position}`]" />
-                                </div>
-
-                                <button type="button" class="livrable__supprimer"
-                                    :class="{ 'livrable__supprimer--bloque': estProtege(livrable) }"
-                                    :disabled="estProtege(livrable)" :title="estProtege(livrable)
-                                        ? 'Ce livrable porte des fichiers : il fait partie de l\'historique de l\'activité'
-                                        : 'Retirer ce livrable'" :aria-label="`Retirer le livrable ${position + 1}`"
-                                    @click="retirerLivrable(sous, position)">
-                                    <i class="bi bi-trash"></i>
+                        <!-- Livrables -->
+                        <div class="livrables">
+                            <div class="livrables__entete">
+                                <span class="livrables__titre">
+                                    <i class="bi bi-box-seam"></i>
+                                    Livrables
+                                    <span v-if="sous.livrables.length > 0" class="livrables__compteur">
+                                        {{ sous.livrables.length }}
+                                    </span>
+                                </span>
+                                <button type="button" class="lien-ajout" @click="ajouterLivrable(sous)">
+                                    <i class="bi bi-plus-lg"></i>
+                                    Ajouter un livrable
                                 </button>
                             </div>
 
-                            <BaseInput v-model="livrable.description" type="textarea" :rows="2"
-                                placeholder="Description (facultative) : contenu attendu, format, destinataire…" />
+                            <p v-if="sous.livrables.length === 0" class="livrables__vide">Aucun livrable déclaré.</p>
 
-                            <p v-if="estProtege(livrable)" class="livrable__note">
-                                <i class="bi bi-paperclip"></i>
-                                {{ livrable.nombreFichiers }} fichier{{ livrable.nombreFichiers > 1 ? 's' : '' }}
-                                déposé{{ livrable.nombreFichiers > 1 ? 's' : '' }} — non supprimable d'ici.
-                            </p>
+                            <div
+                                v-for="(livrable, position) in sous.livrables"
+                                :key="position"
+                                class="livrable"
+                            >
+                                <div class="livrable__ligne">
+                                    <div class="livrable__designation">
+                                        <BaseInput
+                                            v-model="livrable.designation"
+                                            placeholder="Désignation du livrable"
+                                            required
+                                            :error="erreurs[`livrable_${index}_${position}`]"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="livrable__supprimer"
+                                        :class="{ 'livrable__supprimer--bloque': estProtege(livrable) }"
+                                        :disabled="estProtege(livrable)"
+                                        :title="estProtege(livrable)
+                                            ? 'Ce livrable porte des fichiers : il fait partie de l\'historique de l\'activité'
+                                            : 'Retirer ce livrable'"
+                                        :aria-label="`Retirer le livrable ${position + 1}`"
+                                        @click="retirerLivrable(sous, position)"
+                                    >
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                                <BaseInput
+                                    v-model="livrable.description"
+                                    type="textarea"
+                                    :rows="2"
+                                    placeholder="Description (facultative) : contenu attendu, format, destinataire…"
+                                />
+                                <p v-if="estProtege(livrable)" class="livrable__note">
+                                    <i class="bi bi-paperclip"></i>
+                                    {{ livrable.nombreFichiers }} fichier{{ livrable.nombreFichiers > 1 ? 's' : '' }}
+                                    déposé{{ livrable.nombreFichiers > 1 ? 's' : '' }} — non supprimable d'ici.
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </BaseCard>
-
-            <!-- ============ 5. ACTIONS ============ -->
-            <div class="actions">
-                <BaseButton variant="secondary" :disabled="enregistrement" @click="annuler">
-                    Annuler
-                </BaseButton>
-
-                <BaseButton variant="primary" type="submit" :loading="enregistrement">
-                    <i class="bi bi-check-lg"></i>
-                    {{ estModification ? 'Enregistrer les modifications' : 'Créer le brouillon' }}
-                </BaseButton>
+                </section>
             </div>
 
-            <p class="text-muted actions__note">
-                Le statut n'est pas modifiable ici : une activité créée est un brouillon, et seule la
-                soumission la fait passer à la validation.
-            </p>
+            <!-- ============ SIDEBAR ============ -->
+            <aside class="form-side">
+                <section class="panel side-card">
+                    <h2 class="side-title">Récapitulatif</h2>
+                    <p class="side-sub">Aperçu de la fiche avant enregistrement.</p>
+                    <div class="recap">
+                        <div class="recap-row">
+                            <span>Type</span>
+                            <strong>{{ form.pta ? 'PTA' : 'Non PTA' }}</strong>
+                        </div>
+                        <div class="recap-row">
+                            <span>Code</span>
+                            <strong>{{ form.code.trim() || '—' }}</strong>
+                        </div>
+                        <div class="recap-row">
+                            <span>Désignation</span>
+                            <strong>{{ form.designation.trim() || '—' }}</strong>
+                        </div>
+                        <div class="recap-row">
+                            <span>Début</span>
+                            <strong>{{ form.dateDebutPrevue || '—' }}</strong>
+                        </div>
+                        <div class="recap-row">
+                            <span>Fin</span>
+                            <strong>{{ form.dateFinPrevue || '—' }}</strong>
+                        </div>
+                        <div class="recap-row">
+                            <span>Priorité</span>
+                            <strong>{{ options.priorites.find(p => p.id === form.idPriorite)?.libelle ?? '—' }}</strong>
+                        </div>
+                        <div class="recap-row">
+                            <span>Sous-activités</span>
+                            <strong>{{ form.sousActivites.length }}</strong>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="panel side-card">
+                    <h2 class="side-title">Conseils</h2>
+                    <ul class="tip-list">
+                        <li><span>1</span> Le code et la référence sont proposés automatiquement d'après l'objectif choisi.</li>
+                        <li><span>2</span> Un objectif spécifique est requis pour une activité PTA — il peut être créé à la volée.</li>
+                        <li><span>3</span> Les sous-activités et leurs livrables sont facultatifs, mais facilitent le suivi.</li>
+                    </ul>
+                </section>
+            </aside>
+
+            <!-- ============ BARRE D'ACTIONS ============ -->
+            <div class="form-actions">
+                <span class="form-note">
+                    <span class="req">*</span> Champs obligatoires —
+                    Le statut n'est pas modifiable ici : une activité créée est un brouillon.
+                </span>
+                <div class="form-actions-buttons">
+                    <BaseButton variant="secondary" :disabled="enregistrement" @click="annuler">
+                        Annuler
+                    </BaseButton>
+                    <BaseButton variant="primary" type="submit" :loading="enregistrement">
+                        <i class="bi bi-check-lg"></i>
+                        {{ estModification ? 'Enregistrer les modifications' : 'Créer le brouillon' }}
+                    </BaseButton>
+                </div>
+            </div>
         </form>
 
-        <!--
-            Creation de l'objectif, ouverte par le bouton place a cote du champ.
-
-            closeOnOutside est desactive : un clic a cote pendant la saisie
-            ferait perdre ce qui vient d'etre saisi. Le pied annule explicitement.
-        -->
+        <!-- ============ MODAL OBJECTIF ============ -->
         <BaseModal v-model="modalObjectif" title="Créer un objectif spécifique" size="sm" :closeOnOutside="false">
             <div class="modal-objectif">
-                <p class="helper-text">
-                    L'activité sera rattachée à cet objectif, qui sera retenu dans le champ ci-dessus.
-                </p>
-
-                <!--
-                    Pas de maxlength : BaseInput ne declare que ses propres props
-                    et ne transmet pas maxlength a l'input natif. La longueur est
-                    donc verifiee a la soumission, avec la meme limite que la
-                    colonne -- et le message est lu, ce que le navigateur seul
-                    n'aurait pas fait.
-                -->
-                <BaseInput v-model="objectif.code" label="Code (20 caractères max)" required
-                    :error="erreursObjectif.code" placeholder="BCT/7" />
-
-                <BaseInput v-model="objectif.designation" label="Désignation (250 caractères max)" required
-                    :error="erreursObjectif.designation" placeholder="Objet de l'objectif" />
-
-                <BaseInput v-model.number="objectif.annee" label="Année" type="number" required
-                    :error="erreursObjectif.annee" placeholder="2027" />
-
+                <p class="hint">L'activité sera rattachée à cet objectif, qui sera retenu dans le champ ci-dessus.</p>
+                <BaseInput
+                    v-model="objectif.code"
+                    label="Code (20 caractères max)"
+                    required
+                    :error="erreursObjectif.code"
+                    placeholder="BCT/7"
+                />
+                <BaseInput
+                    v-model="objectif.designation"
+                    label="Désignation (250 caractères max)"
+                    required
+                    :error="erreursObjectif.designation"
+                    placeholder="Objet de l'objectif"
+                />
+                <BaseInput
+                    v-model.number="objectif.annee"
+                    label="Année"
+                    type="number"
+                    required
+                    :error="erreursObjectif.annee"
+                    placeholder="2027"
+                />
                 <p v-if="erreurObjectif" class="modal-objectif__erreur">{{ erreurObjectif }}</p>
             </div>
 
@@ -1524,7 +1636,6 @@ onMounted(async () => {
                 <BaseButton variant="secondary" :disabled="enregistrementObjectif" @click="fermerModalObjectif">
                     Annuler
                 </BaseButton>
-
                 <BaseButton variant="primary" :loading="enregistrementObjectif" @click="creerObjectif">
                     Créer et rattacher
                 </BaseButton>
@@ -1534,83 +1645,302 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* Reprise des conventions de Liste.vue et Detail.vue pour que le formulaire
-   ne paraisse pas etranger a l'ecran d'ou il est ouvert. */
-
-.page-header {
-    margin-bottom: 1.5rem;
+/* ==========================================================================
+   1. CONTENEUR PAGE — fond + padding (aligné dashboard / liste)
+   ========================================================================== */
+.ajout-activite {
+    min-height: calc(100vh - 68px);
+    padding: 34px 38px 24px;
+    color: #15233c;
+    font-family: "DM Sans", "Segoe UI", sans-serif;
+    background:
+        radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .055) 0, transparent 38%),
+        radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .065) 0, transparent 36%),
+        #f5f7fa;
 }
 
-.form-label {
-    display: block;
-    margin-bottom: 0.35rem;
-    font-size: 0.82rem;
+/* Fallback minimaliste pour .panel (si absent du global) */
+.panel {
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 14px;
+    box-shadow:
+        0 1px 2px rgba(26, 42, 108, .04),
+        0 8px 24px rgba(26, 42, 108, .06);
+}
+
+/* ==========================================================================
+   2. MISE EN PAGE FORMULAIRE (ex form.css §1)
+   ========================================================================== */
+.form-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.9fr) minmax(280px, 1fr);
+    align-items: start;
+    gap: 20px;
+}
+
+.form-main {
+    display: grid;
+    gap: 20px;
+    min-width: 0;
+}
+
+.form-side {
+    position: sticky;
+    top: 88px;
+    display: grid;
+    gap: 18px;
+    align-self: start;
+}
+
+/* ==========================================================================
+   3. SECTIONS NUMÉROTÉES (ex form.css §2)
+   ========================================================================== */
+.form-section {
+    padding: 24px 26px 26px;
+}
+
+.section-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.section-head--with-action {
+    flex-wrap: wrap;
+}
+.section-head--with-action > .lien-ajout--cta {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid #e6ebf3;
+    border-radius: 8px;
+    background: #fff;
+    color: #1a2a6c;
+    font-size: 0.78rem;
     font-weight: 600;
-    color: #33475c;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.lien-ajout--cta:hover {
+    background: #f3f6fc;
+    border-color: #4a6cf7;
 }
 
-/* Bootstrap 5.3 ne fournit plus .text-muted : sans cette regle, les
-   mentions d'aide s'afficheraient en noir, au meme poids que les valeurs. */
-.text-muted {
-    color: #6b7c93 !important;
+.section-num {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    color: #fff;
+    font: 800 12px Manrope, sans-serif;
+    letter-spacing: .3px;
+    background: linear-gradient(135deg, #1a2a6c 0%, #4a6cf7 100%);
+    box-shadow:
+        0 6px 14px rgba(26, 42, 108, .22),
+        inset 0 -2px 0 var(--gold, #d4af37);
 }
 
-/* Asterisque de champ obligatoire, coherent avec BaseInput. */
-.requis {
-    margin-left: 0.15rem;
-    color: #c0392b;
+.section-head h2 {
+    margin: 0 0 4px;
+    font: 800 16px Manrope, sans-serif;
+    letter-spacing: -.3px;
+    color: var(--heading, #1a2a6c);
 }
 
-.helper-text {
+.section-head p {
+    margin: 0;
+    font-size: 11px;
+    color: var(--soft, #8a95a8);
+}
+
+/* ==========================================================================
+   4. GRILLE DE CHAMPS (ex form.css §3)
+   ========================================================================== */
+.field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+.field.full {
+    grid-column: 1 / -1;
+}
+
+/* ==========================================================================
+   5. LIBELLÉS / HINTS (ex form.css §4)
+   ========================================================================== */
+.label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--heading, #1a2a6c);
+}
+
+.req {
+    color: var(--red-fg, #c0392b);
+    font-weight: 700;
+}
+
+.hint {
     margin: 0.3rem 0 0;
     font-size: 0.76rem;
-    color: #6b7c93;
+    color: var(--soft, #6b7c93);
+    line-height: 1.45;
 }
 
-/* Une seule colonne, bornee en largeur et centree : un formulaire de
-   redaction se lit de haut en bas, et sur un ecran large une ligne qui
-   traverse toute la page fatigue a force. */
-form {
-    max-width: 940px;
-    margin-inline: auto;
+/* ==========================================================================
+   6. BARRE D'ACTIONS COLLANTE (ex form.css §11)
+   ========================================================================== */
+.form-actions {
+    position: sticky;
+    bottom: 14px;
+    z-index: 3;
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 4px;
+    padding: 14px 20px;
+    background: rgba(255, 255, 255, .92);
+    border: 1px solid var(--line, #e6ebf3);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(26, 42, 108, .10);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
-.section {
-    margin-bottom: 1.25rem;
+.form-note {
+    font-size: 10.5px;
+    color: var(--soft, #8a95a8);
+    line-height: 1.5;
 }
 
-.section-intro {
-    margin-bottom: 1rem;
-    font-size: 0.84rem;
-    color: #6b7c93;
+.form-actions-buttons {
+    display: flex;
+    gap: 10px;
 }
 
-/* --- Selecteur de type d'activite --- */
+/* ==========================================================================
+   7. COLONNE LATÉRALE — Récapitulatif + Conseils (ex form.css §10)
+   ========================================================================== */
+.side-card {
+    padding: 20px 20px 18px;
+}
+
+.side-title {
+    margin: 0 0 4px;
+    font: 800 14px Manrope, sans-serif;
+    letter-spacing: -.2px;
+    color: var(--heading, #1a2a6c);
+}
+
+.side-sub {
+    margin: 0 0 14px;
+    font-size: 10.5px;
+    color: var(--soft, #8a95a8);
+}
+
+.recap {
+    display: grid;
+}
+
+.recap-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 0;
+    font-size: 11px;
+    color: var(--muted, #6b7280);
+    border-bottom: 1px dashed var(--line, #e6ebf3);
+}
+.recap-row:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+.recap-row strong {
+    max-width: 62%;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--heading, #1a2a6c);
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tip-list {
+    list-style: none;
+    display: grid;
+    gap: 12px;
+    margin: 14px 0 0;
+    padding: 0;
+}
+.tip-list li {
+    display: flex;
+    gap: 10px;
+    font-size: 10.8px;
+    line-height: 1.55;
+    color: var(--muted, #6b7280);
+}
+.tip-list li span {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--gold-bg, #fff6dd);
+    color: var(--gold-fg, #b8860b);
+    font-size: 9.5px;
+    font-weight: 800;
+}
+
+/* ==========================================================================
+   8. CHOIX PTA / NON PTA (nouveau — inspiré du HTML de référence)
+   ========================================================================== */
+.choix-type-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+@media (max-width: 640px) {
+    .choix-type-grid { grid-template-columns: 1fr; }
+}
+
 .choix-type {
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.3rem;
+    gap: 0.35rem;
     width: 100%;
     height: 100%;
-    padding: 1rem 2.5rem 1rem 1rem;
+    padding: 18px 20px;
     border: 1.5px solid #dde4ec;
-    border-radius: 9px;
+    border-radius: 12px;
     background: #fff;
     text-align: left;
     cursor: pointer;
-    transition:
-        border-color 0.15s ease,
-        box-shadow 0.15s ease,
-        background 0.15s ease;
+    transition: border-color .15s, box-shadow .15s, background .15s;
 }
-
 .choix-type:hover {
     border-color: #b6c6d6;
     background: #f8fbfd;
 }
-
 .choix-type--actif {
     border-color: #1a6fb0;
     background: #f2f8fc;
@@ -1618,103 +1948,84 @@ form {
 }
 
 .choix-type__icone {
-    font-size: 1.15rem;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: #eef5f8;
     color: #5b6b80;
+    font-size: 1.1rem;
 }
-
 .choix-type--actif .choix-type__icone {
+    background: #dceefb;
     color: #1a6fb0;
 }
 
 .choix-type__titre {
-    font-size: 0.98rem;
+    margin-top: 4px;
+    font-size: 1rem;
     font-weight: 700;
     color: #22364a;
 }
 
 .choix-type__detail {
     font-size: 0.78rem;
-    line-height: 1.35;
+    line-height: 1.4;
     color: #6b7c93;
 }
 
 .choix-type__check {
     position: absolute;
-    top: 0.85rem;
-    right: 0.9rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.35rem;
-    height: 1.35rem;
+    top: 14px;
+    right: 16px;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     background: #1a6fb0;
     color: #fff;
     font-size: 0.8rem;
 }
 
-/* --- Objectif retenu --- */
-/* Champ et bouton de creation : le bouton est sur la meme ligne que le champ,
-   de hauteur egale, et l'input garde toute la largeur restante. */
-
-.objectif-champ :deep(.base-input) {
+/* ==========================================================================
+   9. CHAMP OBJECTIF + BOUTON "+" (nouveau)
+   ========================================================================== */
+.objectif-champ {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+.objectif-champ > :first-child {
     flex: 1;
     min-width: 0;
-    width: 100%;
 }
-
-.objectif-champ :deep(.base-input input),
-.objectif-champ :deep(input) {
-    width: 100%;
-    min-width: 0;
-}
-
-/* Sillage de l'etat d'erreur, qui est porte par l'input : sans une bordure
-   sur le bouton, l'ensemble n'a plus l'air d'un seul champ. */
-.objectif-champ:has(:deep(.base-input-error)) .objectif-champ__creer {
-    border-color: #d64545;
-}
-
 .objectif-champ__creer {
     flex-shrink: 0;
-    width: 3.7rem;
+    width: 44px;
+    height: 44px;
+    margin-top: 24px;
     border: 1px solid #cfd8e3;
-    border-radius: 7px;
+    border-radius: 10px;
     background: #fff;
     color: #24405e;
     font-size: 1.05rem;
     cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
+    transition: background .15s, border-color .15s;
 }
-
 .objectif-champ__creer:hover:not(:disabled) {
     background: #f0f5fa;
     border-color: #a9bacd;
 }
-
 .objectif-champ__creer:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-/* --- Creation de l'objectif --- */
-.modal-objectif {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-}
-
-.modal-objectif__erreur {
-    margin: 0;
-    padding: 0.5rem 0.6rem;
-    border: 1px solid #f0c2c2;
-    border-radius: 7px;
-    background: #fdf1f1;
-    font-size: 0.82rem;
-    color: #a33a3a;
-}
-
-/* --- Autocomplete : memes styles que Liste.vue --- */
+/* ==========================================================================
+   10. AUTOCOMPLETE (nouveau — inspiré du HTML de référence)
+   ========================================================================== */
 .autocomplete {
     position: absolute;
     top: 100%;
@@ -1722,69 +2033,73 @@ form {
     right: 0;
     z-index: 20;
     margin: 0.15rem 0 0;
-    padding: 0.25rem;
+    padding: 0.3rem;
     list-style: none;
     background: #fff;
     border: 1px solid #dde4ec;
-    border-radius: 7px;
-    box-shadow: 0 6px 18px rgba(26, 43, 60, 0.12);
-    max-height: 240px;
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(26, 42, 108, .12);
+    max-height: 260px;
     overflow-y: auto;
 }
-
 .autocomplete button {
     display: block;
     width: 100%;
-    padding: 0.45rem 0.6rem;
+    padding: 0.5rem 0.65rem;
     border: none;
-    border-radius: 5px;
+    border-radius: 6px;
     background: transparent;
     text-align: left;
-    font-size: 0.82rem;
+    font-size: 0.84rem;
     color: #33475c;
     cursor: pointer;
 }
-
 .autocomplete button:hover {
     background: #eef5f8;
 }
-
 .autocomplete__item--actif button {
     background: #eef5f8;
     font-weight: 600;
 }
 
-/* --- Blocs de lignes ajoutables (resultats intermediaires) --- */
+/* ==========================================================================
+   11. BLOCS AJOUTABLES — Résultats intermédiaires (nouveau)
+   ========================================================================== */
+.bloc-ajoutable {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
 .bloc-ajoutable__entete {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    margin-bottom: 0.1rem;
 }
 
 .lien-ajout {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0;
     border: none;
     background: transparent;
-    padding: 0;
     font-size: 0.8rem;
     font-weight: 600;
     color: #1a6fb0;
     cursor: pointer;
 }
-
-.lien-ajout:hover {
-    text-decoration: underline;
-}
+.lien-ajout:hover { text-decoration: underline; }
 
 .aucun-resultat {
     margin: 0;
-    padding: 0.9rem 1.25rem;
+    padding: 1rem 1.25rem;
     border: 1px dashed #dde4ec;
-    border-radius: 7px;
+    border-radius: 10px;
     text-align: center;
-    font-size: 0.83rem;
+    font-size: 0.84rem;
     color: #6b7c93;
+    background: #fbfdfe;
 }
 
 .ligne-ajoutable {
@@ -1793,69 +2108,24 @@ form {
     gap: 0.75rem;
     margin-bottom: 0.6rem;
 }
-
-.ligne-ajoutable__champ {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
+.ligne-ajoutable__champ { flex: 1 1 auto; min-width: 0; }
 .ligne-ajoutable__meta {
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    padding-top: 0.45rem;
+    padding-top: 0.55rem;
 }
-
 .ligne-ajoutable__supprimer {
     border: none;
     background: transparent;
     color: #c0392b;
+    font-size: 0.95rem;
     cursor: pointer;
 }
-
-.ligne-ajoutable__supprimer:hover {
-    color: #96281b;
-}
-
-/* Le textarea de BaseInput n'a pas de propriete rows : sa hauteur se regle
-   ici. resize vertical reste autorise, un resultat long ne doit pas tenir
-   dans trois lignes a l'ecran. */
-.ligne-ajoutable__champ :deep(.base-textarea) {
-    min-height: 62px;
-    resize: vertical;
-}
-
-/* --- Sous-activites --- */
-.sous-activite {
-    padding: 0.9rem;
-    margin-bottom: 0.75rem;
-    border: 1px solid #e4eaf1;
-    border-radius: 8px;
-    background: #fbfdfe;
-}
-
-.sous-activite:last-child {
-    margin-bottom: 0;
-}
-
-.sous-activite__entete {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.6rem;
-}
-
-.sous-activite__titre {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: #33475c;
-}
+.ligne-ajoutable__supprimer:hover { color: #96281b; }
 
 .badge-enregistree {
-    padding: 0.15rem 0.45rem;
+    padding: 0.15rem 0.5rem;
     border-radius: 5px;
     background: #eef5f8;
     color: #5b6b80;
@@ -1863,55 +2133,72 @@ form {
     font-weight: 600;
 }
 
+/* ==========================================================================
+   12. SOUS-ACTIVITÉS (nouveau — inspiré du HTML de référence)
+   ========================================================================== */
+.sous-activite {
+    padding: 1rem;
+    margin-top: 0.85rem;
+    border: 1px solid #e4eaf1;
+    border-radius: 12px;
+    background: #fbfdfe;
+}
+.sous-activite__entete {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+.sous-activite__titre {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #33475c;
+}
 .sous-activite__supprimer {
     border: none;
     background: transparent;
     color: #c0392b;
+    font-size: 0.95rem;
     cursor: pointer;
 }
+.sous-activite__supprimer:hover { color: #96281b; }
 
-.sous-activite__supprimer:hover {
-    color: #96281b;
-}
-
-/* --- Livrables ---
-   Un niveau plus creux que la sous-activite : bordure grise, fond blanc et
-   marges reduites, pour que la hierarchie se lise sans avoir a suivre les
-   couleurs. */
+/* ==========================================================================
+   13. LIVRABLES (nouveau)
+   ========================================================================== */
 .livrables {
-    margin-top: 0.85rem;
-    padding-top: 0.7rem;
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
     border-top: 1px dashed #dde5ee;
 }
-
 .livrables__entete {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.6rem;
 }
-
 .livrables__titre {
     display: flex;
     align-items: center;
     gap: 0.4rem;
     font-size: 0.78rem;
-    font-weight: 600;
+    font-weight: 700;
     color: #5b6b80;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
 }
-
 .livrables__compteur {
-    padding: 0.05rem 0.4rem;
+    padding: 0.05rem 0.45rem;
     border-radius: 999px;
     background: #eef5f8;
     color: #5b6b80;
     font-size: 0.7rem;
     letter-spacing: 0;
 }
-
 .livrables__vide {
     margin: 0;
     font-size: 0.8rem;
@@ -1920,85 +2207,205 @@ form {
 }
 
 .livrable {
-    padding: 0.6rem 0.7rem;
-    margin-bottom: 0.5rem;
+    padding: 0.7rem 0.85rem;
+    margin-bottom: 0.6rem;
     border: 1px solid #e9eef4;
-    border-radius: 6px;
+    border-radius: 10px;
     background: #fff;
 }
-
-.livrable:last-child {
-    margin-bottom: 0;
-}
-
+.livrable:last-child { margin-bottom: 0; }
 .livrable__ligne {
     display: flex;
     align-items: flex-start;
     gap: 0.5rem;
 }
-
-.livrable__designation {
-    flex: 1;
-}
-
+.livrable__designation { flex: 1; }
 .livrable__supprimer {
     margin-top: 1.55rem;
     border: none;
     background: transparent;
     color: #c0392b;
+    font-size: 0.95rem;
     cursor: pointer;
 }
-
-.livrable__supprimer:hover {
-    color: #96281b;
-}
-
-/* Un livrable qui porte des fichiers reste visible mais n'est plus
-   cliquable : c'est le fichier, pas l'interface, qui explique pourquoi. */
+.livrable__supprimer:hover:not(.livrable__supprimer--bloque) { color: #96281b; }
 .livrable__supprimer--bloque {
     color: #b9c4d1;
     cursor: not-allowed;
 }
-
 .livrable__note {
-    margin: 0.4rem 0 0;
+    margin: 0.45rem 0 0;
     font-size: 0.75rem;
     color: #7a8899;
 }
 
-/* --- Actions --- */
-.actions {
+/* ==========================================================================
+   14. MODAL OBJECTIF (nouveau)
+   ========================================================================== */
+.modal-objectif {
     display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+.modal-objectif__erreur {
+    margin: 0;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid #f0c2c2;
+    border-radius: 8px;
+    background: #fdf1f1;
+    font-size: 0.82rem;
+    color: #a33a3a;
+}
+
+/* ==========================================================================
+   15. ÉTATS CHARGEMENT / ERREUR (repris de Liste.vue)
+   ========================================================================== */
+.detail-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    gap: 0.75rem;
-    padding: 1.25rem 0 0.5rem;
-    border-top: 1px solid #e4eaf1;
-}
-
-.actions__note {
-    margin-bottom: 0;
+    padding: 3.5rem 1.5rem;
     text-align: center;
-    font-size: 0.78rem;
+}
+.empty-icon {
+    font-size: 2.6rem;
+    color: #c8d6fb;
+    margin-bottom: 0.75rem;
+}
+.empty-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #1a2a6c;
+    margin: 0 0 0.35rem;
+}
+.empty-text {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin: 0 0 1.1rem;
 }
 
-@media (max-width: 575.98px) {
-    .actions {
-        flex-direction: column-reverse;
+/* ==========================================================================
+   16. RESPONSIVE (ex form.css §12 + ajouts)
+   ========================================================================== */
+@media (max-width: 1199.98px) {
+    .ajout-activite {
+        padding-left: 24px;
+        padding-right: 24px;
     }
+}
 
-    .actions :deep(.base-btn) {
+@media (max-width: 1100px) {
+    .form-layout {
+        grid-template-columns: 1fr;
+    }
+    .form-side {
+        position: static;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+}
+
+@media (max-width: 900px) {
+    .form-actions {
+        bottom: 10px;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .ajout-activite {
+        padding: 24px 16px 20px;
+    }
+    .field-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .form-side {
+        grid-template-columns: 1fr;
+    }
+    .form-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        text-align: center;
+    }
+    .form-actions-buttons {
+        flex-direction: column-reverse;
+        gap: 8px;
+    }
+    .form-actions-buttons :deep(.base-btn),
+    .form-actions-buttons :deep(.btn) {
         width: 100%;
     }
-
     .ligne-ajoutable {
         flex-direction: column;
         align-items: stretch;
         gap: 0.3rem;
     }
-
     .ligne-ajoutable__meta {
         justify-content: flex-end;
         padding-top: 0;
+    }
+}
+
+@media (max-width: 700px) {
+    .form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+@media (max-width: 600px) {
+    .form-section {
+        padding: 18px 14px 20px;
+    }
+    .section-head {
+        gap: 11px;
+        margin-bottom: 18px;
+    }
+    .section-num {
+        width: 30px;
+        height: 30px;
+        font-size: 11px;
+        border-radius: 9px;
+    }
+    .section-head h2 {
+        font-size: 15px;
+    }
+    .side-card {
+        padding: 17px 15px 15px;
+    }
+    .form-actions {
+        bottom: 0;
+        padding: 12px 14px;
+        border-radius: 12px;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .ajout-activite {
+        padding: 20px 12px 16px;
+    }
+    .objectif-champ__creer {
+        margin-top: 20px;
+        width: 40px;
+        height: 40px;
+    }
+    .livrable__supprimer {
+        margin-top: 0;
+    }
+}
+
+/* ==========================================================================
+   17. ACCESSIBILITÉ
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+    .form-layout *,
+    .form-layout *::before,
+    .form-layout *::after,
+    .choix-type,
+    .objectif-champ__creer {
+        transition: none !important;
     }
 }
 </style>

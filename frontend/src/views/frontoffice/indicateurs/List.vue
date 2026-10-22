@@ -20,17 +20,21 @@ const frequenceVerification = ref<string>('all')
 const frequenceAggregation = ref<string>('all')
 const etat = ref<'all' | 'true' | 'false'>('true')
 
+/* -------------------- en-tête -------------------- */
+
+const dateDuJour = computed(() =>
+    new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    })
+        .format(new Date())
+        .toUpperCase()
+)
+
 /* -------------------- options de filtres -------------------- */
 
-/**
- * Types distincts calculés sur la liste courante.
- *
- * La liste backend ne fournit pas d'endpoint /filtres côté frontoffice :
- * ajouter un endpoint dédié pour trois listes de valeurs distinctes
- * serait disproportionné. Les valeurs sont extraites de ce qui est déjà
- * chargé — filtrer sur ce qu'on voit est exactement ce qu'attend
- * l'utilisateur.
- */
 const typeOptions = computed(() => {
     const set = new Set(items.value.map(i => i.typeIndicateur).filter((x): x is string => !!x))
     return [
@@ -62,12 +66,7 @@ const etatOptions = [
 ]
 
 /* -------------------- filtrage local -------------------- */
-/*
- * Le backend fournit déjà `search`, `type`, `actif`. Les deux fréquences
- * ne sont pas exposées par l'API — on filtre dessus en local. La liste
- * d'indicateurs reste petite (référentiel), et le filtrage client évite
- * trois paramètres supplémentaires côté backend pour un gain nul.
- */
+
 const itemsFiltres = computed(() => {
     return items.value.filter(i => {
         if (frequenceVerification.value !== 'all'
@@ -79,13 +78,7 @@ const itemsFiltres = computed(() => {
 })
 
 /* -------------------- KPI -------------------- */
-/*
- * Trois cartes seulement, parce que les trois seules qui peuvent être
- * calculées à partir de la définition d'un indicateur. Conformité /
- * proche du seuil / hors seuil dépendent de la dernière valeur mesurée
- * (valeur_indicateur), hors périmètre de cette page. Afficher ces trois
- * cartes avec des zéros serait trompeur.
- */
+
 const nbTotal = computed(() => items.value.length)
 const nbKpi = computed(() =>
     items.value.filter(i => (i.typeIndicateur ?? '').toUpperCase() === 'KPI').length
@@ -93,6 +86,7 @@ const nbKpi = computed(() =>
 const nbKri = computed(() =>
     items.value.filter(i => (i.typeIndicateur ?? '').toUpperCase() === 'KRI').length
 )
+const nbAutres = computed(() => nbTotal.value - nbKpi.value - nbKri.value)
 
 /* -------------------- filtres actifs -------------------- */
 
@@ -101,6 +95,11 @@ const aDesFiltres = computed(() =>
     || frequenceVerification.value !== 'all'
     || frequenceAggregation.value !== 'all'
     || etat.value !== 'true'
+)
+
+const nbFiltresLocaux = computed(() =>
+    (frequenceVerification.value !== 'all' ? 1 : 0)
+    + (frequenceAggregation.value !== 'all' ? 1 : 0)
 )
 
 function reinitialiserFiltres(): void {
@@ -137,8 +136,8 @@ const columns: TableColumn<Indicateur>[] = [
     { key: 'typeIndicateur', label: 'Type', align: 'center' },
     { key: 'code', label: 'Code' },
     { key: 'designation', label: 'Indicateur' },
-    { key: 'frequenceVerification', label: 'Fréq. vérification' },
-    { key: 'frequenceAggregation', label: 'Fréq. agrégation' },
+    { key: 'frequenceVerification', label: 'Fréq. vérif.' },
+    { key: 'frequenceAggregation', label: 'Fréq. agrég.' },
     { key: 'valeurCible', label: 'Cible', align: 'text-end' },
     { key: 'seuils', label: 'Seuils', align: 'center' },
     { key: 'actions', label: 'Actions', align: 'text-end' },
@@ -158,214 +157,380 @@ function classeType(t: string | null | undefined): string {
 
 <template>
     <div class="ind-page">
-        <!-- En-tête -->
-        <header class="ind-header">
-            <div>
-                <h1 class="ind-header__title">Indicateurs KPI / KRI</h1>
-                <p class="ind-header__subtitle">
+        <!-- ============ EN-TÊTE ============ -->
+        <header class="welcome-row">
+            <div class="welcome-row__left">
+                <div class="eyebrow">
+                    <span class="live-dot"></span>
+                    {{ dateDuJour }}
+                </div>
+                <h1>Indicateurs KPI / KRI</h1>
+                <span class="title-divider" aria-hidden="true"></span>
+                <p class="subheading">
                     Indicateurs de performance et de risque du dispositif
                 </p>
             </div>
+
+            <div class="welcome-row__right">
+                <BaseButton variant="secondary" :loading="loading" :disabled="loading" @click="charger">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    Actualiser
+                </BaseButton>
+            </div>
         </header>
 
-        <!-- KPI -->
-        <section class="ind-cards">
-            <article class="ind-card">
-                <span class="ind-card__label">Total</span>
-                <span class="ind-card__value">{{ nbTotal }}</span>
-                <span class="ind-card__hint">Indicateurs référencés</span>
-            </article>
-            <article class="ind-card ind-card--kpi">
-                <span class="ind-card__label">KPI</span>
-                <span class="ind-card__value">{{ nbKpi }}</span>
-                <span class="ind-card__hint">Performance</span>
-            </article>
-            <article class="ind-card ind-card--kri">
-                <span class="ind-card__label">KRI</span>
-                <span class="ind-card__value">{{ nbKri }}</span>
-                <span class="ind-card__hint">Risque</span>
-            </article>
+        <!-- ============ SYNTHÈSE ============ -->
+        <section class="summary" aria-label="Répartition des indicateurs">
+            <div class="summary__stats" role="group" aria-label="Répartition par type">
+                <article class="stat-tile stat-tile--total">
+                    <span class="stat-tile__count">{{ nbTotal }}</span>
+                    <span class="stat-tile__label">Total</span>
+                    <span class="stat-tile__hint">Indicateurs référencés</span>
+                </article>
+                <article class="stat-tile stat-tile--kpi">
+                    <span class="stat-tile__count">{{ nbKpi }}</span>
+                    <span class="stat-tile__label">KPI</span>
+                    <span class="stat-tile__hint">Performance</span>
+                </article>
+                <article class="stat-tile stat-tile--kri">
+                    <span class="stat-tile__count">{{ nbKri }}</span>
+                    <span class="stat-tile__label">KRI</span>
+                    <span class="stat-tile__hint">Risque</span>
+                </article>
+                <article class="stat-tile stat-tile--autre">
+                    <span class="stat-tile__count">{{ nbAutres }}</span>
+                    <span class="stat-tile__label">Autres</span>
+                    <span class="stat-tile__hint">Non typés</span>
+                </article>
+            </div>
         </section>
 
-        <!-- Message d'erreur -->
+        <!-- ============ MESSAGES ============ -->
         <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
             role="alert">
             <span>{{ errorMessage }}</span>
             <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
         </div>
 
-        <!-- Filtres -->
-        <div class="ind-filters">
-            <BaseSelect v-model="type" label="Type" size="sm" placeholder="Tous les types" :options="typeOptions" />
-            <BaseSelect v-model="frequenceVerification" label="Fréq. vérification" size="sm" placeholder="Toutes"
-                :options="frequenceVerificationOptions" />
-            <BaseSelect v-model="frequenceAggregation" label="Fréq. agrégation" size="sm" placeholder="Toutes"
-                :options="frequenceAggregationOptions" />
-            <BaseSelect v-model="etat" label="État" size="sm" placeholder="Tous" :options="etatOptions" />
-
-            <div class="ind-filters__reset">
-                <BaseButton variant="secondary" size="sm" icon="bi bi-arrow-counterclockwise" :disabled="!aDesFiltres"
+        <!-- ============ FILTRES ============ -->
+        <section class="filters-card" aria-labelledby="filters-title">
+            <header class="filters-card__head">
+                <span class="filters-card__icon" aria-hidden="true">
+                    <i class="bi bi-sliders"></i>
+                </span>
+                <div class="filters-card__heading">
+                    <h2 id="filters-title" class="filters-card__title">Filtres</h2>
+                    <span class="filters-card__sub">
+                        {{ aDesFiltres ? 'Filtres actifs' : 'Affiner la liste des indicateurs' }}
+                    </span>
+                </div>
+                <BaseButton v-if="aDesFiltres" variant="secondary" size="sm" icon="bi bi-x-lg"
                     @click="reinitialiserFiltres">
                     Réinitialiser
                 </BaseButton>
-            </div>
-        </div>
+            </header>
 
-        <!-- Tableau -->
-        <BaseTable :items="itemsFiltres" :columns="columns" :loading="loading" searchable>
-            <template #cell-typeIndicateur="{ item }">
-                <span v-if="item.typeIndicateur" class="badge-type" :class="classeType(item.typeIndicateur)">
-                    {{ item.typeIndicateur }}
-                </span>
-                <span v-else class="text-muted-custom">—</span>
-            </template>
-
-            <template #cell-code="{ item }">
-                <code class="text-code">{{ item.code }}</code>
-            </template>
-
-            <template #cell-designation="{ item }">
-                <span class="ind-designation">{{ item.designation }}</span>
-            </template>
-
-            <template #cell-frequenceVerification="{ value }">
-                <span class="text-muted-custom">{{ value || '—' }}</span>
-            </template>
-
-            <template #cell-frequenceAggregation="{ value }">
-                <span class="text-muted-custom">{{ value || '—' }}</span>
-            </template>
-
-            <template #cell-valeurCible="{ value }">
-                {{ value != null ? value : '—' }}
-            </template>
-
-            <template #cell-seuils="{ item }">
-                <span v-if="item.seuilMin != null || item.seuilMax != null" class="ind-seuils">
-                    <span>{{ item.seuilMin ?? '—' }}</span>
-                    <span class="ind-seuils__sep">→</span>
-                    <span>{{ item.seuilMax ?? '—' }}</span>
-                </span>
-                <span v-else class="text-muted-custom">—</span>
-            </template>
-
-            <template #cell-actions="{ item }">
-                <div class="d-flex justify-content-end gap-2 no-row-click">
-                    <button type="button" class="table-action" title="Consulter" @click="versDetail(item)">
-                        <i class="bi bi-eye"></i>
-                    </button>
+            <div class="filters-card__body">
+                <div class="filters__select">
+                    <BaseSelect v-model="type" label="Type" size="sm"
+                        :options="typeOptions" />
                 </div>
-            </template>
-        </BaseTable>
+
+                <div class="filters__select">
+                    <BaseSelect v-model="frequenceVerification" label="Fréquence de vérification" size="sm"
+                        :options="frequenceVerificationOptions" />
+                </div>
+
+                <div class="filters__select">
+                    <BaseSelect v-model="frequenceAggregation" label="Fréquence d'agrégation" size="sm"
+                        :options="frequenceAggregationOptions" />
+                </div>
+
+                <div class="filters__select">
+                    <BaseSelect v-model="etat" label="État" size="sm" :options="etatOptions" />
+                </div>
+            </div>
+
+            <footer v-if="nbFiltresLocaux > 0" class="filters-card__foot">
+                <i class="bi bi-info-circle" aria-hidden="true"></i>
+                <span>
+                    {{ nbFiltresLocaux }} filtre{{ nbFiltresLocaux > 1 ? 's' : '' }} appliqué{{ nbFiltresLocaux > 1 ?
+                    's' : '' }} en local sur {{ itemsFiltres.length }} indicateur{{ itemsFiltres.length > 1 ? 's' : ''
+                    }} affiché{{ itemsFiltres.length > 1 ? 's' : '' }}.
+                </span>
+            </footer>
+        </section>
+
+        <!-- ============ TABLEAU ============ -->
+        <section class="table-card" aria-label="Liste des indicateurs">
+            <BaseTable :items="itemsFiltres" :columns="columns" :loading="loading" searchable>
+                <template #cell-typeIndicateur="{ item }">
+                    <span v-if="item.typeIndicateur" class="badge-type" :class="classeType(item.typeIndicateur)">
+                        {{ item.typeIndicateur }}
+                    </span>
+                    <span v-else class="text-muted-custom">—</span>
+                </template>
+
+                <template #cell-code="{ item }">
+                    <code class="text-code">{{ item.code }}</code>
+                </template>
+
+                <template #cell-designation="{ item }">
+                    <span class="ind-designation">{{ item.designation }}</span>
+                </template>
+
+                <template #cell-frequenceVerification="{ value }">
+                    <span class="text-muted-custom">{{ value || '—' }}</span>
+                </template>
+
+                <template #cell-frequenceAggregation="{ value }">
+                    <span class="text-muted-custom">{{ value || '—' }}</span>
+                </template>
+
+                <template #cell-valeurCible="{ value }">
+                    <span class="cell-cible">{{ value != null ? value : '—' }}</span>
+                </template>
+
+                <template #cell-seuils="{ item }">
+                    <span v-if="item.seuilMin != null || item.seuilMax != null" class="ind-seuils">
+                        <span>{{ item.seuilMin ?? '—' }}</span>
+                        <span class="ind-seuils__sep">→</span>
+                        <span>{{ item.seuilMax ?? '—' }}</span>
+                    </span>
+                    <span v-else class="text-muted-custom">—</span>
+                </template>
+
+                <template #cell-actions="{ item }">
+                    <div class="d-flex justify-content-end gap-2 no-row-click">
+                        <button type="button" class="table-action" title="Consulter le détail"
+                            aria-label="Consulter le détail" @click="versDetail(item)">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </template>
+            </BaseTable>
+        </section>
     </div>
 </template>
 
 <style scoped>
+/* ============================================================
+   CONTENEUR
+   ============================================================ */
 .ind-page {
-    padding: 1.5rem;
+    min-height: calc(100vh - 68px);
+    padding: 34px 38px 24px;
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1.15rem;
+    color: #15233c;
+    font-family: "DM Sans", "Segoe UI", sans-serif;
+    background:
+        radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .055) 0, transparent 38%),
+        radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .065) 0, transparent 36%),
+        #f5f7fa;
 }
 
-/* --- en-tête --- */
-
-.ind-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 1rem;
+.ind-page .welcome-row {
+    margin-bottom: 0.25rem;
 }
 
-.ind-header__title {
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: var(--dts-navy);
-    margin: 0;
+/* ============================================================
+   SYNTHÈSE — tuiles statistiques
+   ============================================================ */
+.summary {
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 16px;
+    padding: 1.25rem 1.5rem;
+    box-shadow:
+        0 1px 2px rgba(26, 42, 108, .04),
+        0 8px 24px rgba(26, 42, 108, .06);
 }
 
-.ind-header__subtitle {
-    color: var(--dts-muted);
-    margin: 0.15rem 0 0;
-    font-size: 0.85rem;
-}
-
-/* --- cartes KPI --- */
-
-.ind-cards {
+.summary__stats {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
 }
 
-.ind-card {
+.stat-tile {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
-    padding: 1rem 1.15rem;
-    background: var(--dts-surface);
-    border: 1px solid var(--dts-border);
-    border-left: 4px solid var(--dts-navy);
-    border-radius: var(--dts-radius);
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 1rem 1.1rem;
+    background: #f8fafc;
+    border: 1.5px solid #e6ebf3;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
 }
 
-.ind-card--kpi {
-    border-left-color: var(--dts-blue);
+.stat-tile::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 4px;
+    background: #c8d6fb;
 }
 
-.ind-card--kri {
-    border-left-color: #9a6409;
+.stat-tile--total::before {
+    background: #1a2a6c;
 }
 
-.ind-card__label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--dts-muted);
+.stat-tile--kpi::before {
+    background: #4a6cf7;
 }
 
-.ind-card__value {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: var(--dts-navy);
+.stat-tile--kri::before {
+    background: #f4b91f;
+}
+
+.stat-tile--autre::before {
+    background: #8a95a8;
+}
+
+.stat-tile__count {
+    font-family: Manrope, "DM Sans", sans-serif;
+    font-weight: 800;
+    font-size: 1.85rem;
     line-height: 1;
+    color: #1a2a6c;
+    font-variant-numeric: tabular-nums;
 }
 
-.ind-card--kpi .ind-card__value {
-    color: var(--dts-blue);
+.stat-tile--kpi .stat-tile__count {
+    color: #135d95;
 }
 
-.ind-card--kri .ind-card__value {
+.stat-tile--kri .stat-tile__count {
     color: #9a6409;
 }
 
-.ind-card__hint {
+.stat-tile--autre .stat-tile__count {
+    color: #5b6b7d;
+}
+
+.stat-tile__label {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #8a95a8;
+}
+
+.stat-tile__hint {
     font-size: 0.72rem;
-    color: var(--dts-muted);
+    color: #6b7280;
 }
 
-/* --- filtres --- */
-
-.ind-filters {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(160px, 1fr)) auto;
-    gap: 1rem;
-    align-items: end;
+/* ============================================================
+   FILTRES — carte avec titre
+   ============================================================ */
+.filters-card {
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 16px;
+    box-shadow:
+        0 1px 2px rgba(26, 42, 108, .04),
+        0 8px 24px rgba(26, 42, 108, .06);
+    overflow: hidden;
 }
 
-.ind-filters :deep(.base-select-container) {
-    gap: 0.35rem;
-}
-
-.ind-filters__reset {
+.filters-card__head {
     display: flex;
-    align-items: end;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1.25rem;
+    background: linear-gradient(140deg, #f7f9fd, #fff);
+    border-bottom: 1px solid #e6ebf3;
 }
 
-/* --- tableau --- */
+.filters-card__icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: #eaf0ff;
+    color: #3b63d9;
+    font-size: 0.95rem;
+    flex: none;
+}
 
+.filters-card__heading {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
+}
+
+.filters-card__title {
+    margin: 0;
+    font-family: Manrope, "DM Sans", sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1a2a6c;
+    letter-spacing: -0.005em;
+    line-height: 1.2;
+}
+
+.filters-card__sub {
+    font-size: 0.72rem;
+    color: #6b7280;
+    line-height: 1.2;
+}
+
+.filters-card__body {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(160px, 1fr));
+    gap: 0.85rem;
+    align-items: center;
+    padding: 1rem 1.25rem;
+}
+
+.filters-card__foot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.25rem;
+    background: #f8fafc;
+    border-top: 1px solid #e6ebf3;
+    font-size: 0.76rem;
+    color: #6b7280;
+}
+
+.filters-card__foot i {
+    color: #4a6cf7;
+    font-size: 0.9rem;
+    flex: none;
+}
+
+/* ============================================================
+   TABLEAU
+   ============================================================ */
+.table-card {
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow:
+        0 1px 2px rgba(26, 42, 108, .04),
+        0 8px 24px rgba(26, 42, 108, .06);
+}
+
+.table-card :deep(.base-table-container) {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+}
+
+/* --- Cellule code --- */
 .text-code {
     font-size: 0.78rem;
     padding: 0.15rem 0.5rem;
@@ -376,16 +541,18 @@ function classeType(t: string | null | undefined): string {
     font-weight: 600;
 }
 
+/* --- Cellule désignation --- */
 .ind-designation {
     font-weight: 500;
-    color: var(--dts-text);
+    color: #15233c;
 }
 
+/* --- Badge type --- */
 .badge-type {
     display: inline-block;
     font-size: 0.72rem;
     font-weight: 700;
-    padding: 0.15rem 0.6rem;
+    padding: 0.2rem 0.65rem;
     border-radius: 20px;
     letter-spacing: 0.04em;
 }
@@ -408,23 +575,33 @@ function classeType(t: string | null | undefined): string {
     border: 1px solid #dfe5ec;
 }
 
+/* --- Cellule seuils --- */
 .ind-seuils {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
     font-family: ui-monospace, Menlo, monospace;
     font-size: 0.78rem;
-    color: var(--dts-text);
+    color: #15233c;
 }
 
 .ind-seuils__sep {
-    color: var(--dts-muted);
+    color: #8a95a8;
 }
 
+/* --- Cellule cible --- */
+.cell-cible {
+    font-weight: 600;
+    color: #1a2a6c;
+    font-variant-numeric: tabular-nums;
+}
+
+/* --- Cellule vide --- */
 .text-muted-custom {
-    color: var(--dts-muted);
+    color: #8a95a8;
 }
 
+/* --- Bouton d'action --- */
 .table-action {
     width: 32px;
     height: 32px;
@@ -432,53 +609,98 @@ function classeType(t: string | null | undefined): string {
     align-items: center;
     justify-content: center;
     border-radius: 8px;
-    border: 1px solid var(--dts-border);
-    background: transparent;
-    color: var(--dts-text-2);
+    border: 1px solid #e6ebf3;
+    background: #fff;
+    color: #6b7280;
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    transition: background-color .15s, color .15s, border-color .15s;
 }
 
 .table-action:hover {
-    background: var(--dts-blue-50);
-    color: var(--dts-blue);
+    background: #eef5f8;
+    color: #4a6cf7;
     border-color: #bdd3e6;
 }
 
-/* --- responsive --- */
-
-@media (max-width: 992px) {
-    .ind-filters {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .ind-filters__reset {
-        grid-column: 1 / -1;
-        justify-content: flex-end;
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1199.98px) {
+    .ind-page {
+        padding-left: 24px;
+        padding-right: 24px;
     }
 }
 
-@media (max-width: 768px) {
-    .ind-cards {
+@media (max-width: 991.98px) {
+    .summary__stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .filters-card__body {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767.98px) {
+    .ind-page {
+        padding: 24px 16px 20px;
+    }
+
+    .filters-card__body {
         grid-template-columns: 1fr;
     }
 }
 
-@media (max-width: 576px) {
+@media (max-width: 575.98px) {
     .ind-page {
+        padding: 20px 12px 16px;
+    }
+
+    .summary {
         padding: 1rem;
     }
 
-    .ind-filters {
-        grid-template-columns: 1fr;
+    .summary__stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
     }
 
-    .ind-filters__reset {
-        justify-content: stretch;
+    .stat-tile {
+        padding: 0.8rem 0.85rem;
     }
 
-    .ind-filters__reset :deep(.base-btn) {
-        width: 100%;
+    .stat-tile__count {
+        font-size: 1.5rem;
+    }
+
+    .stat-tile__label {
+        font-size: 0.6rem;
+    }
+
+    .stat-tile__hint {
+        font-size: 0.68rem;
+    }
+
+    .filters-card__head {
+        padding: 0.75rem 1rem;
+    }
+
+    .filters-card__body {
+        padding: 0.9rem 1rem;
+    }
+
+    .filters-card__foot {
+        padding: 0.6rem 1rem;
+        font-size: 0.72rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .stat-tile,
+    .table-action {
+        transition: none !important;
     }
 }
 </style>

@@ -1,128 +1,115 @@
 <template>
-    <div class="app-layout">
-        <Navbar @toggle-sidebar="toggleSidebar" />
+    <div class="app-layout" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
+        <Sidebar
+            :is-open="isSidebarOpen"
+            :notification-count="notificationCount"
+            @close="closeSidebar"
+            @collapse="onSidebarCollapse"
+        />
 
-        <div class="app-layout__body">
-            <Sidebar :is-open="isSidebarOpen" :is-collapsed="isSidebarCollapsed" :notification-count="notificationCount"
-                @close="closeSidebar" />
+        <Navbar
+            :collapsed="isSidebarCollapsed"
+            @toggle-sidebar="toggleSidebar"
+            @search="onSearch"
+        />
 
-            <main class="main-content">
-                <RouterView />
-            </main>
-        </div>
+        <main class="main-content">
+            <RouterView />
+        </main>
 
         <Footer app-version="1.0.0" />
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { RouterView } from 'vue-router'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import { Navbar, Sidebar, Footer } from '@/components/partial/frontoffice'
 import { useNotifications, actualiserNotifications } from '@/services/notification'
 
-// --- State ---
+const route = useRoute()
+const router = useRouter()
 const isSidebarOpen = ref(false)
-const isSidebarCollapsed = ref(false)
+const isSidebarCollapsed = ref(false)   // ← état partagé
 const { unreadCount: notificationCount } = useNotifications()
 
-// --- Methods ---
-const toggleSidebar = () => {
-    if (window.innerWidth < 992) {
-        isSidebarOpen.value = !isSidebarOpen.value
-    } else {
-        isSidebarCollapsed.value = !isSidebarCollapsed.value
-        document.body.classList.toggle('sidebar-collapsed', isSidebarCollapsed.value)
-    }
+const toggleSidebar = () => { isSidebarOpen.value = !isSidebarOpen.value }
+const closeSidebar  = () => { isSidebarOpen.value = false }
+
+// ← écoute l'événement `collapse` émis par la Sidebar
+const onSidebarCollapse = (collapsed: boolean) => {
+    isSidebarCollapsed.value = collapsed
 }
 
-const closeSidebar = () => {
-    isSidebarOpen.value = false
+const onSearch = (q: string) => {
+    const query = q.trim()
+    if (!query) return
+    router.push({ path: '/activites', query: { q: query } })
 }
 
-// --- Gestion du responsive ---
+watch(() => route.path, () => { isSidebarOpen.value = false })
+
 const handleResize = () => {
-    if (window.innerWidth >= 992) {
-        isSidebarOpen.value = false
-    }
+    if (window.innerWidth >= 992) isSidebarOpen.value = false
 }
 
 onMounted(() => {
-    // Initialiser l'état de la sidebar sur desktop
-    if (window.innerWidth >= 992) {
-        isSidebarCollapsed.value = false
-    }
     window.addEventListener('resize', handleResize)
     void actualiserNotifications()
 })
 
 onUnmounted(() => {
     window.removeEventListener('resize', handleResize)
-    document.body.classList.remove('sidebar-collapsed')
 })
 </script>
 
 <style scoped>
-/* ============================================
-   FRONT LAYOUT - Styles spécifiques
-   ============================================ */
-
-/* Le body a déjà un padding-top: var(--dts-navbar-h) dans le style global,
-   donc on n'ajoute rien ici */
-
 .app-layout {
+    --sidebar-width: 248px;
+    --topnav-height: 58px;
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
+    background:
+        radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .07) 0, transparent 38%),
+        radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .10) 0, transparent 36%),
+        linear-gradient(135deg, #f5f7fa 0%, #e9edf5 100%);
+    background-attachment: fixed;
+    font-family: "DM Sans", system-ui, sans-serif;
 }
 
-.app-layout__body {
-    display: flex;
-    flex: 1;
+/* État replié : la variable pilote tout le layout */
+.app-layout.sidebar-collapsed {
+    --sidebar-width: 76px;
 }
 
 .main-content {
-    margin-left: var(--dts-sidebar-w);
-    padding: 1.5rem 2rem;
-    flex: 1;
-    min-width: 0;
-    transition: margin-left 0.3s ease;
+    margin-left: var(--sidebar-width);
+    min-height: calc(100vh - var(--topnav-height));
+    padding-bottom: 8px;
+    transition: margin-left .25s cubic-bezier(.4, 0, .2, 1);
+    padding: 20px;
 }
 
-/* Sidebar réduite */
-body.sidebar-collapsed .main-content {
-    margin-left: var(--dts-sidebar-w-sm);
+.main-content div {
+    border-radius: 10px;
 }
 
-/* Footer */
-.footer {
-    margin-left: var(--dts-sidebar-w);
-    transition: margin-left 0.3s ease;
+/* Footer aligné sous la topbar */
+.app-layout :deep(.footer) {
+    margin-left: var(--sidebar-width);
+    transition: margin-left .25s cubic-bezier(.4, 0, .2, 1);
 }
 
-body.sidebar-collapsed .footer {
-    margin-left: var(--dts-sidebar-w-sm);
-}
-
-/* Responsive */
+/* Mobile : la sidebar est un drawer, donc aucune marge */
 @media (max-width: 991.98px) {
+    .app-layout,
+    .app-layout.sidebar-collapsed {
+        --sidebar-width: 0px;
+    }
     .main-content {
         margin-left: 0;
     }
-
-    .footer,
-    body.sidebar-collapsed .footer {
+    .app-layout :deep(.footer) {
         margin-left: 0;
-    }
-
-    body.sidebar-collapsed .main-content {
-        margin-left: 0;
-    }
-}
-
-@media (max-width: 575.98px) {
-    .main-content {
-        padding: 1rem;
     }
 }
 </style>

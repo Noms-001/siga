@@ -33,6 +33,7 @@ import type {
     DashboardValidation,
 } from '@/types/dashboard'
 import { getCurrentYear } from '@/utils/date'
+import { useRouter } from 'vue-router'
 
 /* -------------------- année -------------------- */
 
@@ -43,6 +44,26 @@ import { getCurrentYear } from '@/utils/date'
  * valeur n'est PAS une constante figée : l'utilisateur peut la changer,
  * et le sélecteur propose une plage autour.
  */
+
+const router = useRouter()
+
+/* Date du jour en français, en majuscules : « MERCREDI 21 OCTOBRE 2026 » */
+const dateDuJour = computed(() =>
+    new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    })
+        .format(new Date())
+        .toUpperCase()
+)
+
+/* Navigation vers la création d'activité */
+const nouvelleActivite = () => {
+    router.push('/activites/nouvelle')
+}
+
 const annee = ref<number>(getCurrentYear())
 
 const anneesDisponibles = computed(() => {
@@ -207,17 +228,32 @@ watch(annee, () => {
 <template>
     <div class="dash">
         <!-- En-tête -->
-        <header class="dash__header">
-            <div>
-                <h1 class="dash__title">Dashboard TSS</h1>
-                <p class="dash__subtitle">
-                    Vue d'ensemble de la gestion des activités
+        <header class="welcome-row">
+            <div class="welcome-row__left">
+                <div class="eyebrow">
+                    <span class="live-dot"></span>
+                    {{ dateDuJour }}
+                </div>
+                <h1>
+                    Dashboard 
+                    <span class="wave" aria-hidden="true">✳</span>
+                </h1>
+                <span class="title-divider" aria-hidden="true"></span>
+                <p class="subheading">
+                    Voici ce qui se passe dans votre espace aujourd’hui.
                 </p>
             </div>
 
-            <div class="dash__annee">
-                <label class="dash__annee-label">Année</label>
-                <BaseSelect v-model="annee" size="sm" :options="anneesDisponibles" />
+            <div class="welcome-row__right">
+                <div class="dash__annee">
+                    <label class="dash__annee-label">Année</label>
+                    <BaseSelect v-model="annee" size="sm" :options="anneesDisponibles" />
+                </div>
+
+                <button type="button" class="button primary" @click="nouvelleActivite">
+                    <span class="button-plus" aria-hidden="true">＋</span>
+                    <span>Nouvelle activité</span>
+                </button>
             </div>
         </header>
 
@@ -237,8 +273,7 @@ watch(annee, () => {
                     <span>{{ avancementError }}</span>
                     <button type="button" @click="chargerAvancement">Réessayer</button>
                 </div>
-                <DashboardAvancement v-else
-                    :avancement="avancement" :loading="avancementLoading" />
+                <DashboardAvancement v-else :avancement="avancement" :loading="avancementLoading" />
             </div>
 
             <div>
@@ -246,8 +281,7 @@ watch(annee, () => {
                     <span>{{ statutsError }}</span>
                     <button type="button" @click="chargerStatuts">Réessayer</button>
                 </div>
-                <DashboardStatuts v-else
-                    :statuts="statuts" :loading="statutsLoading" />
+                <DashboardStatuts v-else :statuts="statuts" :loading="statutsLoading" />
             </div>
         </section>
 
@@ -257,8 +291,7 @@ watch(annee, () => {
                 <span>{{ servicesError }}</span>
                 <button type="button" @click="chargerServices">Réessayer</button>
             </div>
-            <DashboardServices v-else
-                :services="services" :loading="servicesLoading" />
+            <DashboardServices v-else :services="services" :loading="servicesLoading" />
         </section>
 
         <!-- PTA / NON-PTA -->
@@ -267,8 +300,7 @@ watch(annee, () => {
                 <span>{{ ptaError }}</span>
                 <button type="button" @click="chargerPta">Réessayer</button>
             </div>
-            <DashboardPta v-else
-                :comparaison="comparaisonPta" :loading="ptaLoading" />
+            <DashboardPta v-else :comparaison="comparaisonPta" :loading="ptaLoading" />
         </section>
 
         <!-- Priorités + échéances -->
@@ -278,16 +310,14 @@ watch(annee, () => {
                     <span>{{ prioritesError }}</span>
                     <button type="button" @click="chargerPriorites">Réessayer</button>
                 </div>
-                <DashboardPriorites v-else
-                    :priorites="priorites" :loading="prioritesLoading" />
+                <DashboardPriorites v-else :priorites="priorites" :loading="prioritesLoading" />
             </div>
             <div>
                 <div v-if="validationsError" class="dash__error" role="alert">
                     <span>{{ validationsError }}</span>
                     <button type="button" @click="chargerValidations">Réessayer</button>
                 </div>
-                <DashboardValidations v-else
-                    :validations="validations" :loading="validationsLoading" />
+                <DashboardValidations v-else :validations="validations" :loading="validationsLoading" />
             </div>
         </section>
 
@@ -297,19 +327,16 @@ watch(annee, () => {
                 <span>{{ echeancesError }}</span>
                 <button type="button" @click="chargerEcheances">Réessayer</button>
             </div>
-            <DashboardEcheances v-else
-                :echeances="echeances" :loading="echeancesLoading" />
+            <DashboardEcheances v-else :echeances="echeances" :loading="echeancesLoading" />
         </section>
 
         <!-- Risques / incidents -->
-        <section v-if="risquesError || (risques?.plansAction?.total ?? 0) > 0 || risquesLoading"
-            class="dash__section">
+        <section v-if="risquesError || (risques?.plansAction?.total ?? 0) > 0 || risquesLoading" class="dash__section">
             <div v-if="risquesError" class="dash__error" role="alert">
                 <span>{{ risquesError }}</span>
                 <button type="button" @click="chargerRisques">Réessayer</button>
             </div>
-            <DashboardRisquesIncidents v-else
-                :data="risques" :loading="risquesLoading" />
+            <DashboardRisquesIncidents v-else :data="risques" :loading="risquesLoading" />
         </section>
     </div>
 </template>
@@ -322,25 +349,60 @@ watch(annee, () => {
     gap: 1.5rem;
 }
 
-.dash__header {
+/* Bouton primaire */
+.button.primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 42px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1a2a6c 0%, #4a6cf7 100%);
+    color: #fff;
+    font: 600 12.5px "DM Sans", system-ui, sans-serif;
+    letter-spacing: .2px;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(26, 42, 108, .25);
+    transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+.button.primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(26, 42, 108, .30);
+    filter: brightness(1.05);
+}
+.button.primary:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 10px rgba(26, 42, 108, .25);
+}
+.button.primary .button-plus {
+    font-size: 16px;
+    line-height: 1;
+    color: #f0c75e;
+}
+
+/* Ajustements année à côté du bouton */
+.dash__annee {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 1rem;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 160px;
 }
-
-.dash__title {
-    font-size: 1.5rem;
+.dash__annee-label {
+    font-size: 0.78rem;
     font-weight: 700;
-    color: var(--dts-navy);
-    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--dts-muted, #6b7280);
 }
 
-.dash__subtitle {
-    color: var(--dts-muted);
-    margin: 0.15rem 0 0;
-    font-size: 0.88rem;
+@media (max-width: 576px) {
+    .welcome-row { align-items: flex-start; }
+    .welcome-row__right { width: 100%; justify-content: space-between; }
+    .welcome-row h1 { font-size: 22px; letter-spacing: -0.6px; }
+    .wave { font-size: 17px; vertical-align: 1px; }
+    .title-divider { width: 180px; }
+    .button.primary { flex: 1; justify-content: center; }
 }
 
 .dash__annee {
@@ -358,7 +420,11 @@ watch(annee, () => {
     color: var(--dts-muted);
 }
 
-.dash__section { display: flex; flex-direction: column; gap: 0.75rem; }
+.dash__section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
 
 .dash__grid-2 {
     display: grid;
@@ -395,6 +461,7 @@ watch(annee, () => {
 }
 
 @media (max-width: 992px) {
+
     .dash__grid-2,
     .dash__grid-2--large-left {
         grid-template-columns: 1fr;
@@ -402,7 +469,12 @@ watch(annee, () => {
 }
 
 @media (max-width: 576px) {
-    .dash { padding: 1rem; }
-    .dash__title { font-size: 1.25rem; }
+    .dash {
+        padding: 1rem;
+    }
+
+    .dash__title {
+        font-size: 1.25rem;
+    }
 }
 </style>

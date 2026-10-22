@@ -458,6 +458,69 @@ SELECT cron.schedule(
                $$SELECT verifier_retour_en_cours_activites();$$
 );
 
+CREATE OR REPLACE FUNCTION check_affectation_role_singulier()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_role_code TEXT;
+    v_id_entity INTEGER;
+BEGIN
+    -- Recupere le code du role pour savoir s'il est singulier.
+    SELECT code INTO v_role_code FROM role WHERE id_role = NEW.id_role;
+
+    -- Si le role n'est pas singulier, on laisse passer sans contrainte.
+    IF v_role_code IS NULL OR v_role_code NOT IN ('RESPONSABLE', 'SUPPLEANT') THEN
+        RETURN NEW;
+    END IF;
+
+    -- Une affectation desactivee ne peut pas violer l'unicite.
+    IF NEW.date_desaffectation IS NOT NULL THEN
+        RETURN NEW;
+    END IF;
+
+    -- Determine l'entite concernee selon la table cible.
+    IF TG_TABLE_NAME = 'affectation_activite' THEN
+        v_id_entity := NEW.id_activite;
+
+        IF EXISTS (
+            SELECT 1 FROM affectation_activite
+            WHERE id_activite = v_id_entity
+              AND id_role = NEW.id_role
+              AND date_desaffectation IS NULL
+              AND id_affectation_activite <> COALESCE(NEW.id_affectation_activite, 0)
+        ) THEN
+            RAISE EXCEPTION 'Un rôle % est déjà affecté à cette activité', v_role_code
+                USING ERRCODE = 'unique_violation';
+        END IF;
+
+    ELSIF TG_TABLE_NAME = 'affectation_sous_activite' THEN
+        v_id_entity := NEW.id_sous_activite;
+
+        IF EXISTS (
+            SELECT 1 FROM affectation_sous_activite
+            WHERE id_sous_activite = v_id_entity
+              AND id_role = NEW.id_role
+              AND date_desaffectation IS NULL
+              AND id_affectation_sous_activite <> COALESCE(NEW.id_affectation_sous_activite, 0)
+        ) THEN
+            RAISE EXCEPTION 'Un rôle % est déjà affecté à cette sous-activité', v_role_code
+                USING ERRCODE = 'unique_violation';
+        END IF;
+
+    ELSE
+        RAISE EXCEPTION 'Trigger non supporté sur la table %', TG_TABLE_NAME;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_affectation_activite_role_singulier
+BEFORE INSERT OR UPDATE ON affectation_activite
+FOR EACH ROW EXECUTE FUNCTION check_affectation_role_singulier();
+
+CREATE TRIGGER trg_affectation_sous_activite_role_singulier
+BEFORE INSERT OR UPDATE ON affectation_sous_activite
+FOR EACH ROW EXECUTE FUNCTION check_affectation_role_singulier();
 CREATE OR REPLACE FUNCTION notify_indicateur_seuil()
 RETURNS TRIGGER AS $$
 DECLARE
