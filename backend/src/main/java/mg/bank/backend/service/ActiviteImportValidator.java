@@ -596,9 +596,6 @@ public class ActiviteImportValidator {
                                 + " doit être supérieure ou égale à la date de début réelle."));
             }
 
-            // Les dates reelles relevent du suivi : elles ne sont acceptees
-            // que pour des activites deja validees (meme regle que le
-            // service d'import).
             if (Boolean.FALSE.equals(activitesDejaValidees)
                     && (sa.getDateDebutReelle() != null || sa.getDateFinReelle() != null)) {
                 erreurs.add(erreur(idActivite,

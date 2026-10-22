@@ -165,6 +165,7 @@ body {
 }
 
 .activation-page {
+    font-family: "DM Sans", "Segoe UI", sans-serif;
     position: fixed;
     inset: 0;
     overflow-y: auto;
@@ -172,7 +173,10 @@ body {
     align-items: center;
     justify-content: center;
     padding: 2rem 1rem;
-    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
+    background:
+        radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .07) 0, transparent 38%),
+        radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .1) 0, transparent 36%),
+        #f5f7fa;
 }
 
 .activation-card {
@@ -181,7 +185,7 @@ body {
     background: #fff;
     border-radius: 16px;
     padding: 2rem;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 1px 2px rgba(26, 42, 108, .04), 0 8px 24px rgba(26, 42, 108, .06);
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
@@ -203,14 +207,14 @@ body {
     place-items: center;
     color: #fff;
     font-size: 1.6rem;
-    background: linear-gradient(145deg, #0d2b4e 0%, #1f6fb2 115%);
-    box-shadow: 0 4px 12px rgba(13, 43, 78, 0.28);
+    background: linear-gradient(145deg, #1a2a6c 0%, #4a6cf7 115%);
+    box-shadow: 0 6px 16px rgba(26, 42, 108, .2);
 }
 
 .activation-card__title {
     font-size: 1.2rem;
     font-weight: 700;
-    color: #0d2b4e;
+    color: #1a2a6c;
     margin: 0;
 }
 

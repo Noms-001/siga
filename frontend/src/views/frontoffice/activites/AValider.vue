@@ -179,6 +179,21 @@ const positionMenu = ref({ top: 0, left: 0 })
 const modale = ref<ModaleEnCours | null>(null)
 
 // ------------------------------------------------------------------
+// En-tête : date du jour
+// ------------------------------------------------------------------
+
+const dateDuJour = computed(() =>
+    new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    })
+        .format(new Date())
+        .toUpperCase()
+)
+
+// ------------------------------------------------------------------
 // Pont sélection <-> BaseTable
 // ------------------------------------------------------------------
 
@@ -298,6 +313,8 @@ const etapePrecedenteSelection = computed<string | null>(() => {
 // ------------------------------------------------------------------
 
 async function charger(): Promise<void> {
+    if (chargement.value) return
+
     chargement.value = true
     erreur.value = null
 
@@ -690,13 +707,32 @@ async function executerLot(
 
 <template>
     <div class="a-valider">
-        <!-- ============ EN-TETE ============ -->
-        <div class="page-header">
-            <h1 class="page-title">Activités à valider</h1>
-            <p class="page-subtitle">
-                Activités soumises, en attente de votre décision
-            </p>
-        </div>
+        <!-- ============ EN-TÊTE ============ -->
+        <header class="welcome-row">
+            <div class="welcome-row__left">
+                <div class="eyebrow">
+                    <span class="live-dot"></span>
+                    {{ dateDuJour }}
+                </div>
+                <h1>Activités à valider</h1>
+                <span class="title-divider" aria-hidden="true"></span>
+                <p class="subheading">
+                    Activités soumises, en attente de votre décision
+                </p>
+            </div>
+
+            <div class="welcome-row__right">
+                <BaseButton
+                    variant="secondary"
+                    :loading="chargement"
+                    :disabled="chargement"
+                    @click="charger"
+                >
+                    <i class="bi bi-arrow-clockwise"></i>
+                    Actualiser
+                </BaseButton>
+            </div>
+        </header>
 
         <!-- ============ MESSAGES ============ -->
         <div v-if="succes" class="alert alert-success d-flex align-items-center gap-2" role="status">
@@ -711,17 +747,15 @@ async function executerLot(
             <button type="button" class="btn-close ms-auto" @click="erreur = null"></button>
         </div>
 
-        <!--
-            ============ BARRE DE LOT ============
+        <!-- ============ CHARGEMENT ============ -->
+        <div v-if="chargement && !lignes.length && !erreur" class="detail-state">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-3 mb-0">Chargement de la file de validation…</p>
+        </div>
 
-            N'apparait qu'avec au moins une coche : avant, elle serait trois
-            controles sans effet. Elle ne remplace pas le menu par ligne --
-            les deux usages coexistent, trancher au cas par cas ou vider un
-            lot d'un coup -- et elle se contente de les rendre accessibles
-            sans deplier chaque ligne.
-        -->
+        <!-- ============ BARRE DE LOT ============ -->
         <div
-            v-if="selection.size > 0"
+            v-else-if="selection.size > 0"
             class="lot"
             role="toolbar"
             aria-label="Actions sur la sélection"
@@ -754,18 +788,6 @@ async function executerLot(
                     Valider
                 </BaseButton>
 
-                <!--
-                    Le bouton Rejeter n'apparaît que si au moins une ligne
-                    sélectionnée peut encore l'être. Une sélection composée
-                    uniquement de retours-pour-modification n'a rien à
-                    rejeter -- cliquer ferait un lot de zéro écriture. Même
-                    logique que pour le bouton Soumettre : un contrôle sans
-                    effet ne s'affiche pas.
-
-                    Une sélection mixte reste rejetable : les lignes en
-                    retour seront ignorées par l'appel unitaire, les autres
-                    seront traitées.
-                -->
                 <BaseButton
                     v-if="peutRejeterSelection"
                     variant="danger"
@@ -777,17 +799,6 @@ async function executerLot(
                     Rejeter
                 </BaseButton>
 
-                <!--
-                    Le bouton disparait quand aucune ligne sélectionnée n'a
-                    d'étape précédente -- typiquement quand toutes sont à la
-                    première étape du circuit. Un bouton actif sans effet est
-                    le pire des deux : il promet une action que rien ne fait.
-
-                    Le libellé porte le nom de l'étape précédente quand elle
-                    est unique pour la sélection. Deux activités, deux
-                    destinations possibles, et l'utilisateur sait avant de
-                    cliquer où elles vont atterrir.
-                -->
                 <BaseButton
                     v-if="etapePrecedenteSelection !== null"
                     variant="warning"
@@ -801,14 +812,7 @@ async function executerLot(
             </div>
         </div>
 
-        <!--
-            ============ ETAT VIDE ============
-
-            Masque sur une erreur : "aucune activite a valider" et "service
-            indisponible" ne disent pas la meme chose. Apres un echec, la page
-            ne sait rien de la file -- l'ignorer laisserait croire qu'elle est
-            vide, et l'utilisateur ne reviendrait pas.
-        -->
+        <!-- ============ ÉTAT VIDE ============ -->
         <div v-if="!chargement && !lignes.length && !erreur" class="vide">
             <i class="bi bi-check2-all"></i>
             <p class="vide__titre">Aucune activité en attente de validation</p>
@@ -817,16 +821,7 @@ async function executerLot(
             </p>
         </div>
 
-        <!--
-            ============ TABLEAU ============
-
-            BaseTable fournit la structure, le tri, la pagination et la
-            selection multiple. Les colonnes personnalisees (activite,
-            periode, commentaire, actions) passent par des slots nommes.
-
-            searchable est volontairement omis : la file d'attente n'a pas
-            de recherche.
-        -->
+        <!-- ============ TABLEAU ============ -->
         <BaseTable
             v-if="lignes.length"
             v-model:selectedItems="itemsSelectionnes"
@@ -838,14 +833,10 @@ async function executerLot(
             multi-select
             custom-class="a-valider__table"
         >
-            <!-- ============ CELLULE ACTIVITE ============ -->
             <template #cell-activite="{ item }">
                 <router-link
                     class="activite__lien"
-                    :to="{
-                        name: 'activite-detail',
-                        params: { id: String(item.id) },
-                    }"
+                    :to="{ name: 'activite-detail', params: { id: String(item.id) } }"
                 >
                     <span class="activite__entete">
                         <span class="activite__code">{{ item.code }}</span>
@@ -853,13 +844,10 @@ async function executerLot(
                             {{ item.reference }}
                         </span>
                     </span>
-                    <span class="activite__designation">
-                        {{ item.designation }}
-                    </span>
+                    <span class="activite__designation">{{ item.designation }}</span>
                 </router-link>
             </template>
 
-            <!-- ============ CELLULE ETAPE COURANTE ============ -->
             <template #cell-etapeCourante="{ item }">
                 <span v-if="item.etapeCourante" class="etape etape--courante">
                     {{ item.etapeCourante.libelle }}
@@ -867,7 +855,6 @@ async function executerLot(
                 <span v-else class="text-muted">—</span>
             </template>
 
-            <!-- ============ CELLULE ETAPE SUIVANTE ============ -->
             <template #cell-etapeSuivante="{ item }">
                 <span v-if="item.etapeSuivante" class="etape etape--suivante">
                     {{ item.etapeSuivante.libelle }}
@@ -875,7 +862,6 @@ async function executerLot(
                 <span v-else class="text-muted">—</span>
             </template>
 
-            <!-- ============ CELLULE PERIODE ============ -->
             <template #cell-periode="{ item }">
                 <template v-if="item.dateDebutPrevue">
                     <span>{{ formatDateSeule(item.dateDebutPrevue) }}</span>
@@ -885,19 +871,6 @@ async function executerLot(
                 <span v-else class="text-muted">—</span>
             </template>
 
-            <!--
-                ============ CELLULE COMMENTAIRE ============
-
-                Motif de la dernière décision : ce qu'un validateur d'amont
-                a écrit en rejetant ou en renvoyant pour modification. C'est
-                ce que le validateur courant doit lire avant de trancher à
-                son tour.
-
-                Le texte se coupe à deux lignes (voir .commentaire), et le
-                title reprend le contenu entier au survol : un motif long
-                reste lisible sans étirer la colonne, et sans pousser les
-                suivantes hors de l'écran.
-            -->
             <template #cell-commentaire="{ item }">
                 <span
                     v-if="item.derniereValidation?.commentaire"
@@ -909,7 +882,6 @@ async function executerLot(
                 <span v-else class="text-muted">—</span>
             </template>
 
-            <!-- ============ CELLULE ACTIONS ============ -->
             <template #cell-actions="{ item }">
                 <button
                     type="button"
@@ -930,18 +902,7 @@ async function executerLot(
             </template>
         </BaseTable>
 
-        <!--
-            ============ MENU D'ACTIONS ============
-
-            Teleporte dans le body et en position fixed : le conteneur du
-            tableau porte un overflow-x: auto qui clippe tout menu en
-            position absolute des qu'il depasse la derniere ligne.
-
-            Un seul menu pour toute la page -- pas un par ligne. Le listener
-            document qui ferme au clic ailleurs reste unique lui aussi, et
-            @click.stop sur le menu evite qu'un clic sur un item le referme
-            avant que l'action ne soit traitee.
-        -->
+        <!-- ============ MENU D'ACTIONS (teleporté) ============ -->
         <Teleport to="body">
             <ul
                 v-if="menuItem"
@@ -962,16 +923,6 @@ async function executerLot(
                     </button>
                 </li>
 
-                <!--
-                    Rejeter disparaît quand la dernière décision connue est
-                    un retour pour modification : l'activité a déjà été
-                    traitée une fois, l'auteur n'a pas encore eu la main
-                    pour corriger. La rejeter à nouveau serait redondant, et
-                    empêcherait la correction d'aboutir.
-
-                    Masquer plutôt que désactiver : le menu nomme ce qu'on
-                    peut faire, il ne propose pas ce qui échouerait.
-                -->
                 <li v-if="!decisionContientRetour(menuItem)" role="none">
                     <button
                         type="button"
@@ -984,17 +935,6 @@ async function executerLot(
                     </button>
                 </li>
 
-                <!--
-                    L'option disparait quand la ligne n'a pas d'étape
-                    précédente : une activité à la première étape du circuit
-                    ne peut pas reculer. La masquer plutôt que la désactiver
-                    dit la même chose sans laisser croire à une permission
-                    qu'on n'a pas.
-
-                    Le libellé nomme l'étape : "Soumettre (Préparation)"
-                    dit où l'activité va atterrir, là où "Soumettre à
-                    l'étape précédente" laisse l'utilisateur deviner.
-                -->
                 <li v-if="menuItem.etapePrecedente" role="none">
                     <button
                         type="button"
@@ -1009,18 +949,7 @@ async function executerLot(
             </ul>
         </Teleport>
 
-        <!--
-            ============ MODALE DE DÉCISION ============
-
-            Rendue hors de la boucle et non sur chaque ligne : une seule
-            modale pour toute la page, sinon deux décisions superposées
-            rendraient impossible de savoir laquelle est au premier plan.
-
-            La modale porte l'issue (Valider / Rejeter / Renvoyer) choisie
-            par le bouton qui l'a ouverte, et le nombre d'activités
-            concernées. Elle recueille un commentaire optionnel, puis
-            émet -- la page envoie.
-        -->
+        <!-- ============ MODALE DE DÉCISION ============ -->
         <DecisionActiviteModal
             v-if="modale"
             :modelValue="true"
@@ -1039,28 +968,55 @@ async function executerLot(
 
 <style scoped>
 .a-valider {
-    padding: 1.5rem 0 2rem;
+    --primary-color: #1a2a6c;
+    --secondary-color: #2a3f94;
+    --bg-color: #f5f7fa;
+    --surface-color: #fff;
+    --card-bg: #fff;
+    --text-color: #15233c;
+    --text-muted-custom: #6b7280;
+    --border-color: #e6ebf3;
+    --radius-xl: 16px;
+    --dts-navy: #1a2a6c;
+    --dts-blue: #1769c2;
+    --dts-muted: #7b8799;
+    --dts-surface: #fff;
+    --dts-border: #e6ebf3;
+    min-height: calc(100vh - 68px);
+    padding: 34px 38px 24px;
+    color: #15233c;
+    font-family: "DM Sans", "Segoe UI", sans-serif;
+    background:
+        radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .055) 0, transparent 38%),
+        radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .065) 0, transparent 36%),
+        #f5f7fa;
 }
 
-/* --- En-tete --- */
-.page-header {
+/* ============================================================
+   EN-TÊTE — le welcome-row global a margin-bottom: 4px,
+   insuffisant pour une page racine. On rétablit 1.5rem.
+   Le sélecteur composé gagne sur le .welcome-row global.
+   ============================================================ */
+.a-valider .welcome-row {
     margin-bottom: 1.5rem;
 }
 
-.page-title {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #1a2b3c;
-    margin: 0;
+/* ============================================================
+   ÉTAT DE CHARGEMENT
+   ============================================================ */
+.detail-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3.5rem 1.5rem;
+    text-align: center;
+    color: #7b8799;
 }
 
-.page-subtitle {
-    font-size: 0.9rem;
-    color: #74879b;
-    margin: 0.2rem 0 0;
-}
-
-/* --- Barre de lot --- */
+/* ============================================================
+   BARRE DE LOT
+   ============================================================ */
 .lot {
     display: flex;
     align-items: center;
@@ -1068,15 +1024,18 @@ async function executerLot(
     flex-wrap: wrap;
     padding: 0.7rem 1rem;
     margin-bottom: 1rem;
-    background: #f0f7ff;
-    border: 1px solid #c7ddf5;
-    border-radius: 10px;
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 16px;
+    box-shadow:
+        0 1px 2px rgba(26, 42, 108, .04),
+        0 8px 24px rgba(26, 42, 108, .06);
 }
 
 .lot__compte {
     font-size: 0.9rem;
     font-weight: 600;
-    color: #1a73c4;
+    color: #1a2a6c;
     white-space: nowrap;
 }
 
@@ -1090,15 +1049,17 @@ async function executerLot(
 .lot__separateur {
     width: 1px;
     align-self: stretch;
-    background: #c7ddf5;
+    background: #e6ebf3;
     margin: 0 0.25rem;
 }
 
-/* --- Etat vide --- */
+/* ============================================================
+   ÉTAT VIDE
+   ============================================================ */
 .vide {
     text-align: center;
     padding: 3rem 1rem;
-    color: #74879b;
+    color: #7b8799;
 }
 
 .vide i {
@@ -1110,7 +1071,7 @@ async function executerLot(
     margin: 0.75rem 0 0;
     font-size: 1rem;
     font-weight: 600;
-    color: #1a2b3c;
+    color: #1a2a6c;
 }
 
 .vide__detail {
@@ -1118,53 +1079,34 @@ async function executerLot(
     font-size: 0.9rem;
 }
 
-/* ==============================================================
+/* ============================================================
    ADAPTATION DU TABLEAU
-   ============================================================== */
+   ============================================================ */
 .a-valider :deep(.base-table-container) table {
     min-width: 860px;
 }
 
-/* ==============================================================
-   COLONNE ACTIVITE -- AUTORISER LE RETOUR A LA LIGNE
-   ==============================================================
-
-   BaseTable pose `white-space: nowrap` sur TOUS les <td> du tableau.
-   Sans lever cette regle sur la seule colonne de la designation, un
-   titre long reste sur une ligne et pousse les autres colonnes hors
-   de l'ecran.
-   ============================================================== */
+/* BaseTable pose white-space: nowrap sur TOUS les <td>.
+   On lève la règle sur les deux colonnes de texte libre :
+   - colonne-activite : désignation longue
+   - colonne-commentaire : motif long
+   Sans ça, un titre ou un motif long reste sur une ligne
+   et pousse les colonnes suivantes hors de l'écran. */
 .a-valider :deep(.colonne-activite) {
     white-space: normal;
     min-width: 220px;
     max-width: 360px;
 }
 
-/* ==============================================================
-   COLONNE COMMENTAIRE -- AUTORISER LE RETOUR A LA LIGNE
-   ==============================================================
-
-   Meme raison que pour la colonne activite : BaseTable pose
-   `white-space: nowrap` sur tous les <td>. Sans lever cette regle
-   sur ce <td> precis, la classe .commentaire a beau demander un
-   clamp a deux lignes, elle herite du nowrap et ne peut pas couper.
-   La colonne s'etire alors d'un seul tenant, et pousse les
-   suivantes hors de l'ecran des qu'un motif depasse quelques mots.
-
-   Le max-width borne la largeur -- un motif long se coupe, il
-   n'elargit plus la colonne. Le min-width garde un minimum lisible
-   quand le texte est court.
-   ============================================================== */
 .a-valider :deep(.colonne-commentaire) {
     white-space: normal;
     max-width: 260px;
     min-width: 180px;
 }
 
-/* ==============================================================
-   TEXTE DE LA DESIGNATION
-   ============================================================== */
-
+/* ============================================================
+   TEXTE DE LA DÉSIGNATION
+   ============================================================ */
 .activite__lien {
     display: flex;
     flex-direction: column;
@@ -1174,7 +1116,7 @@ async function executerLot(
 }
 
 .activite__lien:hover .activite__designation {
-    color: #1a73c4;
+    color: #4a6cf7;
 }
 
 .activite__entete {
@@ -1187,13 +1129,13 @@ async function executerLot(
 .activite__code {
     font-size: 0.78rem;
     font-weight: 700;
-    color: #1a73c4;
+    color: #3b63d9;
     letter-spacing: 0.02em;
 }
 
 .activite__ref {
     font-size: 0.72rem;
-    color: #93a5b8;
+    color: #8a95a8;
 }
 
 .activite__designation {
@@ -1204,7 +1146,9 @@ async function executerLot(
     overflow-wrap: anywhere;
 }
 
-/* --- Badges d'etape --- */
+/* ============================================================
+   BADGES D'ÉTAPE
+   ============================================================ */
 .etape {
     display: inline-block;
     padding: 0.2rem 0.55rem;
@@ -1215,34 +1159,29 @@ async function executerLot(
 }
 
 .etape--courante {
-    background: #e0efff;
-    color: #1a73c4;
+    background: #eaf0ff;
+    color: #3b63d9;
 }
 
 .etape--suivante {
-    background: #f0f2f5;
-    color: #5a6b7b;
+    background: #fff6dd;
+    color: #b8860b;
 }
 
-/* --- Periode --- */
+/* ============================================================
+   PÉRIODE
+   ============================================================ */
 .periode__separateur {
     margin: 0 0.35rem;
-    color: #93a5b8;
+    color: #8a95a8;
 }
 
-/* ==============================================================
-   COMMENTAIRE DE LA DERNIERE VALIDATION
-
-   Le clamp a deux lignes borne la hauteur d'un commentaire long
-   sans le tronquer dans l'absolu : le title reprend le texte
-   complet au survol. Un champ stocke mais invisible ne sert a
-   rien -- un champ qui pousse les autres hors de l'ecran non plus.
-
-   Le white-space: normal vient du <td> (voir .colonne-commentaire),
-   pas d'ici : c'est le td qui heritait du nowrap de BaseTable, et
-   c'est donc lui qu'il fallait corriger. Le span se contente de
-   profiter de l'autorisation donnee en amont.
-   ============================================================== */
+/* ============================================================
+   COMMENTAIRE DE LA DERNIÈRE VALIDATION
+   Le white-space: normal vient du <td> via .colonne-commentaire.
+   Le clamp à deux lignes borne la hauteur, le title lit le texte
+   complet au survol.
+   ============================================================ */
 .commentaire {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -1250,11 +1189,13 @@ async function executerLot(
     overflow: hidden;
     font-size: 0.85rem;
     line-height: 1.35;
-    color: #4a5b6c;
+    color: #40516b;
     overflow-wrap: anywhere;
 }
 
-/* --- Bouton du menu --- */
+/* ============================================================
+   BOUTON DU MENU
+   ============================================================ */
 .menu__toggle {
     width: 32px;
     height: 32px;
@@ -1263,15 +1204,15 @@ async function executerLot(
     justify-content: center;
     border: none;
     background: transparent;
-    border-radius: 6px;
-    color: #74879b;
+    border-radius: 8px;
+    color: #7b8799;
     cursor: pointer;
     transition: background-color 0.12s, color 0.12s;
 }
 
 .menu__toggle:hover:not(:disabled) {
-    background: #eef2f6;
-    color: #1a2b3c;
+    background: #f3f6fc;
+    color: #1a2a6c;
 }
 
 .menu__toggle:disabled {
@@ -1280,8 +1221,8 @@ async function executerLot(
 }
 
 .menu__toggle[aria-expanded='true'] {
-    background: #eef2f6;
-    color: #1a2b3c;
+    background: #edf1fd;
+    color: #1a2a6c;
 }
 
 .spin {
@@ -1294,9 +1235,9 @@ async function executerLot(
     }
 }
 
-/* ==============================================================
-   MENU GLOBAL (teleporte dans le body)
-   ============================================================== */
+/* ============================================================
+   MENU GLOBAL (teleporté dans le body)
+   ============================================================ */
 .menu-global {
     position: fixed;
     z-index: 1000;
@@ -1304,9 +1245,9 @@ async function executerLot(
     margin: 0;
     list-style: none;
     background: #fff;
-    border: 1px solid #dbe4ec;
-    border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(26, 43, 60, 0.15);
+    border: 1px solid #e6ebf3;
+    border-radius: 12px;
+    box-shadow: 0 12px 28px rgba(26, 42, 108, .16);
 }
 
 .menu-global__item {
@@ -1317,30 +1258,60 @@ async function executerLot(
     padding: 0.5rem 0.65rem;
     border: none;
     background: transparent;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 0.88rem;
     text-align: left;
-    color: #1a2b3c;
+    color: #40516b;
     cursor: pointer;
     transition: background-color 0.12s, color 0.12s;
 }
 
 .menu-global__item:hover {
-    background: #f0f5fa;
+    background: #f3f6fc;
 }
 
 .menu-global__item--valider:hover {
-    background: #e6f5eb;
-    color: #1f7a3e;
+    background: #e4f7f0;
+    color: #138a68;
 }
 
 .menu-global__item--rejeter:hover {
-    background: #fdeaea;
-    color: #b3261e;
+    background: #fff0f0;
+    color: #d84e5b;
 }
 
 .menu-global__item--retour:hover {
-    background: #fef4e5;
-    color: #9a6400;
+    background: #fff6dd;
+    color: #b8860b;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1199.98px) {
+    .a-valider {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .a-valider {
+        padding: 24px 16px 20px;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .a-valider {
+        padding: 20px 12px 16px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spin,
+    .menu__toggle {
+        animation: none !important;
+        transition: none !important;
+    }
 }
 </style>

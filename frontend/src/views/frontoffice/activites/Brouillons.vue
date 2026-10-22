@@ -150,6 +150,21 @@ const positionMenu = ref({ top: 0, left: 0 })
 const modale = ref<ModaleEnCours | null>(null)
 
 // ------------------------------------------------------------------
+// En-tête : date du jour
+// ------------------------------------------------------------------
+
+const dateDuJour = computed(() =>
+    new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    })
+        .format(new Date())
+        .toUpperCase()
+)
+
+// ------------------------------------------------------------------
 // Pont sélection <-> BaseTable
 // ------------------------------------------------------------------
 
@@ -214,9 +229,6 @@ const etapePrecedenteSelection = computed<string | null>(() => {
 /**
  * Vrai dès qu'au moins une ligne sélectionnée peut avancer (a une étape
  * suivante).
- *
- * Le bouton de lot suit la même règle que le menu de ligne : pas d'action
- * sans cible.
  */
 const peutSoumettreSelection = computed<boolean>(() => {
     if (!selection.value.size) return false
@@ -268,6 +280,8 @@ const peutRenvoyerSelection = computed<boolean>(() => {
 // ------------------------------------------------------------------
 
 async function charger(): Promise<void> {
+    if (chargement.value) return
+
     chargement.value = true
     erreur.value = null
 
@@ -338,11 +352,6 @@ function basculerMenu(item: LigneASoumettre, event: MouseEvent): void {
 
 /**
  * Fermer le menu au clic ailleurs, au scroll, ou à Échap.
- *
- * Trois listeners plutôt qu'un backdrop : un backdrop plein écran capterait
- * les clics destinés à d'autres contrôles, et resterait incompatible avec le
- * Teleport. Le scroll est capté en phase de capture (`true`) pour intercepter
- * aussi les scrolls de conteneurs internes, pas seulement celui de window.
  */
 function fermerMenu(): void {
     menuItem.value = null
@@ -394,8 +403,6 @@ function toutDeselectionner(): void {
 
 /**
  * Ouvrir la modale pour avancer une ligne (soumission).
- *
- * Le sens est 'AVANCER' : la ligne a une étape suivante, on y va.
  */
 function soumettreLigne(item: LigneASoumettre): void {
     fermerMenu()
@@ -427,15 +434,6 @@ function renvoyerLigne(item: LigneASoumettre): void {
 // Décisions groupées
 // ------------------------------------------------------------------
 
-/**
- * Ouvrir la modale pour faire avancer la sélection.
- *
- * ON FILTRE AVANT D'OUVRIR LA MODALE
- *
- * Une ligne sans étape suivante ne peut pas avancer -- elle passe par
- * `validerFinalSelection`. L'inclure dans le compte ferait afficher "3
- * activités seront soumises" alors que deux seulement le seraient.
- */
 function soumettreSelection(): void {
     const ids = lignes.value
         .filter(l => selection.value.has(l.id) && l.etapeSuivante)
@@ -446,15 +444,6 @@ function soumettreSelection(): void {
     modale.value = { sens: 'AVANCER', ids }
 }
 
-/**
- * Ouvrir la modale pour valider définitivement la sélection.
- *
- * ON FILTRE SUR LES LIGNES SANS ÉTAPE SUIVANTE
- *
- * Une ligne qui a une étape suivante ne peut pas être "validée finalement" :
- * elle est en cours de circuit, pas à son terme. L'inclure dans le compte
- * ferait mentir la modale.
- */
 function validerFinalSelection(): void {
     const ids = lignes.value
         .filter(l => selection.value.has(l.id) && !l.etapeSuivante)
@@ -465,12 +454,6 @@ function validerFinalSelection(): void {
     modale.value = { sens: 'AVANCER', ids }
 }
 
-/**
- * Ouvrir la modale pour faire reculer la sélection.
- *
- * Même filtre que `soumettreSelection`, dans l'autre sens : seules les
- * lignes avec une étape précédente sont retenues.
- */
 function renvoyerSelection(): void {
     const ids = lignes.value
         .filter(l => selection.value.has(l.id) && l.etapePrecedente)
@@ -491,13 +474,6 @@ function fermerModale(): void {
 
 /**
  * Envoyer la décision une fois le motif saisi dans la modale.
- *
- * PAS DE SECONDE CONFIRMATION
- *
- * La modale nomme l'étape cible, permet un commentaire, et dispose d'un
- * bouton Annuler. C'est suffisant : le geste est délibéré, la conséquence
- * est écrite noir sur blanc, et revenir en arrière reste possible tant que
- * le bouton n'a pas été cliqué.
  */
 function surModaleConfirmee(commentaire: string): void {
     if (!modale.value) return
@@ -512,18 +488,6 @@ function surModaleConfirmee(commentaire: string): void {
 // Exécution d'un lot
 // ------------------------------------------------------------------
 
-/**
- * Envoyer une décision à plusieurs activités, l'une après l'autre.
- *
- * SÉQUENTIEL ET NON PARALLÈLE : une soumission est une écriture d'état, et
- * un lot simultané verrait le même verrou plusieurs fois.
- *
- * UNE REQUÊTE PAR ACTIVITÉ : le backend n'expose qu'un endpoint par
- * activité. Une panne ou un refus n'annule donc pas les autres.
- *
- * UNE PANNE INTERROMPT LE LOT : le reste partirait sur une connexion morte,
- * et l'utilisateur verrait des lignes disparaître sans confirmation.
- */
 async function executerLot(
     ids: number[],
     sens: SensSoumission,
@@ -571,20 +535,6 @@ async function executerLot(
 
 /**
  * Envoyer la soumission au backend, dans un sens ou dans l'autre.
- *
- * UN SEUL CHEMIN DE CODE POUR LES DEUX DIRECTIONS
- *
- * La seule différence entre avancer et reculer est le paramètre `retour` et
- * le service tapé (qui reste le même endpoint, distingué par ce booléen).
- * Séparer les deux traitements dupliquerait toute la mécanique de retrait,
- * de message et de 409.
- *
- * UN 409 RETIRE LA LIGNE : elle a déjà quitté les brouillons (soumise
- * ailleurs, ou ramenée par un autre onglet), la garder avec une action qui
- * échouera toujours serait mentir.
- *
- * UNE PANNE LAISSE LA LIGNE : rien n'a été écrit, l'effacer ferait croire
- * le contraire.
  */
 async function envoyerUne(
     id: number,
@@ -624,9 +574,6 @@ async function envoyerUne(
 
 /**
  * Retire une ligne du tableau courant.
- *
- * Retire aussi l'id de la sélection : sinon un « tout désélectionner »
- * suivant remettrait un id fantôme dans le Set.
  */
 function retirer(id: number): void {
     lignes.value = lignes.value.filter(l => l.id !== id)
@@ -635,9 +582,6 @@ function retirer(id: number): void {
 
 /**
  * Code lisible d'une activité, pour nommer un refus sans relire la liste.
- *
- * Relevé AVANT tout retrait, sinon la ligne a disparu et il ne resterait
- * qu'un identifiant que l'utilisateur ne peut pas relier à rien.
  */
 function codeDe(id: number): string {
     return lignes.value.find(l => l.id === id)?.code ?? `#${id}`
@@ -646,13 +590,32 @@ function codeDe(id: number): string {
 
 <template>
     <div class="a-soumettre">
-        <!-- ============ EN-TETE ============ -->
-        <div class="page-header">
-            <h1 class="page-title">Activités à soumettre</h1>
-            <p class="page-subtitle">
-                Brouillons en attente de soumission au circuit de validation
-            </p>
-        </div>
+        <!-- ============ EN-TÊTE ============ -->
+        <header class="welcome-row">
+            <div class="welcome-row__left">
+                <div class="eyebrow">
+                    <span class="live-dot"></span>
+                    {{ dateDuJour }}
+                </div>
+                <h1>Activités à soumettre</h1>
+                <span class="title-divider" aria-hidden="true"></span>
+                <p class="subheading">
+                    Brouillons en attente de soumission au circuit de validation
+                </p>
+            </div>
+
+            <div class="welcome-row__right">
+                <BaseButton
+                    variant="secondary"
+                    :loading="chargement"
+                    :disabled="chargement"
+                    @click="charger"
+                >
+                    <i class="bi bi-arrow-clockwise"></i>
+                    Actualiser
+                </BaseButton>
+            </div>
+        </header>
 
         <!-- ============ MESSAGES ============ -->
         <div v-if="succes" class="alert alert-success d-flex align-items-center gap-2" role="status">
@@ -667,23 +630,19 @@ function codeDe(id: number): string {
             <button type="button" class="btn-close ms-auto" @click="erreur = null"></button>
         </div>
 
-        <!--
-            ============ BARRE DE LOT ============
+        <!-- ============ CHARGEMENT ============ -->
+        <div v-if="chargement && !lignes.length && !erreur" class="detail-state">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-3 mb-0">Chargement des brouillons…</p>
+        </div>
 
-            N'apparaît qu'avec au moins une coche : avant, elle serait trois
-            contrôles sans effet. Elle ne remplace pas le menu par ligne --
-            les deux usages coexistent, traiter au cas par cas ou vider un
-            lot d'un coup.
-
-            TROIS ACTIONS, CHACUNE CONDITIONNELLE
-            Les trois boutons (Soumettre, Valider final, Renvoyer) n'ont
-            pas la même condition d'apparition :
-              - Soumettre : au moins une ligne a une étape suivante
-              - Valider : au moins une ligne n'a pas d'étape suivante
-              - Renvoyer : au moins une ligne a une étape précédente
-            Un bouton actif sans effet promet une action que rien ne fait.
-        -->
-        <div v-if="selection.size > 0" class="lot" role="toolbar" aria-label="Actions sur la sélection">
+        <!-- ============ BARRE DE LOT ============ -->
+        <div
+            v-else-if="selection.size > 0"
+            class="lot"
+            role="toolbar"
+            aria-label="Actions sur la sélection"
+        >
             <span class="lot__compte" role="status">
                 {{ selection.size }} / {{ lignes.length }} sélectionnée(s)
             </span>
@@ -701,45 +660,44 @@ function codeDe(id: number): string {
 
                 <span class="lot__separateur" aria-hidden="true"></span>
 
-                <!--
-                    Soumettre : pour les lignes qui ont une étape suivante.
-                -->
-                <BaseButton v-if="peutSoumettreSelection" variant="success" size="sm" :loading="enCours.size > 0"
-                    :disabled="enCours.size > 0" @click="soumettreSelection">
+                <BaseButton
+                    v-if="peutSoumettreSelection"
+                    variant="success"
+                    size="sm"
+                    :loading="enCours.size > 0"
+                    :disabled="enCours.size > 0"
+                    @click="soumettreSelection"
+                >
                     <i class="bi bi-send"></i>
                     Soumettre{{ etapeSuivanteSelection ? ` (${etapeSuivanteSelection})` : '' }}
                 </BaseButton>
 
-                <!--
-                    Valider (validation finale) : pour les lignes qui n'ont
-                    PLUS d'étape suivante -- elles sont à la dernière étape
-                    du circuit. Même teinte que "Soumettre" -- les deux sont
-                    des actions vers l'avant -- ce qui les distingue, c'est
-                    le libellé, pas la couleur.
-                -->
-                <BaseButton v-if="peutValiderFinalSelection" variant="success" size="sm" :loading="enCours.size > 0"
-                    :disabled="enCours.size > 0" @click="validerFinalSelection">
+                <BaseButton
+                    v-if="peutValiderFinalSelection"
+                    variant="success"
+                    size="sm"
+                    :loading="enCours.size > 0"
+                    :disabled="enCours.size > 0"
+                    @click="validerFinalSelection"
+                >
                     <i class="bi bi-check-circle"></i>
                     Valider (validation finale)
                 </BaseButton>
 
-                <!--
-                    Renvoyer : pour les lignes qui ont une étape précédente.
-                -->
-                <BaseButton v-if="peutRenvoyerSelection" variant="warning" size="sm" :disabled="enCours.size > 0"
-                    @click="renvoyerSelection">
+                <BaseButton
+                    v-if="peutRenvoyerSelection"
+                    variant="warning"
+                    size="sm"
+                    :disabled="enCours.size > 0"
+                    @click="renvoyerSelection"
+                >
                     <i class="bi bi-arrow-counterclockwise"></i>
                     Renvoyer{{ etapePrecedenteSelection ? ` (${etapePrecedenteSelection})` : '' }}
                 </BaseButton>
             </div>
         </div>
 
-        <!--
-            ============ ETAT VIDE ============
-
-            Masque sur une erreur : "aucun brouillon" et "service
-            indisponible" ne disent pas la même chose.
-        -->
+        <!-- ============ ÉTAT VIDE ============ -->
         <div v-if="!chargement && !lignes.length && !erreur" class="vide">
             <i class="bi bi-inbox"></i>
             <p class="vide__titre">Aucune activité à soumettre</p>
@@ -749,17 +707,23 @@ function codeDe(id: number): string {
             </p>
         </div>
 
-        <!--
-            ============ TABLEAU ============
-        -->
-        <BaseTable v-if="lignes.length" v-model:selectedItems="itemsSelectionnes" :items="lignes" :columns="COLONNES"
-            :loading="chargement" :page-size="20" :sortable="false" multi-select custom-class="a-soumettre__table">
-            <!-- ============ CELLULE ACTIVITE ============ -->
+        <!-- ============ TABLEAU ============ -->
+        <BaseTable
+            v-if="lignes.length"
+            v-model:selectedItems="itemsSelectionnes"
+            :items="lignes"
+            :columns="COLONNES"
+            :loading="chargement"
+            :page-size="20"
+            :sortable="false"
+            multi-select
+            custom-class="a-soumettre__table"
+        >
             <template #cell-activite="{ item }">
-                <router-link class="activite__lien" :to="{
-                    name: 'activite-detail',
-                    params: { id: String(item.id) },
-                }">
+                <router-link
+                    class="activite__lien"
+                    :to="{ name: 'activite-detail', params: { id: String(item.id) } }"
+                >
                     <span class="activite__entete">
                         <span class="activite__code">{{ item.code }}</span>
                         <span v-if="item.reference" class="activite__ref">
@@ -772,17 +736,13 @@ function codeDe(id: number): string {
                 </router-link>
             </template>
 
-            <!-- ============ CELLULE ETAPE SUIVANTE ============ -->
             <template #cell-etapeSuivante="{ item }">
                 <span v-if="item.etapeSuivante" class="etape etape--suivante">
                     {{ item.etapeSuivante.libelle }}
                 </span>
-                <span v-else class="etape etape--finale">
-                    Validation finale
-                </span>
+                <span v-else class="etape etape--finale">Validation finale</span>
             </template>
 
-            <!-- ============ CELLULE ETAPE PRECEDENTE ============ -->
             <template #cell-etapePrecedente="{ item }">
                 <span v-if="item.etapePrecedente" class="etape etape--precedente">
                     {{ item.etapePrecedente.libelle }}
@@ -790,7 +750,6 @@ function codeDe(id: number): string {
                 <span v-else class="text-muted">—</span>
             </template>
 
-            <!-- ============ CELLULE PERIODE ============ -->
             <template #cell-periode="{ item }">
                 <template v-if="item.dateDebutPrevue">
                     <span>{{ formatDateSeule(item.dateDebutPrevue) }}</span>
@@ -800,51 +759,56 @@ function codeDe(id: number): string {
                 <span v-else class="text-muted">—</span>
             </template>
 
-            <!-- ============ CELLULE ACTIONS ============ -->
             <template #cell-actions="{ item }">
-                <button type="button" class="menu__toggle" :aria-expanded="menuItem?.id === item.id"
-                    aria-haspopup="menu" :aria-label="`Actions pour ${item.code}`" :disabled="enCours.has(item.id)"
-                    @click="basculerMenu(item, $event)">
+                <button
+                    type="button"
+                    class="menu__toggle"
+                    :aria-expanded="menuItem?.id === item.id"
+                    aria-haspopup="menu"
+                    :aria-label="`Actions pour ${item.code}`"
+                    :disabled="enCours.has(item.id)"
+                    @click="basculerMenu(item, $event)"
+                >
                     <i v-if="enCours.has(item.id)" class="bi bi-arrow-repeat spin" aria-hidden="true"></i>
                     <i v-else class="bi bi-three-dots-vertical" aria-hidden="true"></i>
                 </button>
             </template>
         </BaseTable>
 
-        <!--
-            ============ MENU D'ACTIONS ============
-
-            Téléporté dans le body et en position fixed : le conteneur du
-            tableau porte un overflow-x: auto qui clippe tout menu en
-            position absolute dès qu'il dépasse la dernière ligne.
-
-            DEUX ITEMS POUR L'ACTION VERS L'AVANT, JAMAIS LES DEUX
-            Une ligne qui a une étape suivante se soumet à cette étape --
-            on nomme la cible. Une ligne qui n'en a pas valide définitivement
-            -- il n'y a pas de cible à nommer. Le v-if / v-else est
-            volontairement exclusif.
-        -->
+        <!-- ============ MENU D'ACTIONS (téléporté) ============ -->
         <Teleport to="body">
             <ul v-if="menuItem" class="menu-global" role="menu" :style="styleMenu" @click.stop>
                 <li v-if="menuItem.etapeSuivante" role="none">
-                    <button type="button" role="menuitem" class="menu-global__item menu-global__item--suivante"
-                        @click="soumettreLigne(menuItem)">
+                    <button
+                        type="button"
+                        role="menuitem"
+                        class="menu-global__item menu-global__item--suivante"
+                        @click="soumettreLigne(menuItem)"
+                    >
                         <i class="bi bi-send"></i>
                         Soumettre à {{ menuItem.etapeSuivante.libelle }}
                     </button>
                 </li>
 
                 <li v-else role="none">
-                    <button type="button" role="menuitem" class="menu-global__item menu-global__item--finale"
-                        @click="validerFinalLigne(menuItem)">
+                    <button
+                        type="button"
+                        role="menuitem"
+                        class="menu-global__item menu-global__item--finale"
+                        @click="validerFinalLigne(menuItem)"
+                    >
                         <i class="bi bi-check-circle"></i>
                         Valider (validation finale)
                     </button>
                 </li>
 
                 <li v-if="menuItem.etapePrecedente" role="none">
-                    <button type="button" role="menuitem" class="menu-global__item menu-global__item--precedente"
-                        @click="renvoyerLigne(menuItem)">
+                    <button
+                        type="button"
+                        role="menuitem"
+                        class="menu-global__item menu-global__item--precedente"
+                        @click="renvoyerLigne(menuItem)"
+                    >
                         <i class="bi bi-arrow-counterclockwise"></i>
                         Renvoyer à {{ menuItem.etapePrecedente.libelle }}
                     </button>
@@ -852,47 +816,68 @@ function codeDe(id: number): string {
             </ul>
         </Teleport>
 
-        <!--
-            ============ MODALE DE DÉCISION ============
-
-            Rendue hors de la boucle et non sur chaque ligne : une seule
-            modale pour toute la page.
-
-            MAPPING D'ISSUE
-            La modale ne connaît que trois issues : VALIDE, REJETE,
-            RETOUR_MODIFICATION. On mappe AVANCER sur VALIDE (action
-            positive) et RECULER sur RETOUR_MODIFICATION (action de retour).
-        -->
-        <DecisionActiviteModal v-if="modale" :modelValue="true"
-            :issue="modale.sens === 'RECULER' ? 'RETOUR_MODIFICATION' : 'VALIDE'" :nombre="modale.ids.length"
-            :loading="enCours.size > 0" @update:modelValue="fermerModale" @confirme="surModaleConfirmee" />
+        <!-- ============ MODALE DE DÉCISION ============ -->
+        <DecisionActiviteModal
+            v-if="modale"
+            :modelValue="true"
+            :issue="modale.sens === 'RECULER' ? 'RETOUR_MODIFICATION' : 'VALIDE'"
+            :nombre="modale.ids.length"
+            :loading="enCours.size > 0"
+            @update:modelValue="fermerModale"
+            @confirme="surModaleConfirmee"
+        />
     </div>
 </template>
 
 <style scoped>
 .a-soumettre {
-    padding: 1.5rem 0 2rem;
+    --primary-color: #1a2a6c;
+    --secondary-color: #2a3f94;
+    --bg-color: #f5f7fa;
+    --surface-color: #fff;
+    --card-bg: #fff;
+    --text-color: #15233c;
+    --text-muted-custom: #6b7280;
+    --border-color: #e6ebf3;
+    --radius-xl: 16px;
+    --dts-navy: #1a2a6c;
+    --dts-blue: #1769c2;
+    --dts-muted: #7b8799;
+    --dts-surface: #fff;
+    --dts-border: #e6ebf3;
+    min-height: calc(100vh - 68px);
+    padding: 34px 38px 24px;
+    color: #15233c;
+    font-family: "DM Sans", "Segoe UI", sans-serif;
+    background:
+        radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .055) 0, transparent 38%),
+        radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .065) 0, transparent 36%),
+        #f5f7fa;
 }
 
-/* --- En-tete --- */
-.page-header {
+/* ============================================================
+   EN-TÊTE — override du welcome-row global (margin-bottom)
+   ============================================================ */
+.a-soumettre .welcome-row {
     margin-bottom: 1.5rem;
 }
 
-.page-title {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #1a2b3c;
-    margin: 0;
+/* ============================================================
+   ÉTAT DE CHARGEMENT
+   ============================================================ */
+.detail-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3.5rem 1.5rem;
+    text-align: center;
+    color: #7b8799;
 }
 
-.page-subtitle {
-    font-size: 0.9rem;
-    color: #74879b;
-    margin: 0.2rem 0 0;
-}
-
-/* --- Barre de lot --- */
+/* ============================================================
+   BARRE DE LOT
+   ============================================================ */
 .lot {
     display: flex;
     align-items: center;
@@ -900,15 +885,18 @@ function codeDe(id: number): string {
     flex-wrap: wrap;
     padding: 0.7rem 1rem;
     margin-bottom: 1rem;
-    background: #f0f7ff;
-    border: 1px solid #c7ddf5;
-    border-radius: 10px;
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 16px;
+    box-shadow:
+        0 1px 2px rgba(26, 42, 108, .04),
+        0 8px 24px rgba(26, 42, 108, .06);
 }
 
 .lot__compte {
     font-size: 0.9rem;
     font-weight: 600;
-    color: #1a73c4;
+    color: #1a2a6c;
     white-space: nowrap;
 }
 
@@ -922,15 +910,17 @@ function codeDe(id: number): string {
 .lot__separateur {
     width: 1px;
     align-self: stretch;
-    background: #c7ddf5;
+    background: #e6ebf3;
     margin: 0 0.25rem;
 }
 
-/* --- Etat vide --- */
+/* ============================================================
+   ÉTAT VIDE
+   ============================================================ */
 .vide {
     text-align: center;
     padding: 3rem 1rem;
-    color: #74879b;
+    color: #7b8799;
 }
 
 .vide i {
@@ -942,7 +932,7 @@ function codeDe(id: number): string {
     margin: 0.75rem 0 0;
     font-size: 1rem;
     font-weight: 600;
-    color: #1a2b3c;
+    color: #1a2a6c;
 }
 
 .vide__detail {
@@ -950,31 +940,33 @@ function codeDe(id: number): string {
     font-size: 0.9rem;
 }
 
-/* ==============================================================
+/* ============================================================
    ADAPTATION DU TABLEAU
-   ============================================================== */
+   ============================================================ */
 .a-soumettre :deep(.base-table-container) table {
     min-width: 720px;
 }
 
-/* ==============================================================
-   COLONNE ACTIVITE -- AUTORISER LE RETOUR A LA LIGNE
+.a-soumettre :deep(.base-table-container) {
+    border-radius: 16px;
+    border-color: #e6ebf3;
+    box-shadow:
+        0 1px 2px rgba(26, 42, 108, .04),
+        0 8px 24px rgba(26, 42, 108, .06);
+}
 
-   BaseTable pose `white-space: nowrap` sur TOUS les <td> du tableau.
-   Sans lever cette règle sur la seule colonne de la désignation, un
-   titre long reste sur une ligne et pousse les autres colonnes hors
-   de l'écran.
-   ============================================================== */
+/* BaseTable pose white-space: nowrap sur TOUS les <td>.
+   On le lève sur la colonne de la désignation pour qu'un titre long
+   passe sur deux lignes plutôt que de pousser les suivantes hors écran. */
 .a-soumettre :deep(.colonne-activite) {
     white-space: normal;
     min-width: 220px;
     max-width: 360px;
 }
 
-/* ==============================================================
-   TEXTE DE LA DESIGNATION
-   ============================================================== */
-
+/* ============================================================
+   TEXTE DE LA DÉSIGNATION
+   ============================================================ */
 .activite__lien {
     display: flex;
     flex-direction: column;
@@ -984,7 +976,7 @@ function codeDe(id: number): string {
 }
 
 .activite__lien:hover .activite__designation {
-    color: #1a73c4;
+    color: #4a6cf7;
 }
 
 .activite__entete {
@@ -997,13 +989,13 @@ function codeDe(id: number): string {
 .activite__code {
     font-size: 0.78rem;
     font-weight: 700;
-    color: #1a73c4;
+    color: #3b63d9;
     letter-spacing: 0.02em;
 }
 
 .activite__ref {
     font-size: 0.72rem;
-    color: #93a5b8;
+    color: #8a95a8;
 }
 
 .activite__designation {
@@ -1014,7 +1006,9 @@ function codeDe(id: number): string {
     overflow-wrap: anywhere;
 }
 
-/* --- Badges d'etape --- */
+/* ============================================================
+   BADGES D'ÉTAPE
+   ============================================================ */
 .etape {
     display: inline-block;
     padding: 0.2rem 0.55rem;
@@ -1025,34 +1019,34 @@ function codeDe(id: number): string {
 }
 
 .etape--suivante {
-    background: #e6f5eb;
-    color: #1f7a3e;
+    background: #eaf0ff;
+    color: #3b63d9;
 }
 
 .etape--precedente {
-    background: #fef4e5;
-    color: #9a6400;
+    background: #fff6dd;
+    color: #b8860b;
 }
 
-/*
-    Badge "Validation finale" dans la colonne Étape suivante.
-
-    Il remplace le tiret quand etapeSuivante est nulle, pour que la
-    cellule dise ce qui va se passer (validation terminale) plutôt que
-    de laisser un vide qui se lit comme une donnée manquante.
-*/
+/* Badge "Validation finale" — remplace le tiret quand etapeSuivante
+   est nulle, pour dire ce qui va se passer plutôt que laisser un
+   vide qui se lit comme une donnée manquante. */
 .etape--finale {
-    background: #d6efe0;
-    color: #15663a;
+    background: #e4f7f0;
+    color: #138a68;
 }
 
-/* --- Periode --- */
+/* ============================================================
+   PÉRIODE
+   ============================================================ */
 .periode__separateur {
     margin: 0 0.35rem;
-    color: #93a5b8;
+    color: #8a95a8;
 }
 
-/* --- Bouton du menu --- */
+/* ============================================================
+   BOUTON DU MENU
+   ============================================================ */
 .menu__toggle {
     width: 32px;
     height: 32px;
@@ -1061,15 +1055,15 @@ function codeDe(id: number): string {
     justify-content: center;
     border: none;
     background: transparent;
-    border-radius: 6px;
-    color: #74879b;
+    border-radius: 8px;
+    color: #7b8799;
     cursor: pointer;
     transition: background-color 0.12s, color 0.12s;
 }
 
 .menu__toggle:hover:not(:disabled) {
-    background: #eef2f6;
-    color: #1a2b3c;
+    background: #f3f6fc;
+    color: #1a2a6c;
 }
 
 .menu__toggle:disabled {
@@ -1078,8 +1072,8 @@ function codeDe(id: number): string {
 }
 
 .menu__toggle[aria-expanded='true'] {
-    background: #eef2f6;
-    color: #1a2b3c;
+    background: #edf1fd;
+    color: #1a2a6c;
 }
 
 .spin {
@@ -1092,9 +1086,9 @@ function codeDe(id: number): string {
     }
 }
 
-/* ==============================================================
-   MENU GLOBAL (teleporte dans le body)
-   ============================================================== */
+/* ============================================================
+   MENU GLOBAL (téléporté dans le body)
+   ============================================================ */
 .menu-global {
     position: fixed;
     z-index: 1000;
@@ -1102,9 +1096,9 @@ function codeDe(id: number): string {
     margin: 0;
     list-style: none;
     background: #fff;
-    border: 1px solid #dbe4ec;
-    border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(26, 43, 60, 0.15);
+    border: 1px solid #e6ebf3;
+    border-radius: 12px;
+    box-shadow: 0 12px 28px rgba(26, 42, 108, .16);
 }
 
 .menu-global__item {
@@ -1115,36 +1109,72 @@ function codeDe(id: number): string {
     padding: 0.5rem 0.65rem;
     border: none;
     background: transparent;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 0.88rem;
     text-align: left;
-    color: #1a2b3c;
+    color: #40516b;
     cursor: pointer;
     transition: background-color 0.12s, color 0.12s;
 }
 
 .menu-global__item:hover {
-    background: #f0f5fa;
+    background: #f3f6fc;
 }
 
 .menu-global__item--suivante:hover {
-    background: #e6f5eb;
-    color: #1f7a3e;
+    background: #eaf0ff;
+    color: #3b63d9;
 }
 
-/*
-    Vert plus appuyé que --suivante : l'action vers l'avant quand elle
-    mène à la validation finale est plus engageante qu'une simple
-    soumission à une étape intermédiaire. Le survol le signale, sans
-    pour autant crier au danger -- c'est un succès, pas un refus.
-*/
+/* Vert plus appuyé que --suivante : l'action vers l'avant quand elle
+   mène à la validation finale est plus engageante qu'une simple
+   soumission à une étape intermédiaire. */
 .menu-global__item--finale:hover {
-    background: #d6efe0;
-    color: #15663a;
+    background: #e4f7f0;
+    color: #138a68;
 }
 
 .menu-global__item--precedente:hover {
-    background: #fef4e5;
-    color: #9a6400;
+    background: #fff6dd;
+    color: #b8860b;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1199.98px) {
+    .a-soumettre {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .a-soumettre {
+        padding: 24px 16px 20px;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .a-soumettre {
+        padding: 20px 12px 16px;
+    }
+    .lot {
+        align-items: stretch;
+    }
+    .lot__actions {
+        margin-left: 0;
+    }
+    .lot__separateur {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spin,
+    .menu__toggle {
+        animation: none !important;
+        transition: none !important;
+    }
 }
 </style>

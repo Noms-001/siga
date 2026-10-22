@@ -1,6 +1,7 @@
 package mg.bank.backend.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import mg.bank.backend.model.Role;
@@ -11,4 +12,8 @@ public interface RoleRepository extends JpaRepository<Role, Integer> {
     boolean existsByCode(String code);
 
     boolean existsByCodeAndIdRoleNot(String code, Integer idRole);
+
+    Optional<Role> findByCodeIgnoreCase(String code);
+
+    List<Role> findByCodeIn(List<String> codes);
 }

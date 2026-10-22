@@ -1,10 +1,4 @@
 <template>
-    <!--
-        ============ CONFIRMATION ============
-
-        Placee hors du contenu pour qu'elle ne soit pas dupliquee par les deux
-        sections de la page, et teleporte dans le body par BaseModal.
-    -->
     <BaseConfirm
         v-model="confirmation.ouvert.value"
         :demande="confirmation.demande.value"
@@ -14,243 +8,313 @@
     />
 
     <div class="profile-page">
-        <!-- En-tête -->
-        <div class="profile-header mb-4">
-            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-                <div>
-                    <h1 class="page-title">Mon profil</h1>
-                    <p class="page-subtitle text-muted">
-                        Consultez et gérez vos informations personnelles
-                    </p>
+        <!-- ============ EN-TÊTE ============ -->
+        <header class="welcome-row">
+            <div class="welcome-row__left">
+                <div class="eyebrow">
+                    <span class="live-dot"></span>
+                    {{ dateDuJour }}
                 </div>
+                <h1>Mon profil</h1>
+                <span class="title-divider" aria-hidden="true"></span>
+                <p class="subheading">
+                    Consultez et gérez vos informations personnelles
+                </p>
+            </div>
+
+            <div class="welcome-row__right">
+                <BaseButton
+                    v-if="user"
+                    variant="secondary"
+                    :loading="loading"
+                    :disabled="loading"
+                    @click="loadProfile"
+                >
+                    <i class="bi bi-arrow-clockwise"></i>
+                    Actualiser
+                </BaseButton>
+            </div>
+        </header>
+
+        <!-- ============ CHARGEMENT ============ -->
+        <div v-if="loading" class="loading-state">
+            <div class="profile-skeleton">
+                <div class="profile-skeleton__avatar"></div>
+                <div class="skeleton skeleton--line skeleton--short"></div>
+                <div class="skeleton skeleton--line skeleton--medium"></div>
+            </div>
+            <div class="info-skeleton">
+                <div class="skeleton skeleton--line skeleton--short"></div>
+                <div class="skeleton skeleton--line"></div>
+                <div class="skeleton skeleton--line skeleton--medium"></div>
             </div>
         </div>
 
-        <!-- Loading state -->
-        <div v-if="loading" class="profile-loading">
-            <div class="skeleton skeleton-title w-50"></div>
-            <div class="skeleton skeleton-text w-75"></div>
-            <div class="skeleton skeleton-text w-50"></div>
+        <!-- ============ ERREUR ============ -->
+        <div v-else-if="error" class="error-state">
+            <div class="error-state__icon">
+                <i class="bi bi-exclamation-circle"></i>
+            </div>
+            <h2 class="error-state__title">Impossible de charger votre profil</h2>
+            <p class="error-state__text">{{ error }}</p>
+            <BaseButton variant="primary" @click="loadProfile">
+                <i class="bi bi-arrow-repeat"></i>
+                Réessayer
+            </BaseButton>
         </div>
 
-        <!-- Contenu -->
-        <div v-else-if="user" class="row g-4">
-            <!-- Carte Avatar -->
-            <div class="col-lg-4">
-                <BaseCard class="profile-avatar-card" :full-height="true">
-                    <div class="text-center p-3">
-                        <div class="avatar-circle mx-auto mb-3">
-                            <span class="avatar-initials">{{ userInitials }}</span>
-                        </div>
-                        <h2 class="avatar-name h5 mb-1">{{ userFullName }}</h2>
-                        <p class="avatar-role text-muted mb-3">
-                            {{ userPoste || 'Poste non défini' }}
-                        </p>
-                        <div class="avatar-status d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill">
-                            <span class="status-dot active"></span>
-                            <span class="status-text small fw-medium">Compte actif</span>
-                        </div>
+        <!-- ============ CONTENU ============ -->
+        <div v-else-if="user" class="profile-layout">
+            <!-- ============ SIDEBAR : AVATAR + STATUT ============ -->
+            <aside class="profile-side">
+                <section class="avatar-card">
+                    <div class="avatar-card__circle">
+                        <span class="avatar-card__initials">{{ userInitials }}</span>
                     </div>
-                </BaseCard>
-            </div>
+                    <h2 class="avatar-card__name">{{ userFullName }}</h2>
+                    <p class="avatar-card__role">
+                        {{ userPoste || 'Poste non défini' }}
+                    </p>
+                    <span class="avatar-card__status">
+                        <span class="status-dot"></span>
+                        Compte actif
+                    </span>
+                </section>
+            </aside>
 
-            <!-- Informations personnelles -->
-            <div class="col-lg-8">
-                <BaseCard class="profile-info-card">
-                    <template #title>
-                        <div class="d-flex align-items-center gap-2 border-bottom pb-2 mb-3">
-                            <i class="bi bi-person text-primary"></i>
-                            <h3 class="card-title h6 mb-0">Informations personnelles</h3>
-                        </div>
-                    </template>
+            <!-- ============ COLONNE PRINCIPALE ============ -->
+            <div class="profile-main">
+                <!-- ===== INFORMATIONS PERSONNELLES ===== -->
+                <section class="content-card">
+                    <header class="content-card__head">
+                        <span class="content-card__icon" aria-hidden="true">
+                            <i class="bi bi-person"></i>
+                        </span>
+                        <h2 class="content-card__title">Informations personnelles</h2>
+                        <span
+                            v-if="isEditingProfile"
+                            class="content-card__badge content-card__badge--edit"
+                        >
+                            Édition
+                        </span>
+                    </header>
 
-                    <!-- Lecture -->
-                    <div v-if="!isEditingProfile" class="row g-3">
-                        <div class="col-md-6">
-                            <div class="info-item">
-                                <label class="info-label text-uppercase text-muted small fw-semibold">Nom</label>
-                                <p class="info-value mb-0">{{ user.nom || 'Non renseigné' }}</p>
+                    <div class="content-card__body">
+                        <!-- Lecture -->
+                        <div v-if="!isEditingProfile" class="info-grid">
+                            <div class="info-row">
+                                <span class="info-row__label">Nom</span>
+                                <span class="info-row__value">
+                                    {{ user.nom || 'Non renseigné' }}
+                                </span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-row__label">Prénom</span>
+                                <span class="info-row__value">
+                                    {{ user.prenom || 'Non renseigné' }}
+                                </span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-row__label">Email</span>
+                                <span class="info-row__value">{{ user.email || 'Non renseigné' }}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-row__label">Téléphone</span>
+                                <span class="info-row__value">
+                                    {{ user.telephone || 'Non renseigné' }}
+                                </span>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="info-item">
-                                <label class="info-label text-uppercase text-muted small fw-semibold">Prénom</label>
-                                <p class="info-value mb-0">{{ user.prenom || 'Non renseigné' }}</p>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="info-item">
-                                <label class="info-label text-uppercase text-muted small fw-semibold">Email</label>
-                                <p class="info-value mb-0">{{ user.email || 'Non renseigné' }}</p>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="info-item">
-                                <label class="info-label text-uppercase text-muted small fw-semibold">Téléphone</label>
-                                <p class="info-value mb-0">{{ user.telephone || 'Non renseigné' }}</p>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Édition en place -->
-                    <div v-else class="row g-3">
-                        <div class="col-md-6">
-                            <BaseInput v-model="form.nom" label="Nom" icon="bi bi-person" :error="errors.nom"
-                                :disabled="isSavingProfile" />
-                        </div>
-                        <div class="col-md-6">
-                            <BaseInput v-model="form.prenom" label="Prénom" icon="bi bi-person" :error="errors.prenom"
-                                :disabled="isSavingProfile" />
-                        </div>
-                        <div class="col-md-6">
-                            <BaseInput v-model="form.email" label="Email" type="email" icon="bi bi-envelope"
-                                :error="errors.email" :disabled="isSavingProfile" />
-                        </div>
-                        <div class="col-md-6">
-                            <BaseInput v-model="form.telephone" label="Téléphone" type="tel" icon="bi bi-telephone"
-                                :error="errors.telephone" :disabled="isSavingProfile" />
-                        </div>
+                        <!-- Édition -->
+                        <div v-else class="edit-form">
+                            <div class="edit-grid">
+                                <div class="edit-field">
+                                    <BaseInput
+                                        v-model="form.nom"
+                                        label="Nom"
+                                        icon="bi bi-person"
+                                        :error="errors.nom"
+                                        :disabled="isSavingProfile"
+                                    />
+                                </div>
+                                <div class="edit-field">
+                                    <BaseInput
+                                        v-model="form.prenom"
+                                        label="Prénom"
+                                        icon="bi bi-person"
+                                        :error="errors.prenom"
+                                        :disabled="isSavingProfile"
+                                    />
+                                </div>
+                                <div class="edit-field">
+                                    <BaseInput
+                                        v-model="form.email"
+                                        label="Email"
+                                        type="email"
+                                        icon="bi bi-envelope"
+                                        :error="errors.email"
+                                        :disabled="isSavingProfile"
+                                    />
+                                </div>
+                                <div class="edit-field">
+                                    <BaseInput
+                                        v-model="form.telephone"
+                                        label="Téléphone"
+                                        type="tel"
+                                        icon="bi bi-telephone"
+                                        :error="errors.telephone"
+                                        :disabled="isSavingProfile"
+                                    />
+                                </div>
+                            </div>
 
-                        <div v-if="formAlert" class="col-12">
-                            <div class="profile-alert" :class="`profile-alert--${formAlert.type}`" role="alert">
-                                <i :class="formAlert.type === 'success' ? 'bi bi-check-circle' : 'bi bi-exclamation-circle'"></i>
+                            <div v-if="formAlert" class="alert" :class="`alert--${formAlert.type}`" role="alert">
+                                <i :class="formAlert.type === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'"></i>
                                 <span>{{ formAlert.message }}</span>
                             </div>
                         </div>
-
-                        <div class="col-12">
-                            <p class="profile-hint mb-0">
-                                <i class="bi bi-info-circle"></i>
-                                L'email sert à vous connecter et à réinitialiser votre mot de passe.
-                                Le modifier vous déconnectera sur vos autres appareils.
-                            </p>
-                        </div>
                     </div>
 
-                    <div class="profile-actions mt-3 pt-3 border-top">
-                        <!-- Bouton lecture -> édition -->
-                        <BaseButton v-if="!isEditingProfile" variant="secondary" class="w-100" @click="startEditProfile">
+                    <footer class="content-card__foot">
+                        <BaseButton v-if="!isEditingProfile" variant="secondary" @click="startEditProfile">
                             <i class="bi bi-pencil"></i>
                             Modifier mes informations
                         </BaseButton>
 
-                        <!-- Boutons édition -->
-                        <div v-else class="d-flex gap-2">
-                            <BaseButton variant="secondary" class="flex-fill" :disabled="isSavingProfile"
-                                @click="cancelEditProfile">
+                        <div v-else class="content-card__actions">
+                            <BaseButton
+                                variant="secondary"
+                                :disabled="isSavingProfile"
+                                @click="cancelEditProfile"
+                            >
                                 Annuler
                             </BaseButton>
-                            <BaseButton variant="primary" class="flex-fill" :loading="isSavingProfile"
-                                @click="saveProfile">
+                            <BaseButton
+                                variant="primary"
+                                :loading="isSavingProfile"
+                                @click="saveProfile"
+                            >
                                 <i class="bi bi-check-lg"></i>
                                 Enregistrer
                             </BaseButton>
                         </div>
-                    </div>
-                </BaseCard>
+                    </footer>
+                </section>
 
-                <!-- Informations professionnelles -->
-                <BaseCard class="profile-info-card mt-4">
-                    <template #title>
-                        <div class="d-flex align-items-center gap-2 border-bottom pb-2 mb-3">
-                            <i class="bi bi-briefcase text-primary"></i>
-                            <h3 class="card-title h6 mb-0">Informations professionnelles</h3>
-                        </div>
-                    </template>
+                <!-- ===== INFORMATIONS PROFESSIONNELLES ===== -->
+                <section class="content-card">
+                    <header class="content-card__head">
+                        <span class="content-card__icon" aria-hidden="true">
+                            <i class="bi bi-briefcase"></i>
+                        </span>
+                        <h2 class="content-card__title">Informations professionnelles</h2>
+                    </header>
 
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <div class="info-item">
-                                <label class="info-label text-uppercase text-muted small fw-semibold">Poste</label>
-                                <p class="info-value mb-0">{{ userPoste || 'Non défini' }}</p>
+                    <div class="content-card__body">
+                        <div class="info-grid info-grid--2">
+                            <div class="info-row">
+                                <span class="info-row__label">Poste</span>
+                                <span class="info-row__value">
+                                    {{ userPoste || 'Non défini' }}
+                                </span>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="info-item">
-                                <label class="info-label text-uppercase text-muted small fw-semibold">Service</label>
-                                <p class="info-value mb-0">{{ user.service || 'Non défini' }}</p>
+                            <div class="info-row">
+                                <span class="info-row__label">Service</span>
+                                <span class="info-row__value">
+                                    {{ user.service || 'Non défini' }}
+                                </span>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="info-item">
-                                <label class="info-label text-uppercase text-muted small fw-semibold">Statut du
-                                    compte</label>
-                                <div class="info-status d-flex align-items-center gap-2">
-                                    <span class="status-dot active"></span>
-                                    <span class="status-text">Actif</span>
-                                </div>
+                            <div class="info-row">
+                                <span class="info-row__label">Statut du compte</span>
+                                <span class="info-row__value info-row__value--status">
+                                    <span class="status-dot"></span>
+                                    Actif
+                                </span>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="info-item">
-                                <label class="info-label text-uppercase text-muted small fw-semibold">Dernière
-                                    connexion</label>
-                                <p class="info-value mb-0">{{ formatDate(user.dateDerniereConnexion) }}</p>
+                            <div class="info-row">
+                                <span class="info-row__label">Dernière connexion</span>
+                                <span class="info-row__value">
+                                    {{ formatDate(user.dateDerniereConnexion) }}
+                                </span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="profile-actions mt-3 pt-3 border-top">
-                        <!-- Bouton lecture -> formulaire -->
-                        <BaseButton v-if="!isEditingPassword" variant="primary" class="w-100" @click="startChangePassword">
+                    <footer class="content-card__foot">
+                        <BaseButton v-if="!isEditingPassword" variant="primary" @click="startChangePassword">
                             <i class="bi bi-key"></i>
                             Modifier mon mot de passe
                         </BaseButton>
 
-                        <!-- Formulaire de changement en place -->
-                        <div v-else class="profile-form">
-                            <BaseInput v-model="passwordForm.ancienMotDePasse" label="Mot de passe actuel" type="password"
-                                icon="bi bi-lock" autocomplete="current-password" :error="passwordErrors.ancienMotDePasse"
-                                :disabled="isSavingPassword" />
+                        <div v-else class="edit-form">
+                            <div class="edit-grid edit-grid--1">
+                                <div class="edit-field">
+                                    <BaseInput
+                                        v-model="passwordForm.ancienMotDePasse"
+                                        label="Mot de passe actuel"
+                                        type="password"
+                                        icon="bi bi-lock"
+                                        autocomplete="current-password"
+                                        :error="passwordErrors.ancienMotDePasse"
+                                        :disabled="isSavingPassword"
+                                    />
+                                </div>
+                                <div class="edit-field">
+                                    <BaseInput
+                                        v-model="passwordForm.password"
+                                        label="Nouveau mot de passe"
+                                        type="password"
+                                        icon="bi bi-lock"
+                                        autocomplete="new-password"
+                                        :error="passwordErrors.password"
+                                        :disabled="isSavingPassword"
+                                    />
+                                </div>
+                                <div class="edit-field">
+                                    <BaseInput
+                                        v-model="passwordForm.confirmPassword"
+                                        label="Confirmer le nouveau mot de passe"
+                                        type="password"
+                                        icon="bi bi-lock"
+                                        autocomplete="new-password"
+                                        :error="passwordErrors.confirmPassword"
+                                        :disabled="isSavingPassword"
+                                    />
+                                </div>
+                            </div>
 
-                            <BaseInput v-model="passwordForm.password" label="Nouveau mot de passe" type="password"
-                                icon="bi bi-lock" autocomplete="new-password" :error="passwordErrors.password"
-                                :disabled="isSavingPassword" />
-
-                            <BaseInput v-model="passwordForm.confirmPassword" label="Confirmer le nouveau mot de passe"
-                                type="password" icon="bi bi-lock" autocomplete="new-password"
-                                :error="passwordErrors.confirmPassword" :disabled="isSavingPassword" />
-
-                            <p class="profile-hint mb-0">
+                            <p class="edit-hint">
                                 <i class="bi bi-info-circle"></i>
-                                Au moins 8 caractères, avec une majuscule, une minuscule, un chiffre et un caractère
-                                spécial.
+                                Au moins 8 caractères, avec une majuscule, une
+                                minuscule, un chiffre et un caractère spécial.
                             </p>
 
-                            <div v-if="passwordAlert" class="profile-alert"
-                                :class="`profile-alert--${passwordAlert.type}`" role="alert">
-                                <i :class="passwordAlert.type === 'success' ? 'bi bi-check-circle' : 'bi bi-exclamation-circle'"></i>
+                            <div v-if="passwordAlert" class="alert" :class="`alert--${passwordAlert.type}`" role="alert">
+                                <i :class="passwordAlert.type === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'"></i>
                                 <span>{{ passwordAlert.message }}</span>
                             </div>
 
-                            <div class="d-flex gap-2">
-                                <BaseButton variant="secondary" class="flex-fill" :disabled="isSavingPassword"
-                                    @click="cancelChangePassword">
+                            <div class="content-card__actions">
+                                <BaseButton
+                                    variant="secondary"
+                                    :disabled="isSavingPassword"
+                                    @click="cancelChangePassword"
+                                >
                                     Annuler
                                 </BaseButton>
-                                <BaseButton variant="primary" class="flex-fill" :loading="isSavingPassword"
-                                    @click="savePassword">
+                                <BaseButton
+                                    variant="primary"
+                                    :loading="isSavingPassword"
+                                    @click="savePassword"
+                                >
                                     <i class="bi bi-check-lg"></i>
                                     Modifier
                                 </BaseButton>
                             </div>
                         </div>
-                    </div>
-                </BaseCard>
-            </div>
-        </div>
-
-        <!-- Erreur -->
-        <div v-else-if="error" class="profile-error d-flex justify-content-center align-items-center"
-            style="min-height: 300px;">
-            <div class="text-center">
-                <i class="bi bi-exclamation-circle text-danger" style="font-size: 3rem;"></i>
-                <h3 class="mt-3">Impossible de charger votre profil</h3>
-                <p class="text-muted">{{ error }}</p>
-                <BaseButton variant="primary" @click="loadProfile">
-                    <i class="bi bi-arrow-repeat"></i>
-                    Réessayer
-                </BaseButton>
+                    </footer>
+                </section>
             </div>
         </div>
     </div>
@@ -264,59 +328,58 @@ import { useConfirmation } from '@/composables/useConfirmation'
 import { formatDate } from '@/utils/date'
 import * as authService from '@/services/auth'
 
-// --- Store ---
 const authStore = useAuthStore()
 
-// --- State ---
+/* -------------------- en-tête -------------------- */
+const dateDuJour = computed(() =>
+    new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    })
+        .format(new Date())
+        .toUpperCase()
+)
+
+/* -------------------- state -------------------- */
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-// --- Édition des informations personnelles ---
+/* Édition des informations personnelles */
 const isEditingProfile = ref(false)
 const isSavingProfile = ref(false)
 const form = ref({ nom: '', prenom: '', email: '', telephone: '' })
 const errors = ref<Record<string, string>>({})
 const formAlert = ref<{ type: 'success' | 'danger'; message: string } | null>(null)
 
-// --- Changement de mot de passe ---
+/* Changement de mot de passe */
 const isEditingPassword = ref(false)
 const isSavingPassword = ref(false)
 const passwordForm = ref({ ancienMotDePasse: '', password: '', confirmPassword: '' })
 const passwordErrors = ref<Record<string, string>>({})
 const passwordAlert = ref<{ type: 'success' | 'danger'; message: string } | null>(null)
 
-// --- Computed ---
+/* -------------------- computed -------------------- */
 const user = computed(() => authStore.user)
 
 const userInitials = computed(() => {
     if (!user.value) return ''
-
     const firstName = user.value.prenom || ''
     const lastName = user.value.nom || ''
-
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
 })
 
 const userFullName = computed(() => {
     if (!user.value) return ''
-
     const firstName = user.value.prenom || ''
     const lastName = user.value.nom || ''
-
     return `${firstName} ${lastName}`.trim()
 })
 
-/**
- * Poste(s) de l'utilisateur.
- *
- * Delegue au store, qui est le seul endroit qui connait la forme de la
- * liste renvoyee par l'API. C est ce point la qui affichait "Poste non
- * defini" : le champ lu ici s appelait `poste`, alors que l'API renvoie
- * `postes`, un tableau.
- */
 const userPoste = computed(() => authStore.user?.poste ?? null)
 
-// --- Methods ---
+/* -------------------- méthodes -------------------- */
 const loadProfile = async () => {
     if (!authStore.isAuthenticated) {
         error.value = 'Vous devez être connecté pour accéder à votre profil.'
@@ -327,7 +390,6 @@ const loadProfile = async () => {
     error.value = null
 
     try {
-        // Charger les données depuis /auth/me
         await authStore.loadProfile()
     } catch (err: any) {
         error.value = err.message || 'Une erreur est survenue lors du chargement du profil.'
@@ -352,11 +414,6 @@ const startEditProfile = () => {
     }
 }
 
-/*
-    Une seule instance pour les deux confirmations de la page : le profil et le
-    mot de passe ne se modifient pas au meme moment, et deux modales
-    superposees laisseraient l'utilisateur deviner laquelle il repond.
-*/
 const confirmation = useConfirmation()
 
 const cancelEditProfile = () => {
@@ -366,14 +423,6 @@ const cancelEditProfile = () => {
     errors.value = {}
 }
 
-/**
- * Enregistrer le profil, apres confirmation.
- *
- * L'email est le sujet du jeton de session : le changer invalide les sessions
- * ouvertes ailleurs. C'est un consequence qu'il faut annoncer avant le clic, et
- * non decouvrir apres coup -- d'ou une confirmation, alors que le reste du
- * formulaire est ordinaire.
- */
 const saveProfile = () => {
     errors.value = {}
     formAlert.value = null
@@ -429,13 +478,10 @@ const enregistrerProfil = async () => {
             return
         }
 
-        // L'email est le sujet du JWT : s'il a changé, on stocke les
-        // nouveaux jetons, sinon la session serait invalidée.
         if (response.data.jetonRenouvele) {
             if (response.data.accessToken) {
                 localStorage.setItem('accessToken', response.data.accessToken)
             }
-
             if (response.data.refreshToken) {
                 localStorage.setItem('refreshToken', response.data.refreshToken)
             }
@@ -470,13 +516,6 @@ const cancelChangePassword = () => {
     passwordForm.value = { ancienMotDePasse: '', password: '', confirmPassword: '' }
 }
 
-/**
- * Changer de mot de passe, apres confirmation.
- *
- * Le nouveau mot de passe n'est pas rappelable apres coup, et l'utilisateur
- * peut avoir saisi un mot de passe deja employe ailleurs : c'est le moment de
- * le dire, pas apres un echec d'authentification.
- */
 const savePassword = () => {
     passwordErrors.value = {}
     passwordAlert.value = null
@@ -524,7 +563,6 @@ const enregistrerMotDePasse = async () => {
         }
 
         cancelChangePassword()
-
         passwordAlert.value = { type: 'success', message: 'Votre mot de passe a été modifié.' }
         passwordErrors.value = {}
     } catch (err) {
@@ -537,14 +575,13 @@ const enregistrerMotDePasse = async () => {
     }
 }
 
-// --- Lifecycle ---
+/* -------------------- lifecycle -------------------- */
 onMounted(() => {
     if (!authStore.isAuthenticated) {
         error.value = 'Vous devez être connecté pour accéder à votre profil.'
         return
     }
 
-    // Si l'utilisateur existe déjà mais manque des données, on recharge
     if (authStore.user && !authStore.user.email) {
         loadProfile()
     } else if (!authStore.user) {
@@ -554,240 +591,561 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* ============================================
-   PROFILE PAGE - Styles personnalisés
-   ============================================ */
-
+/* ============================================================
+   CONTENEUR
+   ============================================================ */
 .profile-page {
-    padding: 0.5rem 0;
+    min-height: calc(100vh - 68px);
+    padding: 34px 38px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    color: #15233c;
+    font-family: "DM Sans", "Segoe UI", sans-serif;
+    background:
+        radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .055) 0, transparent 38%),
+        radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .065) 0, transparent 36%),
+        #f5f7fa;
 }
 
-/* --- Loading Skeleton --- */
-.profile-loading {
+.profile-page .welcome-row {
+    margin-bottom: 0.25rem;
+}
+
+/* ============================================================
+   LAYOUT — sidebar + main
+   ============================================================ */
+.profile-layout {
+    display: grid;
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+    gap: 1.15rem;
+    align-items: start;
+}
+
+.profile-side {
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    max-width: 600px;
+    position: sticky;
+    top: 88px;
 }
 
-.skeleton {
+.profile-main {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    min-width: 0;
+}
+
+/* ============================================================
+   CARTE AVATAR
+   ============================================================ */
+.avatar-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.5rem;
+    padding: 2rem 1.5rem 1.75rem;
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 16px;
+    box-shadow:
+        0 1px 2px rgba(26, 42, 108, .04),
+        0 8px 24px rgba(26, 42, 108, .06);
     position: relative;
     overflow: hidden;
-    background: var(--skeleton-bg, #e9e9ea) !important;
-    border-radius: 4px;
-    height: 1.2rem;
+    min-height: 620px;
 }
 
-.skeleton::after {
-    content: '';
+.avatar-card::before {
+    content: "";
     position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg,
-            transparent,
-            var(--skeleton-highlight, rgba(221, 224, 224, 0.726)),
-            transparent);
-    transform: translateX(-100%);
-    animation: skeleton-loading 1.4s infinite;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #1a2a6c 0%, #4a6cf7 50%, #d4af37 100%);
 }
 
-.skeleton-title {
-    height: 1.8rem;
-}
-
-.skeleton-text {
-    height: 0.9rem;
-}
-
-@keyframes skeleton-loading {
-    0% {
-        transform: translateX(-100%);
-    }
-
-    100% {
-        transform: translateX(100%);
-    }
-}
-
-/* --- Avatar --- */
-.profile-avatar-card {
-    border: 1px solid var(--border-color, #dee2e6);
-    border-radius: var(--radius-lg, 0.5rem);
-    box-shadow: var(--shadow-sm, 0 2px 4px rgba(0, 0, 0, 0.05));
-}
-
-.avatar-circle {
-    width: 100px;
-    height: 100px;
+.avatar-card__circle {
+    display: grid;
+    place-items: center;
+    width: 96px;
+    height: 96px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary-color, #083869), var(--secondary-color, #164493));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px rgba(8, 56, 105, 0.2);
+    background: linear-gradient(135deg, #1a2a6c 0%, #4a6cf7 100%);
+    box-shadow:
+        0 8px 24px rgba(26, 42, 108, .25),
+        0 0 0 4px #fff,
+        0 0 0 6px rgba(212, 175, 55, .5);
+    margin-bottom: 0.75rem;
 }
 
-.avatar-initials {
-    font-size: 2.5rem;
+.avatar-card__initials {
+    font-family: Manrope, "DM Sans", sans-serif;
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 0.02em;
+}
+
+.avatar-card__name {
+    margin: 0;
+    font-family: Manrope, "DM Sans", sans-serif;
+    font-size: 1.1rem;
     font-weight: 700;
-    color: white;
-    letter-spacing: 1px;
+    color: #1a2a6c;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
 }
 
-.avatar-name {
-    font-weight: 600;
-    color: var(--text-color, #0f172a);
+.avatar-card__role {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #6b7280;
 }
 
-.avatar-role {
-    font-size: 0.9rem;
-}
-
-.avatar-status {
-    background: rgba(16, 185, 129, 0.1);
+.avatar-card__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 20px;
+    background: rgba(74, 216, 167, .12);
+    color: #1e7e34;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-top: 0.5rem;
 }
 
 .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
     display: inline-block;
-}
-
-.status-dot.active {
-    background: var(--success-color, #10b981);
-}
-
-.status-text {
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: var(--success-color, #10b981);
-}
-
-/* --- Cartes d'informations --- */
-.profile-info-card {
-    border: 1px solid var(--border-color, #dee2e6);
-    border-radius: var(--radius-lg, 0.5rem);
-    box-shadow: var(--shadow-sm, 0 2px 4px rgba(0, 0, 0, 0.05));
-}
-
-.card-title {
-    font-weight: 600;
-    color: var(--text-color, #0f172a);
-}
-
-.info-label {
-    font-size: 0.7rem;
-    letter-spacing: 0.3px;
-    color: var(--text-muted-custom, #6c757d);
-}
-
-.info-value {
-    font-size: 0.95rem;
-    color: var(--text-color, #0f172a);
-    padding: 0.25rem 0;
-    border-bottom: 1px solid transparent;
-    transition: border-color 0.2s;
-}
-
-.info-value:hover {
-    border-bottom-color: var(--border-color, #dee2e6);
-}
-
-.info-status .status-dot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
+    background: #4ad8a7;
+    box-shadow: 0 0 0 3px rgba(74, 216, 167, .25);
+    flex: none;
 }
 
-.info-status .status-dot.active {
-    background: var(--success-color, #10b981);
+/* ============================================================
+   SIDE INFO (carte d'aide)
+   ============================================================ */
+.side-info {
+    display: flex;
+    gap: 0.85rem;
+    padding: 1.1rem 1.25rem;
+    background: linear-gradient(135deg, #f0f6ff 0%, #fff 100%);
+    border: 1px solid #cfe0ee;
+    border-left: 3px solid #4a6cf7;
+    border-radius: 14px;
 }
 
-.info-status .status-text {
+.side-info__icon {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: #eaf0ff;
+    color: #3b63d9;
+    font-size: 1rem;
+    flex: none;
+}
+
+.side-info__title {
+    margin: 0 0 0.25rem;
+    font-family: Manrope, "DM Sans", sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1a2a6c;
+}
+
+.side-info__text {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    color: #6b7280;
+}
+
+/* ============================================================
+   CONTENT CARDS
+   ============================================================ */
+.content-card {
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 16px;
+    box-shadow:
+        0 1px 2px rgba(26, 42, 108, .04),
+        0 8px 24px rgba(26, 42, 108, .06);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.content-card__head {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.85rem 1.25rem;
+    background: linear-gradient(140deg, #f7f9fd, #fff);
+    border-bottom: 1px solid #e6ebf3;
+}
+
+.content-card__icon {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: #eaf0ff;
+    color: #3b63d9;
     font-size: 0.9rem;
-    font-weight: 400;
-    color: var(--text-color, #0f172a);
+    flex: none;
 }
 
-/* --- Actions --- */
-.profile-actions {
-    padding-top: 1rem;
+.content-card__title {
+    margin: 0;
+    font-family: Manrope, "DM Sans", sans-serif;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #1a2a6c;
+    letter-spacing: -0.005em;
+    flex: 1;
 }
 
-/* --- Formulaire de changement de mot de passe --- */
-.profile-form {
+.content-card__badge {
+    padding: 0.15rem 0.55rem;
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.content-card__badge--edit {
+    background: #fff6dd;
+    color: #b8860b;
+    border: 1px solid #f4e2c2;
+}
+
+.content-card__body {
+    padding: 1rem 1.25rem 1.15rem;
+}
+
+.content-card__foot {
+    padding: 0.85rem 1.25rem;
+    background: #f8fafc;
+    border-top: 1px solid #eef1f5;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.content-card__actions {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+/* ============================================================
+   INFO GRID (lecture)
+   ============================================================ */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem 1.5rem;
+}
+
+.info-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.info-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px dashed #eef1f5;
+}
+
+.info-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.info-row__label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #8a95a8;
+}
+
+.info-row__value {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #15233c;
+    word-break: break-word;
+    min-height: 1.3em;
+}
+
+.info-row__value--status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+    color: #1e7e34;
+}
+
+/* ============================================================
+   FORMULAIRE D'ÉDITION
+   ============================================================ */
+.edit-form {
     display: flex;
     flex-direction: column;
     gap: 0.9rem;
 }
 
-/* --- Message d'information --- */
-.profile-hint {
-    font-size: 0.78rem;
-    color: var(--text-muted-custom, #74879b);
-    line-height: 1.5;
+.edit-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.edit-grid--1 {
+    grid-template-columns: 1fr;
+}
+
+.edit-field {
+    min-width: 0;
+}
+
+.edit-hint {
     display: flex;
     align-items: flex-start;
-    gap: 0.4rem;
-}
-
-.profile-hint i {
-    flex-shrink: 0;
-    margin-top: 0.1rem;
-}
-
-/* --- Alertes de retour --- */
-.profile-alert {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    gap: 0.45rem;
+    margin: 0;
     padding: 0.6rem 0.75rem;
-    border-radius: 7px;
+    background: #f0f6ff;
+    border-left: 3px solid #4a6cf7;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: #6b7280;
+}
+
+.edit-hint i {
+    flex: none;
+    margin-top: 0.1rem;
+    color: #4a6cf7;
+    font-size: 0.85rem;
+}
+
+/* ============================================================
+   ALERTES
+   ============================================================ */
+.alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
     font-size: 0.82rem;
-    line-height: 1.4;
+    line-height: 1.45;
 }
 
-.profile-alert--success {
-    background: #e7f5ee;
-    border: 1px solid #c2e3d2;
-    color: #1f7a53;
+.alert i {
+    flex: none;
+    font-size: 0.9rem;
+    margin-top: 0.05rem;
 }
 
-.profile-alert--danger {
+.alert--success {
+    background: #e6f4ea;
+    border: 1px solid #c8e5cf;
+    color: #1e7e34;
+}
+.alert--success i { color: #1e7e34; }
+
+.alert--danger {
     background: #fdecea;
     border: 1px solid #f6cfcc;
     color: #a61b16;
 }
+.alert--danger i { color: #a61b16; }
 
-/* --- Responsive --- */
+/* ============================================================
+   ÉTAT D'ERREUR
+   ============================================================ */
+.error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1.5rem;
+    text-align: center;
+    background: #fff;
+    border: 1px dashed #dde4ec;
+    border-radius: 16px;
+}
+
+.error-state__icon {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    background: #fdecea;
+    color: #a61b16;
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+}
+
+.error-state__title {
+    margin: 0 0 0.35rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a2a6c;
+}
+
+.error-state__text {
+    margin: 0 0 1.1rem;
+    font-size: 0.88rem;
+    color: #6b7280;
+    max-width: 480px;
+}
+
+/* ============================================================
+   SKELETONS
+   ============================================================ */
+.loading-state {
+    display: grid;
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+    gap: 1.15rem;
+    align-items: start;
+}
+
+.skeleton {
+    background: linear-gradient(90deg, #eef1f5 25%, #f6f8fa 50%, #eef1f5 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 6px;
+}
+
+.skeleton--line { height: 12px; }
+.skeleton--short { width: 40%; }
+.skeleton--medium { width: 65%; }
+
+@keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+}
+
+.profile-skeleton {
+    padding: 2rem 1.5rem;
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.profile-skeleton__avatar {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: #eef1f5;
+    margin-bottom: 0.5rem;
+}
+
+.info-skeleton {
+    padding: 1.25rem;
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1199.98px) {
+    .profile-page { padding-left: 24px; padding-right: 24px; }
+}
+
 @media (max-width: 991.98px) {
-    .profile-header {
-        flex-direction: column;
+    .profile-layout,
+    .loading-state {
+        grid-template-columns: 1fr;
+    }
+    .profile-side {
+        position: static;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+    .avatar-card {
+        padding: 1.5rem 1rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .profile-page { padding: 24px 16px 20px; }
+    .profile-side {
+        grid-template-columns: 1fr;
+    }
+    .info-grid,
+    .info-grid--2 {
+        grid-template-columns: 1fr;
+    }
+    .edit-grid {
+        grid-template-columns: 1fr;
+    }
+    .content-card__foot {
+        justify-content: stretch;
+    }
+    .content-card__foot :deep(.base-btn),
+    .content-card__foot :deep(.btn) {
+        flex: 1;
+    }
+    .content-card__actions {
+        flex-direction: column-reverse;
     }
 }
 
 @media (max-width: 575.98px) {
-    .profile-page {
-        padding: 0.25rem 0;
-    }
-
-    .profile-header .d-flex {
-        flex-direction: column;
-        align-items: stretch !important;
-    }
-
-    .profile-header .d-flex .btn {
-        width: 100%;
-        justify-content: center;
-    }
-
-    .avatar-circle {
+    .profile-page { padding: 20px 12px 16px; }
+    .avatar-card__circle {
         width: 80px;
         height: 80px;
     }
-
-    .avatar-initials {
-        font-size: 2rem;
+    .avatar-card__initials {
+        font-size: 1.9rem;
     }
+    .content-card__body {
+        padding: 0.9rem 1rem;
+    }
+    .content-card__head {
+        padding: 0.75rem 1rem;
+    }
+    .content-card__foot {
+        padding: 0.75rem 1rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skeleton { animation: none !important; }
+    .avatar-card__circle { transition: none !important; }
 }
 </style>

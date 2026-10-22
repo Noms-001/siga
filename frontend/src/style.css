@@ -1,9 +1,61 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 
 /* L'application est en mode clair uniquement : on neutralise le
    dark-mode natif du navigateur (widgets, barres de défilement, <input>). */
 :root {
   color-scheme: light;
+}
+
+:root {
+  color-scheme: light;
+
+  /* Marque */
+  --navy: #1a2a6c;
+  --navy-deep: #0b1b4d;
+  --navy-2: #2a3f94;
+  --blue: #1769c2;
+  --accent: #4a6cf7;
+  --gold: #d4af37;
+  --gold-bright: #f4b91f;
+  --brand-gradient: linear-gradient(90deg, #1a2a6c 0%, #4a6cf7 55%, #d4af37 100%);
+  --gold-gradient: linear-gradient(90deg, #1a2a6c, #d4af37);
+
+  /* Surfaces & texte */
+  --ink: #15233c;
+  --heading: #1a2a6c;
+  --muted: #6b7280;
+  --soft: #8a95a8;
+  --line: #e6ebf3;
+  --canvas: #f5f7fa;
+  --surface: #ffffff;
+  --surface-2: #f7f9fd;
+  --hover: #f3f6fc;
+  --active-bg: #edf1fd;
+  --topbar-bg: rgba(255, 255, 255, .88);
+
+  /* Boutons / sélection */
+  --btn-bg: linear-gradient(135deg, #1a2a6c 0%, #2a3f94 100%);
+  --btn-bg-hover: linear-gradient(135deg, #22358a 0%, #3350b3 100%);
+  --btn-fg: #ffffff;
+  --btn-plus: #ffd04a;
+  --sel-bg: #1a2a6c;
+  --sel-fg: #ffffff;
+
+  /* Teintes sémantiques */
+  --blue-bg: #eaf0ff;   --blue-fg: #3b63d9;
+  --gold-bg: #fff6dd;   --gold-fg: #b8860b;
+  --green-bg: #e4f7f0;  --green-fg: #138a68;
+  --red-bg: #fff0f0;    --red-fg: #d84e5b;
+  --violet-bg: #f1edff; --violet-fg: #7a68d6;
+
+  /* Profondeur & formes */
+  --shadow: 0 1px 2px rgba(26, 42, 108, .04), 0 8px 24px rgba(26, 42, 108, .06);
+  --shadow-hover: 0 2px 4px rgba(26, 42, 108, .05), 0 14px 34px rgba(26, 42, 108, .10);
+  --shadow-lg: 0 20px 60px rgba(26, 42, 108, .18);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --ring: 0 0 0 3px rgba(74, 108, 247, .18);
 }
 
 :root {
@@ -40,6 +92,7 @@
   --transition-fast: 150ms ease;
   --transition-normal: 240ms ease;
   --transition-smooth: 320ms ease;
+  
 
   --skeleton-bg: #e9e9ea;
   --skeleton-highlight: rgba(221, 224, 224, 0.726);
@@ -78,7 +131,7 @@
   --dts-shadow-md: 0 6px 20px rgba(16, 40, 70, 0.1);
   --dts-shadow-lg: 0 18px 44px rgba(13, 43, 78, 0.2);
 
-  --dts-navbar-h: 60px;
+  --dts-navbar-h: 58px;
   --dts-sidebar-w: 262px;
   --dts-sidebar-w-sm: 76px;
 }
@@ -433,6 +486,357 @@ textarea:focus-visible {
   }
 }
 
+/* ========================================================================== 
+   GESTIA — Thème applicatif inspiré du design de référence.
+   Portée limitée aux espaces connectés afin de préserver intégralement
+   les écrans de connexion, notamment le login du backoffice.
+   ========================================================================== */
+.app-layout,
+.backoffice-layout {
+  --dts-navbar-h: 58px;
+  --dts-sidebar-w: 248px;
+  --font-family: "DM Sans", "Segoe UI", sans-serif;
+  --primary-color: #1a2a6c;
+  --secondary-color: #2a3f94;
+  --bg-color: #f5f7fa;
+  --surface-color: #ffffff;
+  --card-bg: #ffffff;
+  --text-color: #15233c;
+  --text-muted-custom: #6b7280;
+  --border-color: #e6ebf3;
+  --shadow-sm: 0 1px 2px rgba(26, 42, 108, .04), 0 8px 24px rgba(26, 42, 108, .06);
+  --shadow-md: 0 2px 4px rgba(26, 42, 108, .05), 0 14px 34px rgba(26, 42, 108, .10);
+  --shadow-lg: 0 20px 60px rgba(26, 42, 108, .18);
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 16px;
+  --dts-navy: #1a2a6c;
+  --dts-navy-2: #2a3f94;
+  --dts-blue: #1769c2;
+  --dts-blue-600: #155ca8;
+  --dts-blue-100: #eaf0ff;
+  --dts-blue-50: #f3f6fc;
+  --dts-bg: #f5f7fa;
+  --dts-surface: #ffffff;
+  --dts-border: #e6ebf3;
+  --dts-border-2: #d9e0eb;
+  --dts-text: #15233c;
+  --dts-text-2: #40516b;
+  --dts-muted: #7b8799;
+  --dts-radius: 16px;
+  --dts-radius-sm: 10px;
+  --dts-shadow-xs: 0 1px 2px rgba(26, 42, 108, .04);
+  --dts-shadow-sm: 0 1px 2px rgba(26, 42, 108, .04), 0 8px 24px rgba(26, 42, 108, .06);
+  --dts-shadow-md: 0 2px 4px rgba(26, 42, 108, .05), 0 14px 34px rgba(26, 42, 108, .10);
+  --dts-shadow-lg: 0 20px 60px rgba(26, 42, 108, .18);
+  color: #15233c;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+}
+
+body:has(.app-layout),
+body:has(.backoffice-layout) {
+  padding-top: 58px;
+}
+
+.app-layout {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .055) 0, transparent 38%),
+    radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .065) 0, transparent 36%),
+    #f5f7fa;
+  background-attachment: fixed;
+}
+
+.backoffice-layout {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .055) 0, transparent 38%),
+    radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .065) 0, transparent 36%),
+    #f5f7fa;
+}
+
+.app-layout :is(h1, h2, h3, h4),
+.backoffice-layout :is(h1, h2, h3, h4) {
+  font-family: Manrope, "DM Sans", sans-serif;
+  color: #1a2a6c;
+}
+
+.app-layout :is(.card, .section-panel, .panel, .dash__card, .activity-card, .bo-detail__card),
+.backoffice-layout :is(.card, .section-panel, .panel, .dash__card, .activity-card, .bo-detail__card) {
+  border: 1px solid #e6ebf3;
+  border-radius: 16px;
+  background-color: #fff;
+  box-shadow: 0 1px 2px rgba(26, 42, 108, .04), 0 8px 24px rgba(26, 42, 108, .06);
+}
+
+.app-layout .main-content :is(.bo-page, .dash, .page-section),
+.backoffice-layout .backoffice-layout__content :is(.bo-page, .dash, .page-section) {
+  color: #15233c;
+}
+
+.app-layout .main-content :is(.bo-page__title, .dash__title, .page-title),
+.backoffice-layout .backoffice-layout__content :is(.bo-page__title, .dash__title, .page-title) {
+  color: #1a2a6c;
+  font-family: Manrope, "DM Sans", sans-serif;
+  font-weight: 800;
+  letter-spacing: -.035em;
+}
+
+.app-layout .main-content :is(.bo-page__subtitle, .dash__subtitle, .page-subtitle),
+.backoffice-layout .backoffice-layout__content :is(.bo-page__subtitle, .dash__subtitle, .page-subtitle) {
+  color: #6b7280;
+}
+
+.app-layout .main-content :is(.form-control, .form-select, input:not([type="checkbox"]):not([type="radio"]), select, textarea),
+.backoffice-layout .backoffice-layout__content :is(.form-control, .form-select, input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  border-color: #e0e6ef;
+  border-radius: 10px;
+  color: #15233c;
+}
+
+.app-layout .main-content :is(.form-control, .form-select, input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus,
+.backoffice-layout .backoffice-layout__content :is(.form-control, .form-select, input:not([type="checkbox"]):not([type="radio"]), select, textarea):focus {
+  border-color: #4a6cf7;
+  box-shadow: 0 0 0 3px rgba(74, 108, 247, .16);
+}
+
+.app-layout .main-content :is(.table, table),
+.backoffice-layout .backoffice-layout__content :is(.table, table) {
+  --bs-table-color: #40516b;
+  --bs-table-border-color: #e6ebf3;
+  --bs-table-hover-bg: #f7f9fd;
+  color: #40516b;
+}
+
+.app-layout .main-content .table thead th,
+.backoffice-layout .backoffice-layout__content .table thead th {
+  background: #f7f9fd;
+  color: #7b8799;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.app-layout .main-content .alert,
+.backoffice-layout .backoffice-layout__content .alert {
+  border-radius: 12px;
+}
+
+.app-layout .main-content .badge,
+.backoffice-layout .backoffice-layout__content .badge {
+  border-radius: 999px;
+}
+
+.app-layout .main-content .btn-primary,
+.backoffice-layout .backoffice-layout__content .btn-primary {
+  --bs-btn-bg: #1a2a6c;
+  --bs-btn-border-color: #1a2a6c;
+  --bs-btn-hover-bg: #2a3f94;
+  --bs-btn-hover-border-color: #2a3f94;
+  --bs-btn-active-bg: #15245b;
+  --bs-btn-active-border-color: #15245b;
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgba(26, 42, 108, .16);
+}
+
+.app-layout .main-content .base-btn,
+.backoffice-layout .backoffice-layout__content .base-btn {
+  border-radius: 10px;
+  font-family: "DM Sans", sans-serif;
+}
+
+.app-layout .main-content .base-btn--primary,
+.backoffice-layout .backoffice-layout__content .base-btn--primary {
+  background: linear-gradient(135deg, #1a2a6c, #2a3f94);
+  box-shadow: 0 6px 16px rgba(26, 42, 108, .20);
+}
+
+.app-layout .main-content .base-btn--secondary,
+.backoffice-layout .backoffice-layout__content .base-btn--secondary {
+  border: 1px solid #e6ebf3;
+  background: #fff;
+  color: #1a2a6c;
+}
+
+/* Tableaux métiers natifs : même en-tête, séparateurs et lignes aérées
+   que le tableau du design de référence. */
+.app-layout .main-content table,
+.backoffice-layout .backoffice-layout__content table {
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.app-layout .main-content table thead th,
+.backoffice-layout .backoffice-layout__content table thead th {
+  padding: 12px 8px !important;
+  border-top: 1px solid #e6ebf3 !important;
+  border-bottom: 1px solid #e6ebf3 !important;
+  background: #f7f9fd !important;
+  color: #7b8799 !important;
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: .9px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.app-layout .main-content table thead th:first-child,
+.backoffice-layout .backoffice-layout__content table thead th:first-child {
+  padding-left: 10px !important;
+  border-left: 1px solid #e6ebf3 !important;
+}
+
+.app-layout .main-content table thead th:last-child,
+.backoffice-layout .backoffice-layout__content table thead th:last-child {
+  border-right: 1px solid #e6ebf3 !important;
+}
+
+.app-layout .main-content table tbody td,
+.backoffice-layout .backoffice-layout__content table tbody td {
+  padding: 14px 8px !important;
+  border-bottom: 1px solid #e6ebf3 !important;
+  background-color: #fff !important;
+  color: #6b7280 !important;
+  font-size: 11px !important;
+}
+
+.app-layout .main-content table tbody tr:hover td,
+.backoffice-layout .backoffice-layout__content table tbody tr:hover td {
+  background-color: #f7f9fd !important;
+}
+
+/* Vues de détail et formulaires d’activité : conserver leur structure métier,
+   tout en reprenant les titres, surfaces et accents du tableau de référence. */
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) {
+  padding: 34px 38px 24px;
+  color: #15233c;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) .page-title {
+  color: #1a2a6c;
+  font-family: Manrope, "DM Sans", sans-serif;
+  font-weight: 800;
+  letter-spacing: -.035em;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) .btn-retour {
+  color: #1769c2;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) .btn-retour:hover {
+  color: #4a6cf7;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) .section-head {
+  border-bottom-color: #e6ebf3;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) .section-head i {
+  color: #4a6cf7;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) :is(.card-title, .info-value, .avancement__valeur, .choix-type__titre) {
+  color: #1a2a6c;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) :is(.info-label, .page-subtitle, .section-intro, .helper-text, .choix-type__detail) {
+  color: #7b8799;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite) :is(.objectif-code, .code-valeur, .releve__courant) {
+  color: #3b63d9;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) :is(.avancement__bar, .suivi-progress) {
+  background: #e6ebf3;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) :is(.avancement__fill, .suivi-progress .progress-bar) {
+  background: linear-gradient(90deg, #4a6cf7, #d4af37);
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) .section {
+  border: 1px solid #e6ebf3 !important;
+  border-radius: 16px !important;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(26, 42, 108, .04), 0 8px 24px rgba(26, 42, 108, .06);
+}
+
+.app-layout .main-content .ajout-activite .choix-type {
+  border: 1px solid #e6ebf3;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.app-layout .main-content .ajout-activite .choix-type:hover {
+  border-color: #c6d2ff;
+  background: #f7f9fd;
+}
+
+.app-layout .main-content .ajout-activite .choix-type--actif {
+  border-color: #4a6cf7;
+  background: #edf1fd;
+  box-shadow: inset 0 0 0 1px #4a6cf7;
+}
+
+.app-layout .main-content .ajout-activite :is(.choix-type--actif .choix-type__icone, .choix-type__check) {
+  color: #fff;
+  background: #1a2a6c;
+}
+
+.app-layout .main-content .ajout-activite .choix-type--actif .choix-type__icone {
+  color: #4a6cf7;
+  background: transparent;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite) .badge-soft--primary,
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite) .badge-soft--info {
+  background: #eaf0ff;
+  color: #3b63d9;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite) .badge-soft--success {
+  background: #e4f7f0;
+  color: #138a68;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite) .badge-soft--warning {
+  background: #fff6dd;
+  color: #b8860b;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite) .badge-soft--danger {
+  background: #fff0f0;
+  color: #d84e5b;
+}
+
+.app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) .autocomplete {
+  border: 1px solid #e6ebf3;
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(26, 42, 108, .12);
+}
+
+@media (max-width: 1199.98px) {
+  .app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .app-layout .main-content :is(.detail-activite, .detail-sous-activite, .ajout-activite) {
+    padding: 24px 14px 18px;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .app-layout .main-content,
+  .backoffice-layout .backoffice-layout__content {
+    padding: 0;
+  }
+}
+
 
 h1 {
   color: var(--text-color);
@@ -603,4 +1007,108 @@ code {
   .demo-content {
     flex-direction: column;
   }
+}
+
+/* ============================================================
+   EN-TÊTE — bienvenue
+   ============================================================ */
+.welcome-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    margin-left: 10px;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+}
+.welcome-row__left { min-width: 0; }
+.welcome-row__right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+/* Eyebrow = date du jour */
+.eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.15px;
+    color: var(--dts-muted, #8a95a8);
+    text-transform: uppercase;
+}
+.live-dot {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-radius: 50%;
+    background: #24a77c;
+    box-shadow: 0 0 0 3px rgba(36, 167, 124, .18);
+    animation: livePulse 2s ease-out infinite;
+}
+@keyframes livePulse {
+    0%   { box-shadow: 0 0 0 3px rgba(36, 167, 124, .18); }
+    70%  { box-shadow: 0 0 0 7px rgba(36, 167, 124, 0); }
+    100% { box-shadow: 0 0 0 3px rgba(36, 167, 124, .18); }
+}
+
+/* Titre principal */
+.welcome-row h1 {
+    margin: 15px 0 10px;
+    font: 800 30px "Manrope", system-ui, sans-serif;
+    letter-spacing: -1.2px;
+    color: var(--dts-navy, #1a2a6c);
+    line-height: 1.1;
+    text-align: left;
+}
+.wave {
+    font-size: 21px;
+    color: #d4af37;
+    vertical-align: 3px;
+    display: inline-block;
+    transform-origin: 50% 80%;
+    animation: sparkleSpin 6s ease-in-out infinite;
+}
+@keyframes sparkleSpin {
+    0%, 60%, 100% { transform: rotate(0);    opacity: 1;   }
+    70%           { transform: rotate(18deg); opacity: .9; }
+    80%           { transform: rotate(-12deg); opacity: 1; }
+}
+
+/* Divider doré */
+.title-divider {
+    display: block;
+    width: 300px;
+    max-width: 100%;
+    height: 1.5px;
+    margin: 0 0 11px;
+    border-radius: 2px;
+    background: var(--brand-gradient);
+}
+
+.subheading {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--dts-muted, #6b7280);
+}
+
+.bo-page__header div {
+  margin-bottom: 20px;
+}
+
+.bo-page__title {
+  text-align: left;
+  padding-bottom: 5px;
+  padding-bottom: 5px;
+  border-bottom: 2px solid var(--navy) !important;
+}
+
+.bo-page__subtitle {
+  text-transform: uppercase;
+  font-weight: 600;
+  font-size: 0.45rem;
+  opacity: 50%;
 }

@@ -108,6 +108,17 @@ const handleSubmit = async () => {
    ============================================ */
 
 .auth-page {
+    --primary-color: #1a2a6c;
+    --secondary-color: #2a3f94;
+    --bg-color: #f5f7fa;
+    --surface-color: #fff;
+    --card-bg: #fff;
+    --text-color: #15233c;
+    --text-muted-custom: #6b7280;
+    --border-color: #e6ebf3;
+    --radius-xl: 16px;
+    --shadow-md: 0 1px 2px rgba(26, 42, 108, .04), 0 8px 24px rgba(26, 42, 108, .06);
+    font-family: "DM Sans", "Segoe UI", sans-serif;
     position: fixed;
     inset: 0;
     width: 100%;
@@ -115,8 +126,10 @@ const handleSubmit = async () => {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at top, rgba(8, 56, 105, 0.08), transparent 28%),
-        var(--bg-color, #eef2f8f4);
+    background:
+        radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .07) 0, transparent 38%),
+        radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .1) 0, transparent 36%),
+        #f5f7fa;
     padding: 2rem 1rem;
     
 }
@@ -129,7 +142,7 @@ const handleSubmit = async () => {
 .auth-card {
     padding: 2.5rem 2rem;
     border: 1px solid var(--border-color, #dee2e6);
-    border-radius: var(--radius-xl, 1rem);
+    border-radius: 16px;
     box-shadow: var(--shadow-md, 0 20px 50px rgba(15, 23, 42, 0.1));
 }
 
@@ -146,11 +159,11 @@ const handleSubmit = async () => {
     width: 64px;
     height: 64px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary-color, #083869), var(--secondary-color, #164493));
+    background: linear-gradient(135deg, #1a2a6c, #4a6cf7);
     color: white;
     font-size: 2rem;
     margin-bottom: 1rem;
-    box-shadow: 0 4px 12px rgba(8, 56, 105, 0.2);
+    box-shadow: 0 6px 16px rgba(26, 42, 108, .2);
 }
 
 .auth-title {

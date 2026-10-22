@@ -1,8 +1,10 @@
 package mg.bank.backend.service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -48,6 +50,7 @@ import mg.bank.backend.repository.ServiceRepository;
 import mg.bank.backend.repository.SiteRepository;
 import mg.bank.backend.repository.SousActiviteRepository;
 import mg.bank.backend.repository.TypeActiviteRepository;
+
 
 @Service
 @RequiredArgsConstructor
@@ -107,6 +110,10 @@ public class ActiviteImportService {
                 : StatutsActivite.BROUILLON;
         Utilisateur utilisateur = activiteService.utilisateurCourant();
 
+        Map<String, ObjectifSpecifique> objectifsCache = new HashMap<>();
+        Map<String, Indicateur> indicateursCache = new HashMap<>();
+        Map<String, Origine> originesCache = new HashMap<>();
+
         List<String> codesGeneres = new ArrayList<>();
         List<String> indicateursCrees = new ArrayList<>();
         List<String> originesCreees = new ArrayList<>();
@@ -127,6 +134,7 @@ public class ActiviteImportService {
                 codesGeneres.add(codeActivite);
             }
 
+            // Le validator a deja verifie, mais on garde un check defensif minimal.
             if (dto.getDateDebut() != null
                     && request.getAnnee() != null
                     && dto.getDateDebut().getYear() != request.getAnnee()) {
@@ -152,7 +160,8 @@ public class ActiviteImportService {
                     .site(resoudreSite(dto.getSite()))
                     .objectifSpecifique(resoudreObjectifSpecifique(
                             dto.getObjectifSpecifique(),
-                            request.getAnnee()))
+                            request.getAnnee(),
+                            objectifsCache))
                     .procedure(Boolean.TRUE.equals(request.getActivitesDejaValidees())
                             ? null
                             : procedure)
@@ -161,12 +170,15 @@ public class ActiviteImportService {
             activite = activiteRepository.saveAndFlush(activite);
             nbActivites++;
 
+            // 4.b - Historique initial via le chemin commun.
             activiteRepository.ajouterChangementStatut(
                     activite.getIdActivite(),
                     utilisateur.getIdUtilisateur(),
                     codeStatutInitial,
                     COMMENTAIRE_HISTORIQUE_INITIAL);
 
+            // 4.c - Sous-activites. Le rang est global (compterActivitesJusqua)
+            // pour eviter deux codes identiques entre activites.
             int rangActivite = activiteRepository.compterActivitesJusqua(activite.getIdActivite());
             int annee = activite.getDateDebutPrevue().getYear();
             int sequenceSous = 1;
@@ -207,8 +219,7 @@ public class ActiviteImportService {
 
                     if (saDto.getLivrables() != null) {
                         for (LivrableImportDTO lDto : saDto.getLivrables()) {
-                            // Meme entite que le formulaire : Livrable,
-                            // pas LivrableSousActivite.
+                            // Meme entite que le formulaire : Livrable.
                             livrableRepository.save(Livrable.builder()
                                     .designation(lDto.getDesignation())
                                     .description(lDto.getDescription())
@@ -234,7 +245,10 @@ public class ActiviteImportService {
             // 4.e - Indicateurs : reutilises ou crees.
             if (dto.getIndicateurs() != null) {
                 for (IndicateurImportReferenceDTO iDto : dto.getIndicateurs()) {
-                    Indicateur ind = resoudreOuCreerIndicateur(iDto.getDesignation(), indicateursCrees);
+                    Indicateur ind = resoudreOuCreerIndicateur(
+                            iDto.getDesignation(),
+                            indicateursCrees,
+                            indicateursCache);
                     activiteRepository.lierIndicateur(activite.getIdActivite(), ind.getIdIndicateur());
                 }
             }
@@ -242,8 +256,11 @@ public class ActiviteImportService {
             // 4.f - Origines : reutilisees ou creees.
             if (dto.getOrigines() != null) {
                 for (OrigineImportReferenceDTO oDto : dto.getOrigines()) {
-                    Origine o = resoudreOuCreerOrigine(oDto.getDesignation(),
-                            utilisateur, originesCreees);
+                    Origine o = resoudreOuCreerOrigine(
+                            oDto.getDesignation(),
+                            utilisateur,
+                            originesCreees,
+                            originesCache);
                     activiteRepository.lierOrigine(activite.getIdActivite(), o.getIdOrigine());
                 }
             }
@@ -266,23 +283,6 @@ public class ActiviteImportService {
     // ------------------------------------------------------------------
     // Generation de code
     // ------------------------------------------------------------------
-
-    /**
-     * Genere le code manquant d'une activite.
-     *
-     * <p>
-     * <b>NON_PTA</b> : delegue a
-     * {@link ActiviteService#prochainCodeNonPta(int)}, qui applique la
-     * convention {@code A-<annee>-<numero>} et reste aligne sur le
-     * formulaire.
-     * </p>
-     *
-     * <p>
-     * <b>PTA</b> : aucune convention de generation n'existe dans le
-     * projet. Le client doit fournir le code ; le validator a deja emis
-     * une erreur sur ce point.
-     * </p>
-     */
     private String genererCodeActivite(ActiviteImportDTO dto, TypeImport typeImport) {
         if (TypeImport.PTA == typeImport) {
             throw new ApiException(
@@ -326,10 +326,15 @@ public class ActiviteImportService {
     }
 
     // ------------------------------------------------------------------
-    // Resolution des references
+    // Resolution des references racine
     // ------------------------------------------------------------------
 
     private mg.bank.backend.model.Service resoudreService(Integer idService) {
+        if (idService == null) {
+            throw new ApiException(
+                    "Le service est obligatoire pour l'import.",
+                    HttpStatus.BAD_REQUEST);
+        }
         mg.bank.backend.model.Service service = serviceRepository.findById(idService)
                 .orElseThrow(() -> new ApiException(
                         "Service introuvable (id=" + idService + ").",
@@ -343,8 +348,13 @@ public class ActiviteImportService {
     }
 
     private Procedure resoudreProcedure(Integer idProcedure, boolean activitesDejaValidees) {
-        if (activitesDejaValidees || idProcedure == null) {
+        if (activitesDejaValidees) {
             return null;
+        }
+        if (idProcedure == null) {
+            throw new ApiException(
+                    "La procédure est obligatoire pour des activités non encore validées.",
+                    HttpStatus.BAD_REQUEST);
         }
         return procedureRepository.findById(idProcedure)
                 .orElseThrow(() -> new ApiException(
@@ -352,7 +362,16 @@ public class ActiviteImportService {
                         HttpStatus.BAD_REQUEST));
     }
 
+    // ------------------------------------------------------------------
+    // Resolution des referentiels par libelle / code
+    // ------------------------------------------------------------------
+
     private Priorite resoudrePriorite(String code) {
+        if (code == null || code.isBlank()) {
+            throw new ApiException(
+                    "La priorité est obligatoire.",
+                    HttpStatus.BAD_REQUEST);
+        }
         Priorite priorite = prioriteRepository.findByCodeIgnoreCase(code.trim())
                 .orElseThrow(() -> new ApiException(
                         "Priorité introuvable : « " + code + " ».",
@@ -399,22 +418,31 @@ public class ActiviteImportService {
 
     private ObjectifSpecifique resoudreObjectifSpecifique(
             ObjectifSpecifiqueImportReferenceDTO dto,
-            Integer annee) {
+            Integer annee,
+            Map<String, ObjectifSpecifique> cache) {
 
         if (dto == null || dto.getCode() == null || dto.getCode().isBlank()) {
             return null;
         }
 
         String code = dto.getCode().trim();
+        String cleCache = code.toLowerCase(Locale.ROOT);
+
+        // 0. Deja resolu dans CET import ?
+        ObjectifSpecifique dejaVu = cache.get(cleCache);
+        if (dejaVu != null) {
+            return dejaVu;
+        }
 
         // 1. Deja en base ?
         Optional<ObjectifSpecifique> existant = objectifSpecifiqueRepository.findByCodeIgnoreCase(code);
         if (existant.isPresent()) {
+            cache.put(cleCache, existant.get());
             return existant.get();
         }
 
         // 2. Sinon, creation. Le validator s'est deja assure que designation
-        // et annee sont fournies ; on garde un check defensif minimal.
+        // et annee sont fournies ; on garde un check defensif.
         if (dto.getDesignation() == null || dto.getDesignation().isBlank()) {
             throw new ApiException(
                     "La désignation de l'objectif spécifique « " + code
@@ -429,17 +457,23 @@ public class ActiviteImportService {
         }
 
         try {
-            return objectifSpecifiqueRepository.save(ObjectifSpecifique.builder()
-                    .code(code)
-                    .designation(dto.getDesignation().trim())
-                    .annee(annee)
-                    .build());
+            ObjectifSpecifique cree = objectifSpecifiqueRepository.saveAndFlush(
+                    ObjectifSpecifique.builder()
+                            .code(code)
+                            .designation(dto.getDesignation().trim())
+                            .annee(annee)
+                            .build());
+            cache.put(cleCache, cree);
+            return cree;
         } catch (DataIntegrityViolationException e) {
             // Course avec un autre chemin : l'objectif vient d'etre cree.
-            return objectifSpecifiqueRepository.findByCodeIgnoreCase(code)
+            ObjectifSpecifique recupere = objectifSpecifiqueRepository
+                    .findByCodeIgnoreCase(code)
                     .orElseThrow(() -> new ApiException(
                             "Impossible de créer l'objectif spécifique « " + code + " ».",
                             HttpStatus.INTERNAL_SERVER_ERROR));
+            cache.put(cleCache, recupere);
+            return recupere;
         }
     }
 
@@ -447,51 +481,96 @@ public class ActiviteImportService {
     // Indicateurs et origines : reutilisation ou creation
     // ------------------------------------------------------------------
 
-    private Indicateur resoudreOuCreerIndicateur(String designation, List<String> crees) {
+    private Indicateur resoudreOuCreerIndicateur(
+            String designation,
+            List<String> crees,
+            Map<String, Indicateur> cache) {
+
         String d = designation.trim();
+        String cleCache = d.toLowerCase(Locale.ROOT);
+
+        // 0. Deja resolu dans CET import ?
+        Indicateur dejaVu = cache.get(cleCache);
+        if (dejaVu != null) {
+            return dejaVu;
+        }
+
+        // 1. Deja en base ?
         Optional<Indicateur> existant = indicateurRepository.findByDesignationIgnoreCase(d);
         if (existant.isPresent()) {
+            cache.put(cleCache, existant.get());
             return existant.get();
         }
+
+        // 2. Sinon, creation.
         try {
             String code = genererCodeIndicateur(crees.size());
-            Indicateur cree = indicateurRepository.save(Indicateur.builder()
+            Indicateur cree = indicateurRepository.saveAndFlush(Indicateur.builder()
                     .code(code)
                     .designation(d)
                     .actif(Boolean.TRUE)
                     .build());
             crees.add(code);
+            cache.put(cleCache, cree);
             return cree;
         } catch (DataIntegrityViolationException e) {
-            return indicateurRepository.findByDesignationIgnoreCase(d)
+            Indicateur recupere = indicateurRepository.findByDesignationIgnoreCase(d)
                     .orElseThrow(() -> new ApiException(
                             "Impossible de créer l'indicateur « " + d + " ».",
                             HttpStatus.INTERNAL_SERVER_ERROR));
+            cache.put(cleCache, recupere);
+            return recupere;
         }
     }
 
-    private Origine resoudreOuCreerOrigine(String designation, Utilisateur utilisateur,
-            List<String> crees) {
+    /**
+     * Resout une origine par sa designation, en la creant si elle est absente.
+     *
+     * <p>
+     * <b>Cache local</b> : meme raison que pour les indicateurs.
+     * </p>
+     */
+    private Origine resoudreOuCreerOrigine(
+            String designation,
+            Utilisateur utilisateur,
+            List<String> crees,
+            Map<String, Origine> cache) {
+
         String d = designation.trim();
+        String cleCache = d.toLowerCase(Locale.ROOT);
+
+        // 0. Deja resolu dans CET import ?
+        Origine dejaVu = cache.get(cleCache);
+        if (dejaVu != null) {
+            return dejaVu;
+        }
+
+        // 1. Deja en base ?
         Optional<Origine> existant = origineRepository.findByDesignationIgnoreCase(d);
         if (existant.isPresent()) {
+            cache.put(cleCache, existant.get());
             return existant.get();
         }
+
+        // 2. Sinon, creation.
         try {
             String code = genererCodeOrigine(crees.size());
-            Origine cree = origineRepository.save(Origine.builder()
+            Origine cree = origineRepository.saveAndFlush(Origine.builder()
                     .code(code)
                     .designation(d)
                     .typeOrigine(TYPE_ORIGINE_IMPORT)
                     .utilisateur(utilisateur)
                     .build());
             crees.add(code);
+            cache.put(cleCache, cree);
             return cree;
         } catch (DataIntegrityViolationException e) {
-            return origineRepository.findByDesignationIgnoreCase(d)
+            Origine recupere = origineRepository.findByDesignationIgnoreCase(d)
                     .orElseThrow(() -> new ApiException(
                             "Impossible de créer l'origine « " + d + " ».",
                             HttpStatus.INTERNAL_SERVER_ERROR));
+            cache.put(cleCache, recupere);
+            return recupere;
         }
     }
 }

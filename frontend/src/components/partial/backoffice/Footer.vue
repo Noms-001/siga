@@ -36,8 +36,9 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
     gap: 1rem;
     flex-wrap: wrap;
     padding: 0.9rem 1.5rem;
-    background: var(--dts-navy);
-    color: rgba(255, 255, 255, 0.78);
+    background: #fff;
+    border-top: 1px solid var(--dts-border);
+    color: var(--dts-muted);
     font-size: 0.8rem;
 }
 
@@ -50,14 +51,14 @@ const appVersion = computed(() => props.appVersion || '1.0.0')
     align-items: center;
     gap: 0.35rem;
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.78);
+    color: var(--dts-muted);
 }
 
 .back-footer__badge {
     font-size: 0.6rem;
     font-weight: 700;
-    background: rgba(255, 255, 255, 0.14);
-    color: rgba(255, 255, 255, 0.88);
+    background: #edf1fd;
+    color: #1a2a6c;
     padding: 0.1rem 0.5rem;
     border-radius: 20px;
     letter-spacing: 0.05em;

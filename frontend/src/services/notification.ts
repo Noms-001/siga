@@ -35,11 +35,11 @@ export async function chargerPageNotifications(
     page: number,
     size = 10,
     filtres: NotificationFiltres = { search: '', lecture: 'TOUTES', priorite: '' },
-): Promise<NotificationPage | null> {
+): Promise<NotificationItem[] | null> {
     const params = new URLSearchParams({ page: String(page), size: String(size), lecture: filtres.lecture })
     if (filtres.search.trim()) params.set('search', filtres.search.trim())
     if (filtres.priorite) params.set('priorite', filtres.priorite)
-    const resultat = await get<NotificationPage>(`/notifications/page?${params.toString()}`)
+    const resultat = await get<NotificationItem[]>(`/notifications?${params.toString()}`)
     return resultat.success ? resultat.data : null
 }
 
