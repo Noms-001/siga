@@ -39,14 +39,18 @@ export interface IndicateurFiltres {
     types: string[]
 }
 
+export interface SaisiePar {
+  id: number
+  nom: string
+  prenom: string
+}
+
 export interface ValeurIndicateur {
-    id: number
-    valeur: number
-    periodeDebut: string
-    periodeFin: string
-    commentaire?: string | null
-    dateSaisie: string
-    idUtilisateur: number
-    nomUtilisateur: string
-    prenomUtilisateur: string
+  id: number
+  valeur: number
+  periodeDebut: string
+  periodeFin: string
+  commentaire?: string | null
+  dateSaisie: string
+  saisiePar: SaisiePar | null
 }

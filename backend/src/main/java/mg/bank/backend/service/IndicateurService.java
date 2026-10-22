@@ -201,20 +201,4 @@ public class IndicateurService {
         String v = videSiBlanc(search);
         return v == null ? null : "%" + v + "%";
     }
-
-
-    /* -------------------- historique des valeurs -------------------- */
-
-    @Transactional(readOnly = true)
-    public List<mg.bank.backend.dto.backoffice.ValeurIndicateurResponse> listerValeurs(
-            Integer idIndicateur) {
-
-        if (!indicateurRepository.existsById(idIndicateur)) {
-            throw new ApiException("Indicateur introuvable", HttpStatus.NOT_FOUND);
-        }
-
-        return valeurIndicateurRepository.findHistoriqueByIndicateur(idIndicateur).stream()
-                .map(mg.bank.backend.mapper.ValeurIndicateurMapper::toResponse)
-                .toList();
-    }
 }

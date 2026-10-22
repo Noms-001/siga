@@ -138,7 +138,8 @@ function formaterDate(iso: string | null | undefined): string {
         </header>
 
         <!-- ============ ERREUR ============ -->
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center" role="alert">
+        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
+            role="alert">
             <span>{{ errorMessage }}</span>
             <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
         </div>
@@ -163,19 +164,12 @@ function formaterDate(iso: string | null | undefined): string {
         <template v-else-if="item">
 
             <!-- ============ HERO : VALEUR ACTUELLE ============ -->
-            <section
-                v-if="valeurCourante && !valeursLoading"
-                class="hero"
-                aria-labelledby="hero-label"
-            >
+            <section v-if="valeurCourante && !valeursLoading" class="hero" aria-labelledby="hero-label">
                 <div class="hero__badges">
                     <span v-if="item.typeIndicateur" class="badge-type" :class="classeType">
                         {{ item.typeIndicateur }}
                     </span>
-                    <span
-                        class="badge-statut"
-                        :class="item.actif ? 'badge-statut--actif' : 'badge-statut--inactif'"
-                    >
+                    <span class="badge-statut" :class="item.actif ? 'badge-statut--actif' : 'badge-statut--inactif'">
                         {{ item.actif ? 'Actif' : 'Inactif' }}
                     </span>
                 </div>
@@ -192,11 +186,13 @@ function formaterDate(iso: string | null | undefined): string {
                     <div class="hero__meta">
                         <span class="hero__meta-item">
                             <i class="bi bi-calendar3" aria-hidden="true"></i>
-                            {{ formaterDate(valeurCourante.periodeDebut) }} → {{ formaterDate(valeurCourante.periodeFin) }}
+                            {{ formaterDate(valeurCourante.periodeDebut) }} → {{ formaterDate(valeurCourante.periodeFin)
+                            }}
                         </span>
+                        <!-- ✅ Après -->
                         <span class="hero__meta-item">
                             <i class="bi bi-person" aria-hidden="true"></i>
-                            {{ valeurCourante.prenomUtilisateur }} {{ valeurCourante.nomUtilisateur }}
+                            {{ valeurCourante.saisiePar?.prenom }} {{ valeurCourante.saisiePar?.nom }}
                         </span>
                         <span class="hero__meta-item">
                             <i class="bi bi-clock" aria-hidden="true"></i>
@@ -264,10 +260,8 @@ function formaterDate(iso: string | null | undefined): string {
                         <div class="info-row">
                             <span class="info-row__label">Statut</span>
                             <span class="info-row__value">
-                                <span
-                                    class="badge-statut"
-                                    :class="item.actif ? 'badge-statut--actif' : 'badge-statut--inactif'"
-                                >
+                                <span class="badge-statut"
+                                    :class="item.actif ? 'badge-statut--actif' : 'badge-statut--inactif'">
                                     {{ item.actif ? 'Actif' : 'Inactif' }}
                                 </span>
                             </span>
@@ -323,10 +317,8 @@ function formaterDate(iso: string | null | undefined): string {
                 </article>
 
                 <!-- Fréquences -->
-                <article
-                    v-if="item.frequenceVerification || item.frequenceAggregation"
-                    class="info-card grid-column-full"
-                >
+                <article v-if="item.frequenceVerification || item.frequenceAggregation"
+                    class="info-card grid-column-full">
                     <header class="info-card__head">
                         <span class="info-card__icon" aria-hidden="true">
                             <i class="bi bi-arrow-repeat"></i>
@@ -380,7 +372,8 @@ function formaterDate(iso: string | null | undefined): string {
                     <span class="content-card__count">{{ valeurs.length }}</span>
                 </header>
 
-                <div v-if="valeursError" class="alert alert-danger m-3 d-flex justify-content-between align-items-center" role="alert">
+                <div v-if="valeursError"
+                    class="alert alert-danger m-3 d-flex justify-content-between align-items-center" role="alert">
                     <span>{{ valeursError }}</span>
                     <BaseButton size="sm" variant="secondary" @click="chargerValeurs">Réessayer</BaseButton>
                 </div>
@@ -417,8 +410,9 @@ function formaterDate(iso: string | null | undefined): string {
                                     <span v-else class="text-muted-custom">—</span>
                                 </td>
                                 <td class="history-table__date">{{ formaterDateHeure(val.dateSaisie) }}</td>
+                                <!-- ✅ Après -->
                                 <td class="history-table__user">
-                                    {{ val.prenomUtilisateur }} {{ val.nomUtilisateur }}
+                                    {{ val.saisiePar?.prenom }} {{ val.saisiePar?.nom }}
                                 </td>
                             </tr>
                         </tbody>
@@ -573,6 +567,7 @@ function formaterDate(iso: string | null | undefined): string {
     align-items: flex-start;
     max-width: 720px;
 }
+
 .hero__comment i {
     color: #d4af37;
     font-size: 0.95rem;
@@ -869,10 +864,12 @@ function formaterDate(iso: string | null | undefined): string {
     text-align: center;
     color: #8a95a8;
 }
+
 .content-card__empty i {
     font-size: 2rem;
     opacity: 0.5;
 }
+
 .content-card__empty p {
     margin: 0;
     font-size: 0.88rem;
@@ -966,9 +963,24 @@ function formaterDate(iso: string | null | undefined): string {
     border-radius: 20px;
     letter-spacing: 0.04em;
 }
-.badge-type--kpi { background: #e4f0fb; color: #135d95; border: 1px solid #cde2f6; }
-.badge-type--kri { background: #fdf3e2; color: #9a6409; border: 1px solid #f4e2c2; }
-.badge-type--autre { background: #eef1f5; color: #5b6b7d; border: 1px solid #dfe5ec; }
+
+.badge-type--kpi {
+    background: #e4f0fb;
+    color: #135d95;
+    border: 1px solid #cde2f6;
+}
+
+.badge-type--kri {
+    background: #fdf3e2;
+    color: #9a6409;
+    border: 1px solid #f4e2c2;
+}
+
+.badge-type--autre {
+    background: #eef1f5;
+    color: #5b6b7d;
+    border: 1px solid #dfe5ec;
+}
 
 .badge-statut {
     display: inline-block;
@@ -977,8 +989,18 @@ function formaterDate(iso: string | null | undefined): string {
     padding: 0.25rem 0.7rem;
     border-radius: 20px;
 }
-.badge-statut--actif { background: #e6f4ea; color: #1e7e34; border: 1px solid #c8e5cf; }
-.badge-statut--inactif { background: #eef1f5; color: #5b6b7d; border: 1px solid #dfe5ec; }
+
+.badge-statut--actif {
+    background: #e6f4ea;
+    color: #1e7e34;
+    border: 1px solid #c8e5cf;
+}
+
+.badge-statut--inactif {
+    background: #eef1f5;
+    color: #5b6b7d;
+    border: 1px solid #dfe5ec;
+}
 
 .text-code {
     display: inline-block;
@@ -1011,16 +1033,42 @@ function formaterDate(iso: string | null | undefined): string {
     border-radius: 6px;
 }
 
-.skeleton--label { width: 25%; height: 12px; }
-.skeleton--value { width: 40%; height: 36px; border-radius: 8px; }
-.skeleton--meta { width: 65%; height: 14px; }
-.skeleton--line { height: 12px; }
-.skeleton--short { width: 30%; }
-.skeleton--medium { width: 60%; }
+.skeleton--label {
+    width: 25%;
+    height: 12px;
+}
+
+.skeleton--value {
+    width: 40%;
+    height: 36px;
+    border-radius: 8px;
+}
+
+.skeleton--meta {
+    width: 65%;
+    height: 14px;
+}
+
+.skeleton--line {
+    height: 12px;
+}
+
+.skeleton--short {
+    width: 30%;
+}
+
+.skeleton--medium {
+    width: 60%;
+}
 
 @keyframes shimmer {
-    from { background-position: 200% 0; }
-    to { background-position: -200% 0; }
+    from {
+        background-position: 200% 0;
+    }
+
+    to {
+        background-position: -200% 0;
+    }
 }
 
 .hero-skeleton {
@@ -1054,44 +1102,90 @@ function formaterDate(iso: string | null | undefined): string {
    RESPONSIVE
    ============================================================ */
 @media (max-width: 1199.98px) {
-    .ind-page { padding-left: 24px; padding-right: 24px; }
+    .ind-page {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
 }
 
 @media (max-width: 991.98px) {
-    .hero__value { font-size: 2.4rem; max-width: 100%; }
+    .hero__value {
+        font-size: 2.4rem;
+        max-width: 100%;
+    }
 }
 
 @media (max-width: 767.98px) {
-    .ind-page { padding: 24px 16px 20px; }
-    .info-grid { grid-template-columns: 1fr; }
-    .info-card__body--tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .ind-page {
+        padding: 24px 16px 20px;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .info-card__body--tiles {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .hero__badges {
         position: static;
         justify-content: flex-start;
         margin-bottom: 0.75rem;
     }
-    .hero__value { max-width: 100%; }
+
+    .hero__value {
+        max-width: 100%;
+    }
 }
 
 @media (max-width: 575.98px) {
-    .ind-page { padding: 20px 12px 16px; }
-    .hero { padding: 1.15rem 1.15rem; }
-    .hero__value { font-size: 2rem; }
-    .hero__meta { gap: 0.3rem 0.85rem; font-size: 0.78rem; }
-    .info-card__body--tiles { grid-template-columns: 1fr; }
+    .ind-page {
+        padding: 20px 12px 16px;
+    }
+
+    .hero {
+        padding: 1.15rem 1.15rem;
+    }
+
+    .hero__value {
+        font-size: 2rem;
+    }
+
+    .hero__meta {
+        gap: 0.3rem 0.85rem;
+        font-size: 0.78rem;
+    }
+
+    .info-card__body--tiles {
+        grid-template-columns: 1fr;
+    }
+
     .info-row {
         flex-direction: column;
         gap: 0.15rem;
         align-items: flex-start;
     }
-    .info-row__value { text-align: left; }
+
+    .info-row__value {
+        text-align: left;
+    }
+
     .history-table thead th,
-    .history-table tbody td { padding-left: 0.85rem; padding-right: 0.85rem; }
+    .history-table tbody td {
+        padding-left: 0.85rem;
+        padding-right: 0.85rem;
+    }
+
     .history-table thead th:nth-child(3),
-    .history-table tbody td:nth-child(3) { display: none; }
+    .history-table tbody td:nth-child(3) {
+        display: none;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .skeleton { animation: none !important; }
+    .skeleton {
+        animation: none !important;
+    }
 }
 </style>

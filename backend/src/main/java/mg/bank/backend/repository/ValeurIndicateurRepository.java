@@ -2,7 +2,6 @@ package mg.bank.backend.repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -51,9 +50,6 @@ public interface ValeurIndicateurRepository
             @Param("idIndicateur") Integer idIndicateur);
 
     // ── détection de doublon de période ────────────────────────────
-    boolean existsByIdIndicateurAndPeriodeDebutAndPeriodeFin(
-            Integer idIndicateur, LocalDateTime periodeDebut, LocalDateTime periodeFin);
-
-    Optional<ValeurIndicateur> findFirstByIdIndicateurAndPeriodeDebutAndPeriodeFin(
+    boolean existsByIndicateur_IdIndicateurAndPeriodeDebutAndPeriodeFin(
             Integer idIndicateur, LocalDateTime periodeDebut, LocalDateTime periodeFin);
 }

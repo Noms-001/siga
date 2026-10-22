@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -19,12 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.PerimetreUtilisateur;
-import mg.bank.backend.dto.ReferenceDTO;
 import mg.bank.backend.dto.indicateur.AgregationIndicateurDTO;
 import mg.bank.backend.dto.indicateur.AtteinteIndicateurDTO;
 import mg.bank.backend.dto.indicateur.IndicateurEnRetardDTO;
 import mg.bank.backend.dto.indicateur.PeriodeAgregeeDTO;
 import mg.bank.backend.dto.indicateur.SuiviIndicateurDTO;
+import mg.bank.backend.dto.indicateur.UtilisateurMinimalDTO;
 import mg.bank.backend.dto.indicateur.ValeurIndicateurDTO;
 import mg.bank.backend.dto.indicateur.ValeurIndicateurRequest;
 import mg.bank.backend.enums.MethodeAgregation;
@@ -127,7 +126,7 @@ public class SuiviIndicateurService {
         // Doublon de periode : la regle append-only n'accepte pas deux valeurs
         // sur la meme periode pour le meme indicateur.
         if (valeurIndicateurRepository
-                .existsByIdIndicateurAndPeriodeDebutAndPeriodeFin(
+                .existsByIndicateur_IdIndicateurAndPeriodeDebutAndPeriodeFin(
                         indicateur.getIdIndicateur(),
                         request.getPeriodeDebut(),
                         request.getPeriodeFin())) {
@@ -277,9 +276,10 @@ public class SuiviIndicateurService {
                 .commentaire(v.getCommentaire())
                 .dateSaisie(v.getDateSaisie())
                 .saisiePar(v.getUtilisateur() == null ? null
-                        : ReferenceDTO.builder()
+                        : UtilisateurMinimalDTO.builder()
                                 .id(v.getUtilisateur().getIdUtilisateur())
-                                .libelle(v.getUtilisateur().getPrenom() + " " + v.getUtilisateur().getNom())
+                                .nom(v.getUtilisateur().getNom())
+                                .prenom(v.getUtilisateur().getPrenom())
                                 .build())
                 .build();
     }
@@ -583,7 +583,7 @@ public class SuiviIndicateurService {
 
         for (Indicateur indicateur : candidats) {
             List<ValeurIndicateur> valeurs = valeurIndicateurRepository
-        .findToutesValeurs(indicateur.getIdIndicateur());
+                    .findToutesValeurs(indicateur.getIdIndicateur());
 
             if (valeurs.isEmpty()) {
                 if (inclureJamaisSaisi) {

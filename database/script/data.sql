@@ -2361,3 +2361,12 @@ VALUES
     'Nombre de jours de retard à partir duquel le chef de service et le chef de département sont notifiés pour un plan d''action rattaché à un INCIDENT.',
     'NOTIFICATION', TRUE, TRUE, CURRENT_TIMESTAMP
 );
+
+INSERT INTO parametre (code, designation, valeur, type_valeur, categorie, modifiable, actif)
+VALUES
+  ('NOTIFICATION_SOUS_ACTIVITE_AVANT_ECHEANCE_JOURS',
+   'Nombre de jours avant échéance pour notifier une sous-activité',
+   '3', 'INTEGER', 'NOTIFICATION', TRUE, TRUE),
+  ('NOTIFICATION_SOUS_ACTIVITE_SEUIL_RETARD_HIERARCHIE_JOURS',
+   'Nombre de jours de retard avant alerte hiérarchique',
+   '7', 'INTEGER', 'NOTIFICATION', TRUE, TRUE);

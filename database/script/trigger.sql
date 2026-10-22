@@ -1,3 +1,267 @@
+CREATE OR REPLACE FUNCTION verifier_notifications_sous_activites()
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_jours_avant      INTEGER;
+    v_seuil_hierarchie INTEGER;
+BEGIN
+
+    /* ============================================================
+     * Récupération des paramètres
+     * ============================================================ */
+    SELECT valeur::INTEGER
+    INTO v_jours_avant
+    FROM parametre
+    WHERE code = 'NOTIFICATION_SOUS_ACTIVITE_AVANT_ECHEANCE_JOURS'
+      AND actif = TRUE
+    LIMIT 1;
+
+    IF v_jours_avant IS NULL THEN
+        RAISE NOTICE 'Paramètre NOTIFICATION_SOUS_ACTIVITE_AVANT_ECHEANCE_JOURS non configuré.';
+        RETURN;
+    END IF;
+
+    SELECT valeur::INTEGER
+    INTO v_seuil_hierarchie
+    FROM parametre
+    WHERE code = 'NOTIFICATION_SOUS_ACTIVITE_SEUIL_RETARD_HIERARCHIE_JOURS'
+      AND actif = TRUE
+    LIMIT 1;
+
+    IF v_seuil_hierarchie IS NULL THEN
+        v_seuil_hierarchie := 7;   -- valeur de repli
+    END IF;
+
+    /* ============================================================
+     * 1. SOUS-ACTIVITÉS ARRIVANT À ÉCHÉANCE
+     * ============================================================ */
+    WITH dernier_avancement AS (
+        SELECT DISTINCT ON (av.id_sous_activite)
+            av.id_sous_activite,
+            av.valeur_pourcentage
+        FROM avancement_sous_activite av
+        ORDER BY av.id_sous_activite,
+                 av.date_changement DESC,
+                 av.id_historique_sous_activite DESC
+    ),
+    etat_sous_activite AS (
+        SELECT
+            sa.id_sous_activite,
+            sa.code,
+            sa.designation,
+            sa.date_debut_prevue,
+            sa.date_fin_prevue,
+            sa.date_debut_reelle,
+            sa.date_fin_reelle,
+            COALESCE(da.valeur_pourcentage, 0) AS valeur_pourcentage,
+            CASE
+                WHEN sa.date_fin_reelle IS NOT NULL
+                  OR COALESCE(da.valeur_pourcentage, 0) = 100
+                THEN TRUE ELSE FALSE
+            END AS est_terminee
+        FROM sous_activite sa
+        LEFT JOIN dernier_avancement da
+               ON da.id_sous_activite = sa.id_sous_activite
+    )
+    INSERT INTO notification (titre, message, date_creation, id_priorite,
+                              id_utilisateur, id_reference, resource)
+    SELECT
+        'Échéance proche — sous-activité',
+        'La sous-activité "' || esa.code || ' — ' || esa.designation ||
+        '" arrive à échéance dans ' || v_jours_avant || ' jour(s).',
+        CURRENT_TIMESTAMP,
+        (SELECT id_priorite FROM priorite WHERE code = 'NORMALE'),
+        asa.id_utilisateur,
+        esa.id_sous_activite,
+        'SOUS_ACTIVITE'
+    FROM etat_sous_activite esa
+    INNER JOIN affectation_sous_activite asa
+        ON asa.id_sous_activite = esa.id_sous_activite
+    INNER JOIN role r
+        ON r.id_role = asa.id_role AND r.code = 'RESPONSABLE'
+    WHERE esa.date_fin_prevue = CURRENT_DATE + v_jours_avant
+      AND esa.est_terminee = FALSE
+      AND asa.date_desaffectation IS NULL;
+
+    /* ============================================================
+     * 1bis. SOUS-ACTIVITÉS NON DÉMARRÉES DONT LA DATE DE DÉBUT EST DÉPASSÉE
+     * ============================================================ */
+    WITH dernier_avancement AS (
+        SELECT DISTINCT ON (av.id_sous_activite)
+            av.id_sous_activite,
+            av.valeur_pourcentage
+        FROM avancement_sous_activite av
+        ORDER BY av.id_sous_activite,
+                 av.date_changement DESC,
+                 av.id_historique_sous_activite DESC
+    ),
+    etat_sous_activite AS (
+        SELECT
+            sa.id_sous_activite,
+            sa.code,
+            sa.designation,
+            sa.date_debut_prevue,
+            sa.date_fin_prevue,
+            COALESCE(da.valeur_pourcentage, 0) AS valeur_pourcentage,
+            CASE
+                WHEN sa.date_fin_reelle IS NOT NULL
+                  OR COALESCE(da.valeur_pourcentage, 0) = 100
+                THEN FALSE
+                WHEN sa.date_debut_reelle IS NULL
+                  OR COALESCE(da.valeur_pourcentage, 0) = 0
+                THEN TRUE
+                ELSE FALSE
+            END AS est_non_commencee
+        FROM sous_activite sa
+        LEFT JOIN dernier_avancement da
+               ON da.id_sous_activite = sa.id_sous_activite
+    )
+    INSERT INTO notification (titre, message, date_creation, id_priorite,
+                              id_utilisateur, id_reference, resource)
+    SELECT
+        'Démarrage en retard — sous-activité',
+        'La sous-activité "' || esa.code || ' — ' || esa.designation ||
+        '" devait démarrer le ' || TO_CHAR(esa.date_debut_prevue, 'DD/MM/YYYY') ||
+        ' mais n''a pas encore été démarrée (' ||
+        (CURRENT_DATE - esa.date_debut_prevue) || ' jour(s) de retard).',
+        CURRENT_TIMESTAMP,
+        (SELECT id_priorite FROM priorite WHERE code = 'HAUTE'),
+        asa.id_utilisateur,
+        esa.id_sous_activite,
+        'SOUS_ACTIVITE'
+    FROM etat_sous_activite esa
+    INNER JOIN affectation_sous_activite asa
+        ON asa.id_sous_activite = esa.id_sous_activite
+    INNER JOIN role r
+        ON r.id_role = asa.id_role AND r.code = 'RESPONSABLE'
+    WHERE esa.date_debut_prevue < CURRENT_DATE
+      AND esa.est_non_commencee = TRUE
+      AND asa.date_desaffectation IS NULL;
+
+    /* ============================================================
+     * 2. SOUS-ACTIVITÉS EN RETARD
+     * ============================================================ */
+    WITH dernier_avancement AS (
+        SELECT DISTINCT ON (av.id_sous_activite)
+            av.id_sous_activite,
+            av.valeur_pourcentage
+        FROM avancement_sous_activite av
+        ORDER BY av.id_sous_activite,
+                 av.date_changement DESC,
+                 av.id_historique_sous_activite DESC
+    ),
+    etat_sous_activite AS (
+        SELECT
+            sa.id_sous_activite,
+            sa.code,
+            sa.designation,
+            sa.date_debut_prevue,
+            sa.date_fin_prevue,
+            sa.date_debut_reelle,
+            sa.date_fin_reelle,
+            COALESCE(da.valeur_pourcentage, 0) AS valeur_pourcentage,
+            CASE
+                WHEN sa.date_fin_reelle IS NOT NULL
+                  OR COALESCE(da.valeur_pourcentage, 0) = 100
+                THEN TRUE ELSE FALSE
+            END AS est_terminee,
+            CASE
+                WHEN sa.date_fin_reelle IS NOT NULL
+                  OR COALESCE(da.valeur_pourcentage, 0) = 100
+                THEN FALSE
+                WHEN sa.date_debut_reelle IS NULL
+                  OR COALESCE(da.valeur_pourcentage, 0) = 0
+                THEN TRUE
+                ELSE FALSE
+            END AS est_non_commencee
+        FROM sous_activite sa
+        LEFT JOIN dernier_avancement da
+               ON da.id_sous_activite = sa.id_sous_activite
+    )
+    INSERT INTO notification (titre, message, date_creation, id_priorite,
+                              id_utilisateur, id_reference, resource)
+    SELECT
+        'Sous-activité en retard',
+        'La sous-activité "' || esa.code || ' — ' || esa.designation ||
+        '" est en retard depuis ' || (CURRENT_DATE - esa.date_fin_prevue) || ' jour(s)' ||
+        ' (avancement : ' || esa.valeur_pourcentage || ' %).',
+        CURRENT_TIMESTAMP,
+        (SELECT id_priorite FROM priorite WHERE code = 'HAUTE'),
+        asa.id_utilisateur,
+        esa.id_sous_activite,
+        'SOUS_ACTIVITE'
+    FROM etat_sous_activite esa
+    INNER JOIN affectation_sous_activite asa
+        ON asa.id_sous_activite = esa.id_sous_activite
+    INNER JOIN role r
+        ON r.id_role = asa.id_role AND r.code = 'RESPONSABLE'
+    WHERE esa.date_fin_prevue < CURRENT_DATE
+      AND esa.est_terminee = FALSE
+      AND esa.est_non_commencee = FALSE
+      AND asa.date_desaffectation IS NULL;
+
+    /* ============================================================
+     * 3. AJOUT DU STATUT EN_RETARD DANS L'HISTORIQUE DE LA SOUS-ACTIVITÉ
+     *
+     *   Contrairement à l'activité, la sous-activité n'a pas de table
+     *   historique dédiée : avancement_sous_activite joue ce rôle. On
+     *   insère donc une nouvelle ligne avec la valeur courante (inchangée)
+     *   et le statut EN_RETARD.
+     *
+     *   Anti-doublon : on n'insère que si le dernier statut n'est PAS
+     *   déjà EN_RETARD.
+     * ============================================================ */
+    WITH dernier_avancement AS (
+        SELECT DISTINCT ON (av.id_sous_activite)
+            av.id_sous_activite,
+            av.valeur_pourcentage,
+            av.id_statut,
+            av.id_utilisateur
+        FROM avancement_sous_activite av
+        ORDER BY av.id_sous_activite,
+                 av.date_changement DESC,
+                 av.id_historique_sous_activite DESC
+    ),
+    sous_activites_en_retard AS (
+        SELECT DISTINCT ON (sa.id_sous_activite)
+            sa.id_sous_activite,
+            COALESCE(da.valeur_pourcentage, 0) AS valeur_pourcentage,
+            COALESCE(da.id_utilisateur, asa.id_utilisateur) AS id_utilisateur,
+            COALESCE(s.code, 'NON_COMMENCEE') AS statut_code
+        FROM sous_activite sa
+        LEFT JOIN dernier_avancement da
+               ON da.id_sous_activite = sa.id_sous_activite
+        LEFT JOIN statut s
+               ON s.id_statut = da.id_statut
+        INNER JOIN affectation_sous_activite asa
+            ON asa.id_sous_activite = sa.id_sous_activite
+            AND asa.date_desaffectation IS NULL
+        INNER JOIN role r
+            ON r.id_role = asa.id_role AND r.code = 'RESPONSABLE'
+        WHERE sa.date_fin_prevue < CURRENT_DATE
+          AND sa.date_fin_reelle IS NULL
+          AND COALESCE(da.valeur_pourcentage, 0) < 100
+          AND (sa.date_debut_reelle IS NOT NULL
+               OR COALESCE(da.valeur_pourcentage, 0) > 0)
+          AND COALESCE(s.code, 'NON_COMMENCEE') <> 'EN_RETARD'
+        ORDER BY sa.id_sous_activite, asa.id_affectation_sous_activite
+    )
+    INSERT INTO avancement_sous_activite
+        (valeur_pourcentage, commentaire, date_changement,
+         id_utilisateur, id_statut, id_sous_activite)
+    SELECT
+        saer.valeur_pourcentage,
+        'Passage automatique en retard.',
+        CURRENT_TIMESTAMP,
+        saer.id_utilisateur,
+        (SELECT id_statut FROM statut WHERE code = 'EN_RETARD'),
+        saer.id_sous_activite
+    FROM sous_activites_en_retard saer;
+
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION verifier_notifications_plans_action()
 RETURNS VOID
 LANGUAGE plpgsql
@@ -521,6 +785,7 @@ FOR EACH ROW EXECUTE FUNCTION check_affectation_role_singulier();
 CREATE TRIGGER trg_affectation_sous_activite_role_singulier
 BEFORE INSERT OR UPDATE ON affectation_sous_activite
 FOR EACH ROW EXECUTE FUNCTION check_affectation_role_singulier();
+
 CREATE OR REPLACE FUNCTION notify_indicateur_seuil()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -611,3 +876,7 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_notify_indicateur_seuil
+AFTER INSERT ON valeur_indicateur
+FOR EACH ROW EXECUTE FUNCTION notify_indicateur_seuil();

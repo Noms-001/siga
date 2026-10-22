@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RestController;
 import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.backoffice.IndicateurResponse;
-import mg.bank.backend.dto.backoffice.ValeurIndicateurResponse;
 import mg.bank.backend.service.IndicateurService;
 
 /**
@@ -50,12 +49,5 @@ public class IndicateurFrontController {
     public ResponseEntity<ApiResponse<IndicateurResponse>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ApiResponse.success(indicateurService.getById(id)));
-    }
-
-    @GetMapping("/{id}/valeurs")
-    public ResponseEntity<ApiResponse<List<ValeurIndicateurResponse>>> listerValeurs(
-            @PathVariable Integer id) {
-        return ResponseEntity.ok(
-                ApiResponse.success(indicateurService.listerValeurs(id)));
     }
 }

@@ -8,7 +8,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import mg.bank.backend.dto.ReferenceDTO;
 
 @Getter
 @Setter
@@ -22,5 +21,5 @@ public class ValeurIndicateurDTO {
     private LocalDateTime periodeFin;
     private String commentaire;
     private LocalDateTime dateSaisie;
-    private ReferenceDTO saisiePar;
+    private UtilisateurMinimalDTO saisiePar;
 }

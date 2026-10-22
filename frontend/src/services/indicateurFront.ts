@@ -3,6 +3,14 @@ import type { Indicateur, ValeurIndicateur } from '@/types/backoffice/indicateur
 
 const BASE = '/indicateurs'
 
+export interface PageResponse<T> {
+    content: T[]
+    page: number
+    size: number
+    totalElements: number
+    totalPages: number
+}
+
 export interface ListeIndicateursFrontParams {
     actif?: boolean
     type?: string
@@ -37,8 +45,12 @@ export function getIndicateurFront(id: number): Promise<ApiResponse<Indicateur>>
     return get<Indicateur>(`${BASE}/${id}`)
 }
 
-export function listerValeursIndicateur(
+export async function listerValeursIndicateur(
     id: number
 ): Promise<ApiResponse<ValeurIndicateur[]>> {
-    return get<ValeurIndicateur[]>(`${BASE}/${id}/valeurs`)
+    const res = await get<PageResponse<ValeurIndicateur>>(
+        `${BASE}/${id}/valeurs?page=0&size=100`
+    )
+    if (!res.success) return res
+    return { success: true, data: res.data.content }
 }
