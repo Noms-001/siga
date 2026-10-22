@@ -11,7 +11,7 @@ const router = createRouter({
         {
           path: '/',
           name: 'acceuil',
-          component: () => import('@/views/Acceuil.vue')
+          component: () => import('@/views/Accueil.vue')
         },
         ...frontofficeRoutes,
         ...backofficeRoutes,

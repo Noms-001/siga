@@ -66,24 +66,6 @@ import mg.bank.backend.repository.projection.OptionRow;
 import mg.bank.backend.repository.projection.ResponsableSuiviRow;
 import mg.bank.backend.repository.projection.SousActiviteSuiviRow;
 
-/**
- * Service de consultation des activites, et source de verite du perimetre.
- *
- * Les ecritures sont ailleurs : ActiviteEcritureService pour la redaction, et
- * LivrableEcritureService pour le depot de pieces. Ce service reste ce qu il
- * annonce, et getPerimetre et utilisateurCourant restent les seules
- * reconstructions de "qui appelle et jusqu ou".
- *
- * Toute la logique metier vit ici : les repositories ne contiennent que des
- * requetes. C'est notamment le cas de trois decisions :
- *
- * 1. le perimetre, reconstruit depuis l'utilisateur authentifie et jamais
- * depuis un parametre HTTP ;
- * 2. les bornes de mois du trimestre, calculees ici pour que le SQL reste
- * sappable sur date_debut_prevue ;
- * 3. la liste des codes terminaux, injectee dans le SQL sous forme de
- * liste chainee puis scindee par la base.
- */
 @Service
 @RequiredArgsConstructor
 public class ActiviteService {
@@ -91,12 +73,6 @@ public class ActiviteService {
         private static final int TAILLE_PAGE_MAX = 100;
         private static final int TAILLE_AUTOCOMPLETE = 10;
 
-        /**
-         * Tri par defaut : de la plus recente a la plus ancienne.
-         *
-         * La colonne dateCreationTri n'est jamais nulle (COALESCE fait le
-         * travail en base), donc pas besoin de NULLS LAST.
-         */
         private static final Sort TRI_PAR_DEFAUT = Sort.by(Sort.Direction.DESC, "dateCreationTri");
 
         private final ActiviteRepository activiteRepository;
@@ -117,16 +93,6 @@ public class ActiviteService {
         // ------------------------------------------------------------------
         // Perimetre
         // ------------------------------------------------------------------
-
-        /**
-         * Poste métier de l'utilisateur, ou une 404 explicite.
-         *
-         * Le modèle porte désormais un poste unique sur l'utilisateur : plus besoin
-         * de le chercher en base, il est déjà chargé avec l'utilisateur. La méthode
-         * factorise les quatre points qui exigent un poste métier — refuser au même
-         * endroit évite que l'un d'eux oublie la condition isMetier et laisse un
-         * utilisateur support valider des activités.
-         */
         private Poste posteMetierCourant(Utilisateur utilisateur) {
                 Poste poste = utilisateur.getPoste();
                 if (poste == null || !Boolean.TRUE.equals(poste.getIsMetier())) {
@@ -137,13 +103,6 @@ public class ActiviteService {
                 return poste;
         }
 
-        /**
-         * Perimetre de l'utilisateur connecte, derive de ses rattachements.
-         *
-         * - service et departement : bloque sur son service
-         * - departement seul : restreint a son departement
-         * - aucun : pas de restriction
-         */
         @Transactional(readOnly = true)
         public PerimetreUtilisateur getPerimetre() {
                 Utilisateur utilisateur = utilisateurCourant();
@@ -180,9 +139,6 @@ public class ActiviteService {
                                 .map(EtapeValidation::getIdEtapeValidation)
                                 .toList();
 
-                // 1 seule requête : toutes les validations EN_ATTENTE pour toutes les étapes du
-                // poste,
-                // avec activite + ses relations + etapeValidation déjà fetchés.
                 List<ValidationActivite> enAttente = validationActiviteRepository
                                 .findEnAttenteByEtapes(idsEtapes, DecisionValidation.EN_ATTENTE_VALIDATION);
 
@@ -210,7 +166,7 @@ public class ActiviteService {
         }
 
         @Transactional
-        ValidationActivite soumettreRetour      (Activite activite, Utilisateur utilisateur, String commentaire) {
+        ValidationActivite soumettreRetour(Activite activite, Utilisateur utilisateur, String commentaire) {
                 ValidationActivite validation = validationActiviteService
                                 .getDerniereEtapeNonValidee(activite.getIdActivite())
                                 .orElseThrow(() -> new ApiException("Aucune étape précédente en cours à retourner",
@@ -404,15 +360,6 @@ public class ActiviteService {
                                 activite, demandeur, titre, message));
         }
 
-        /**
-         * Appelant, lu dans le contexte de securite.
-         *
-         * Public pour la meme raison que getPerimetre : c est la seule source de
-         * l identite de l appelant dans le projet. Une ecriture doit savoir QUI
-         * soumet, pour l inscrire dans l historique ; si elle reconstruisait
-         * elle-meme cette identite, deux lectures de la regle pourraient
-         * diverger.
-         */
         public Utilisateur utilisateurCourant() {
                 Authentication authentication = SecurityContextHolder
                                 .getContext()
@@ -427,19 +374,6 @@ public class ActiviteService {
                                                 "Utilisateur introuvable", HttpStatus.UNAUTHORIZED));
         }
 
-        /**
-         * Departage 404 / 403, partage par toutes les lectures et ecritures.
-         *
-         * A n'appeler qu apres l echec d une requete RESTREINTE au perimetre :
-         * cette requete a deja repondu "rien", et la question reste de savoir si
-         * c est parce que la donnee n existe pas ou parce qu elle appartient a
-         * quelqu un d autre. Sans cette verification supplementaire, un 403
-         * paraitrait inexistant, et l appelant ne pourrait plus distinguer une
-         * faute de frappe d un acces refuse.
-         *
-         * Le message du 403 ne nomme ni l activite ni son service : il confirme
-         * l acces refuse, pas la position de la donnee.
-         */
         @Transactional(readOnly = true)
         public ApiException refusOuAbsence(Integer idActivite) {
                 if (activiteRepository.compterActivite(idActivite) > 0) {
@@ -454,16 +388,6 @@ public class ActiviteService {
         // ------------------------------------------------------------------
         // Conversion des criteres en parametres de requete
         // ------------------------------------------------------------------
-
-        /**
-         * Prepared les arguments des requetes.
-         *
-         * Regle appliquee ici : un utilisateur rattache a un service ne peut pas
-         * elargir son perimetre. Son service est envoye comme servicePerimetre,
-         * et une selection de service differente est transmise telle quelle :
-         * les deux contraintes se cumuleront en base et ne renverront rien,
-         * plutot que d'ignorer silencieusement la tentative.
-         */
         private record Arguments(
                         Boolean pta,
                         String recherche,
@@ -486,14 +410,9 @@ public class ActiviteService {
 
         private Arguments arguments(ActiviteFiltreCriteria filtres, PerimetreUtilisateur perimetre) {
 
-                // La vue PTA est le defaut : une activite sans objectif n'est pas
-                // cherchee sauf demande explicite de la vue NON PTA.
                 Boolean pta = filtres == null || filtres.getPta() == null
                                 ? Boolean.TRUE
                                 : filtres.getPta();
-
-                // Hors vue PTA, un objectif ne peut pas etre recherche : il en
-                // existe par definition. On l'ignore plutot que de le transmettre.
                 boolean horsPta = Boolean.FALSE.equals(pta);
 
                 Integer servicePerimetre = perimetre.estRattacheService()
@@ -505,10 +424,6 @@ public class ActiviteService {
                                 : null;
 
                 Integer serviceDemande = filtres == null ? null : filtres.getServiceId();
-
-                // Un utilisateur de niveau departement ne peut selectionner qu'un
-                // service de son departement ; c'est deja garanti par la contrainte
-                // de departement appliquee en base.
 
                 return new Arguments(
                                 pta,
@@ -530,11 +445,6 @@ public class ActiviteService {
                                 filtres == null ? null : filtres.getDateFin());
         }
 
-        /**
-         * Convertit un trimestre en bornes de mois.
-         * T1 = janvier a mars, T2 = avril a juin, T3 = juillet a septembre,
-         * T4 = octobre a decembre.
-         */
         private Integer moisDebut(Integer trimestre) {
                 if (trimestre == null || trimestre < 1 || trimestre > 4) {
                         return null;
@@ -549,10 +459,6 @@ public class ActiviteService {
                 return (trimestre - 1) * 3 + 3;
         }
 
-        /**
-         * Codes terminaux, injectes dans le SQL.
-         * Le service est seul a decider quels statuts terminent une activite.
-         */
         private String codesTerminaux() {
                 return String.join(",", StatutActiviteEnum.codesTerminaux());
         }
@@ -567,60 +473,7 @@ public class ActiviteService {
                 return (valeur == null || valeur.isBlank()) ? null : valeur.trim();
         }
 
-        /**
-         * Creer un objectif specifique depuis le formulaire d'activite.
-         *
-         * UNE EXCEPTION A LA REGLE DE CE SERVICE
-         *
-         * Ce service est annonce comme celui de la consultation, et la creation
-         * d'un objectif en est une. Elle n'ouvre pas pour autant un second
-         * service : l'objectif n'existe dans l'application qu'a travers le
-         * formulaire d'activite -- c'est le seul ecran qui le choisit -- et
-         * l'ecrire ailleurs disperserait une regle qui n'a qu'un appelant. La
-         * regle d'ecriture reste celle du projet : tout le metier est ici, le
-         * repository ne fait qu'enregistrer.
-         *
-         * LA REPONSE EST UN OBJECTIF, ET PAS UN IDENTIFIANT
-         *
-         * Le formulaire selectionne l'objectif qu'il vient de creer, sans repasser
-         * par l'autocomplete : c'est cette forme, enrichie du meme libelle et du
-         * meme `prochainNumero` que propose l'autocomplete, qui evite un aller-retour
-         * et une saisie qui peut reussir a l'ecran et echouer en base.
-         *
-         * `prochainNumero` vaut 1 : un objectif ne vient que d'etre cree, il ne
-         * porte aucune activite, et la premiere activite qu'on y rattache sera la
-         * numero 1. C'est la valeur qu'on proposerait si l'on relisait l'autocomplete.
-         */
         @Transactional
-        /**
-         * Code propose pour une activite NON PTA : A-<annee>-<suite du dernier>.
-         *
-         * UNE NON PTA N A NI OBJECTIF NI NUMERO D ACTIVITE
-         *
-         * Le code d un PTA se deduit de l objectif (A-<annee>-<objectif>-<n>), donc
-         * l objectif permet de le proposer. Une NON PTA n en a pas : sans cette
-         * regle, le champ resterait vide et l utilisateur devrait inventer un code
-         * qui ne se rappelle de rien -- alors que la regle du jeu de donnees est
-         * simple, une sequence par annee, A-2027-01 a A-2027-50.
-         *
-         * LE CODE COMPLET EST RENVOYE, ET PAS LE NUMERO
-         *
-         * Le format appartient a la base : c est elle qui porte la regle, et le
-         * formulaire comme une lecture du code existant evitent d avoir a la
-         * reconcevoir. Le backend renvoie donc la valeur prete a etre affichee,
-         * ce qui laisse au front une seule chose a faire.
-         *
-         * La valeur reste une PROPOSITION : le champ est modifiable, et le backend
-         * ne controle que l unicite. Deux utilisateurs qui ouvrent le formulaire en
-         * meme temps peuvent voir le meme code ; le second enregistrement est alors
-         * refuse pour code deja utilise, ce qui est une erreur de saisie et non une
-         * panne.
-         *
-         * L annee est demandee et non relue ailleurs : une NON PTA n a pas d
-         * objectif, donc rien dans l activite ne la designe avant que l
-         * utilisateur ne renseigne sa date de debut. C est au formulaire de
-         * savoir sur quelle annee il travaille.
-         */
         public String prochainCodeNonPta(int annee) {
 
                 if (annee < 1900 || annee > 2100) {
@@ -639,9 +492,6 @@ public class ActiviteService {
                 String code = request.getCode().trim();
 
                 if (objectifSpecifiqueRepository.existsByCodeIgnoreCase(code)) {
-                        // Refuse ici et non sur la violation de la contrainte unique, qui
-                        // remonterait en 500 : l'utilisateur a saisi un code deja pris,
-                        // c'est une erreur de saisie et non une panne.
                         throw new ApiException(
                                         "Un objectif porte déjà le code « " + code + " »",
                                         HttpStatus.CONFLICT);
@@ -650,8 +500,6 @@ public class ActiviteService {
                 ObjectifSpecifique enregistre;
 
                 try {
-                        // Identifiant genere par la base : le INSERT part ici, ce qui permet
-                        // de traduire la violation de contrainte.
                         enregistre = objectifSpecifiqueRepository.save(
                                         ObjectifSpecifique.builder()
                                                         .code(code)
@@ -659,9 +507,6 @@ public class ActiviteService {
                                                         .annee(request.getAnnee())
                                                         .build());
                 } catch (DataIntegrityViolationException e) {
-                        // Deux creations du meme code au meme instant franchissent toutes
-                        // deux le controle precedent : c'est la meme erreur de saisie que
-                        // ci-dessus, pas une panne, et elle doit se lire pareil.
                         throw new ApiException(
                                         "Un objectif porte déjà le code « " + code + " »",
                                         HttpStatus.CONFLICT);
@@ -753,14 +598,6 @@ public class ActiviteService {
         // Statistiques
         // ------------------------------------------------------------------
 
-        /**
-         * Compteurs des cards.
-         *
-         * Le filtre de statut n'est volontairement pas transmis : sinon cliquer
-         * sur une card mettrait les autres a zero. Les cards refletent les
-         * autres filtres, et la card active est signalee par le filtre qu'elle
-         * pose sur le tableau.
-         */
         @Transactional(readOnly = true)
         public ActiviteStatistiquesDTO statistiques(ActiviteFiltreCriteria filtres) {
 
@@ -806,13 +643,6 @@ public class ActiviteService {
         // Referentiels de filtres
         // ------------------------------------------------------------------
 
-        /**
-         * Referentiels des filtres, lus en base.
-         *
-         * Les services ne sont fournis qu'a un utilisateur de niveau departement.
-         * Un utilisateur rattache a un service recoit un tableau vide : le
-         * filtre n'est pas masque par le front, il n'est pas fourni.
-         */
         @Transactional(readOnly = true)
         public ActiviteOptionsDTO options() {
 

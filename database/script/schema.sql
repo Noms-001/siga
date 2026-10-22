@@ -113,7 +113,7 @@ CREATE TABLE "procedure"(
    PRIMARY KEY(id_procedure)
 );
 
-CREATE TABLE activite(
+CREATE TABLE activite (
    id_activite SERIAL,
    code VARCHAR(20)  NOT NULL,
    reference VARCHAR(20),
@@ -404,6 +404,25 @@ CREATE TABLE affectation_plan_action(
    FOREIGN KEY(id_utilisateur) REFERENCES utilisateur(id_utilisateur),
    FOREIGN KEY(id_role) REFERENCES role(id_role)
 );
+
+CREATE TABLE activite_origine (
+    id_activite INTEGER NOT NULL,
+    id_origine INTEGER NOT NULL,
+
+    PRIMARY KEY (id_activite, id_origine),
+
+    CONSTRAINT fk_activite_origine_activite
+        FOREIGN KEY (id_activite)
+        REFERENCES activite(id_activite),
+
+    CONSTRAINT fk_activite_origine_origine
+        FOREIGN KEY (id_origine)
+        REFERENCES origine(id_origine)
+);
+
+-- Faciliter la recherche des activités par origine
+CREATE INDEX ix_activite_origine_origine
+    ON activite_origine (id_origine);
 
 CREATE TABLE avancement_plan_action(
    id_avancement_plan_action SERIAL,

@@ -1,5 +1,6 @@
 package mg.bank.backend.dto;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import lombok.AllArgsConstructor;
@@ -48,11 +49,11 @@ public class IndicateurDetailDTO {
 
     private String objectif;
 
-    private Double valeurCible;
+    private BigDecimal valeurCible;
 
-    private Double seuilMin;
+    private BigDecimal seuilMin;
 
-    private Double seuilMax;
+    private BigDecimal seuilMax;
 
     private Boolean actif;
 

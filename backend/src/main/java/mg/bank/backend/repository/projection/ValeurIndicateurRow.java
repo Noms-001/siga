@@ -1,5 +1,6 @@
 package mg.bank.backend.repository.projection;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -16,7 +17,7 @@ public interface ValeurIndicateurRow {
     /** Cle de regroupement, pas une donnee affichee. */
     Integer getIdIndicateur();
 
-    Double getValeur();
+    BigDecimal getValeur();
 
     LocalDateTime getPeriodeDebut();
 

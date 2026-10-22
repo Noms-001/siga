@@ -31,6 +31,15 @@ const route = useRoute()
 const sessionExpiree = computed(() => route.query.session === 'expiree')
 
 /**
+ * Retour à la page précédente, ou à l'accueil si pas d'historique.
+ */
+const goBack = () => {
+    router.push('/').catch(() => {
+        // Navigation annulée par un guard — on ne fait rien
+    })
+}
+
+/**
  * Connexion de l'utilisateur
  */
 const handleLogin = async () => {
@@ -64,7 +73,6 @@ const handleLogin = async () => {
             password: password.value
         })
 
-
         // Reprendre la page demandée avant la connexion, notamment le lien
         // direct vers la file de validation reçu par e-mail.
         const redirect = route.query.redirect
@@ -88,20 +96,27 @@ const handleLogin = async () => {
 </script>
 
 <template>
+
     <div class="auth-wrapper">
+        <button type="button" class="auth-back-btn" @click="goBack" title="Retour" aria-label="Retour">
+            <i class="bi bi-arrow-left"></i>
+        </button>
+
         <BaseCard class="auth-card" :custom-class="['border-0', 'shadow-lg']">
             <template #default>
-                <!-- En-tête -->
-                <div class="auth-header text-center">
-                    <div class="auth-brand">
-                        <span class="brand-name"><i class="bi bi-shield-shaded"></i>DTS</span>
-                        <span class="brand-sub d-block">
-                            Département Études, Sûreté &amp; Sécurité - TSS
-                        </span>
-                    </div>
-                </div>
 
-                <div id="loginSection" class="mt-4">
+                <!-- En-tête : logo + titre -->
+                <header class="auth-header">
+                    <div class="auth-logo-ring">
+                        <img src="/logo/logo.png" alt="Logo" class="brand-logo">
+                    </div>
+
+                    <img src="/logo/titre.jpeg" alt="GESTIA" class="brand-title-img">
+
+                    <span class="auth-divider" aria-hidden="true"></span>
+                </header>
+
+                <div id="loginSection">
                     <h2 class="auth-title text-center">Connexion</h2>
 
                     <p class="auth-subtitle text-center">
@@ -117,12 +132,12 @@ const handleLogin = async () => {
                     <form @submit.prevent="handleLogin">
                         <!-- Champ Email -->
                         <BaseInput v-model="email" label="Adresse email" placeholder="nom.prenom@banky-foibe.mg"
-                            type="email" name="email" :required="true" :error="emailError" size="lg"
+                            type="email" name="email" :required="true" :error="emailError" size="sm"
                             custom-class="mb-3" />
 
                         <!-- Champ Mot de passe -->
                         <BaseInput v-model="password" label="Mot de passe" placeholder="••••••••" type="password"
-                            name="password" :required="true" :error="passwordError" size="lg" custom-class="mb-4" />
+                            name="password" :required="true" :error="passwordError" size="md" custom-class="mb-4" />
 
                         <!-- Message d'erreur général -->
                         <div v-if="loginError" class="alert alert-danger" role="alert">
@@ -130,7 +145,7 @@ const handleLogin = async () => {
                         </div>
 
                         <!-- Bouton de connexion -->
-                        <BaseButton type="submit" variant="primary" size="lg" :loading="loading" :disabled="loading"
+                        <BaseButton type="submit" variant="primary" size="md" :loading="loading" :disabled="loading"
                             custom-class="w-100">
                             {{ loading ? 'Connexion en cours...' : 'Se connecter' }}
                         </BaseButton>
@@ -145,7 +160,7 @@ const handleLogin = async () => {
                 </div>
 
                 <!-- Pied de page -->
-                <div class="auth-footer text-center mt-4 pt-3 border-top">
+                <div class="auth-footer text-center border-top mt-4 pt-3">
                     &copy; 2026 &middot; Département Études, Sûreté et Sécurité
                 </div>
             </template>
@@ -156,78 +171,107 @@ const handleLogin = async () => {
 
 
 <style scoped>
-body {
-    padding-top: 0 !important;
-    /* Supprime le padding-top global pour la page de connexion */
-}
-
-/* Style global de la page d'authentification */
+/* ============ Page ============ */
 .auth-wrapper {
     position: fixed;
     inset: 0;
     width: 100%;
-    height: 100vh;
-
+    min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-
-    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
-
-    padding: 1.5rem;
+    padding: 1rem;
     overflow-y: auto;
+
+    background:
+        radial-gradient(circle at 12% 10%, rgba(26, 42, 108, 0.10) 0, transparent 38%),
+        radial-gradient(circle at 90% 92%, rgba(212, 175, 55, 0.14) 0, transparent 36%),
+        linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
 }
 
-/* Carte de connexion */
+/* ============ Carte ============ */
 .auth-card {
-    max-width: 580px;
+    position: relative;
+    overflow: scroll;
     width: 100%;
-    padding: 2.5rem 2rem 2rem;
-    border-radius: 24px !important;
-    background: #ffffff;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
-    transition: transform 0.2s ease;
+    max-width: 490px;
+    max-height: 97%;
+    padding: 0 2rem 1.5rem;
+    border-radius: 22px !important;
+    background: #fff;
+    box-shadow: 0 20px 60px rgba(26, 42, 108, 0.12);
+    flex-shrink: 0;
 }
 
-.auth-brand {
+/* Liseré décoratif bleu → doré en haut de la carte */
+.auth-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    background: linear-gradient(90deg, #1a2a6c 0%, #4a6cf7 55%, #d4af37 100%);
+}
+
+/* ============ En-tête (logo + titre) ============ */
+.auth-header {
     display: flex;
-    align-items: center;
-    justify-content: center;
     flex-direction: column;
+    align-items: center;
     margin-bottom: 0.5rem;
 }
 
-.brand-name {
-    font-size: 2rem;
-    font-weight: 800;
-    color: #1a2a6c;
-    letter-spacing: -0.02em;
+/* Logo dans un médaillon : le mettre en valeur et le détacher du fond */
+.auth-logo-ring {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 120px;
+    height: 120px;
+    padding: 8px;
 }
 
-.brand-name i {
-    margin-right: 0.65rem;
+.brand-logo {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 }
 
-.brand-sub {
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: #6b7280;
-    margin-top: 0.1rem;
-    line-height: 1.3;
+/* Titre : largeur maîtrisée, fond blanc du JPEG fondu dans la carte */
+.brand-title-img {
+    display: block;
+    width: 100%;
+    max-width: 260px;
+    max-height: 58px;
+    height: auto;
+    object-fit: contain;
+    mix-blend-mode: multiply;
 }
 
-/* Titres de la section connexion */
+/* Séparateur doré sous l'en-tête */
+.auth-divider {
+    display: block;
+    width: 200px;
+    height: 3px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #1a2a6c, #d4af37);
+}
+
+/* ============ Section connexion ============ */
 .auth-title {
-    font-size: 1.75rem;
+    font-size: 1.4rem;
     font-weight: 700;
     color: #1a2a6c;
     margin-bottom: 0.25rem;
 }
 
 .auth-subtitle {
-    font-size: 0.95rem;
+    font-size: 0.875rem;
     color: #6b7280;
-    margin-bottom: 2rem;
+    margin-bottom: 1.25rem;
 }
 
 /* Lien mot de passe oublié */
@@ -246,11 +290,11 @@ body {
 
 /* Pied de page */
 .auth-footer {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: #9ca3af;
 }
 
-/* Messages d'erreur */
+/* Messages */
 .alert {
     border-radius: 12px;
     font-size: 0.9rem;
@@ -269,25 +313,88 @@ body {
     color: #b45309;
 }
 
-/* Responsive */
+/* ============ Bouton retour ============ */
+.auth-back-btn {
+    position: fixed;
+    top: 1.5rem;
+    left: 1.5rem;
+    z-index: 10;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 42px;
+    height: 42px;
+
+    background-color: #1a2a6c;
+    color: #ffffff;
+
+    border: 1px solid #1a2a6c;
+    border-radius: 50%;
+
+    font-size: 1.15rem;
+    line-height: 1;
+    cursor: pointer;
+
+    transition:
+        color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease,
+        background 0.2s ease;
+}
+
+.auth-back-btn:hover {
+    color: white;
+    border-color: white;
+    box-shadow:
+        0 0 5px 3px rgba(212, 175, 55, 0.25),
+        0 6px 16px rgba(212, 175, 55, 0.35);
+    transform: translateY(-1px);
+    background: #d4af37;
+}
+
+.auth-back-btn:active {
+    transform: translateY(0);
+}
+
+.auth-back-btn:focus-visible {
+    outline: 2px solid #d4af37;
+    outline-offset: 2px;
+}
+
+/* ============ Responsive ============ */
 @media (max-width: 480px) {
+    .auth-wrapper {
+        padding: 0.75rem;
+    }
+
+    .auth-back-btn {
+        top: 1rem;
+        left: 1rem;
+        width: 38px;
+        height: 38px;
+        font-size: 1rem;
+    }
+
     .auth-card {
-        padding: 2rem 1.25rem 1.5rem;
+        padding: 1.75rem 1.25rem 1.25rem;
+    }
+
+    .auth-logo-ring {
+        width: 76px;
+        height: 76px;
+        padding: 7px;
+    }
+
+    .brand-title-img {
+        max-width: 100%;
+        max-height: 48px;
     }
 
     .auth-title {
-        font-size: 1.5rem;
-    }
-
-    .brand-name {
-        font-size: 1.75rem;
-    }
-
-    .shield-icon-wrapper {
-        width: 44px;
-        height: 44px;
         font-size: 1.4rem;
     }
 }
-
 </style>

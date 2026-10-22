@@ -1,6 +1,7 @@
 package mg.bank.backend.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -90,4 +91,10 @@ public interface OrigineRepository extends JpaRepository<Origine, Integer> {
      int dernierNumeroPour(
                @Param("extractPattern") String extractPattern,
                @Param("matchPattern") String matchPattern);
+
+     long countByDesignationIgnoreCase(String designation);
+
+     Optional<Origine> findByDesignationIgnoreCase(String designation);
+
+     boolean existsByCodeIgnoreCase(String code);
 }

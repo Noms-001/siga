@@ -1,5 +1,6 @@
 package mg.bank.backend.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import lombok.AllArgsConstructor;
@@ -21,7 +22,7 @@ public class ValeurIndicateurDTO {
 
     private Integer id;
 
-    private Double valeur;
+    private BigDecimal valeur;
 
     private LocalDateTime periodeDebut;
 
