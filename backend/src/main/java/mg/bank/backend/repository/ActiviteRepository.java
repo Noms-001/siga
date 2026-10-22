@@ -839,36 +839,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("idSousActivite") Integer idSousActivite,
                      @Param("idFichier") Integer idFichier);
 
-       /**
-        * Activites en attente de decision a une etape donnee, dans l ordre d arrivee.
-        *
-        * REQUETE NATIVE, PAS JPQL -- ET C EST LE TYPE QUI L IMPOSE
-        *
-        * decision_validation est un type enum natif PostgreSQL, cree par la
-        * migration. Hibernate lie un parametre @Enumerated(EnumType.STRING) en
-        * varchar, et PostgreSQL n a pas d operateur = entre un enum et un varchar :
-        * "operator does not exist: decision_validation = character varying".
-        * Le cast explicite CAST(:decision AS decision_validation) remet les deux
-        * cotes dans le meme domaine, sans changer la colonne.
-        *
-        * Le parametre arrive en String et non en DecisionValidation : c est ce qui
-        * permet au parametre nomme de valoir NULL sans que le cast ne bute sur
-        * un type enum cote Java. Le service lui passe decision.name() quand il en a
-        * une, null sinon.
-        *
-        * PARENTHESES AUTOUR DU OR, ET PAS DECORATIF
-        *
-        * Sans elles, AND l emporte sur OR et la condition se lit :
-        * (:decision IS NULL) OR (v.decision = :decision AND v.id_etape = :id)
-        * Des que :decision est null, le filtre d etape est ignore et la requete
-        * renvoie les validations de TOUTES les etapes. Le regroupement force la
-        * lecture voulue : "soit on ne filtre pas par decision, soit on filtre par
-        * cette decision, ET dans tous les cas on filtre par etape".
-        *
-        * ORDER BY v.date_demande : plus ancienne d abord, ce qui met en tete la
-        * demande qui attend depuis le plus longtemps. La requete n est pas paginee,
-        * donc l ORDER BY ne passe pas par hasard sous hasOrderByClause.
-        */
        @Query(value = """
                      SELECT a.*
                      FROM validation_activite v
@@ -998,4 +968,21 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      + "VALUES (:idActivite, :idOrigine)", nativeQuery = true)
        void lierOrigine(@Param("idActivite") Integer idActivite,
                      @Param("idOrigine") Integer idOrigine);
+
+       @Modifying
+       @Query(value = """
+                     DELETE FROM activite_indicateur
+                     WHERE id_activite = :idActivite
+                       AND id_indicateur = :idIndicateur
+                     """, nativeQuery = true)
+       int delierIndicateur(@Param("idActivite") Integer idActivite,
+                     @Param("idIndicateur") Integer idIndicateur);
+
+       @Query(value = """
+                     SELECT COUNT(*) FROM activite_indicateur
+                     WHERE id_activite = :idActivite
+                       AND id_indicateur = :idIndicateur
+                     """, nativeQuery = true)
+       long existsLiaison(@Param("idActivite") Integer idActivite,
+                     @Param("idIndicateur") Integer idIndicateur);
 }
