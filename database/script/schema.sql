@@ -644,3 +644,39 @@ CREATE TABLE parametre(
    CHECK(type_valeur IN ('STRING', 'INTEGER', 'DECIMAL', 'BOOLEAN', 'DATE', 'DATETIME')),
    CHECK(categorie IS NULL OR LENGTH(TRIM(categorie)) > 0)
 );
+
+CREATE TABLE demande_reprise_activite (
+    id_demande_reprise_activite SERIAL,
+    date_demande TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    date_decision TIMESTAMP,
+    statut VARCHAR(20) NOT NULL DEFAULT 'EN_ATTENTE',
+    motif TEXT,
+    commentaire_decision TEXT,
+    id_activite INTEGER NOT NULL,
+    id_demandeur INTEGER NOT NULL,
+    id_responsable_actuel INTEGER NOT NULL,
+    id_decideur INTEGER,
+    PRIMARY KEY (id_demande_reprise_activite),
+    FOREIGN KEY (id_activite) REFERENCES activite(id_activite),
+    FOREIGN KEY (id_demandeur) REFERENCES utilisateur(id_utilisateur),
+    FOREIGN KEY (id_responsable_actuel) REFERENCES utilisateur(id_utilisateur),
+    FOREIGN KEY (id_decideur) REFERENCES utilisateur(id_utilisateur),
+    CONSTRAINT chk_demande_reprise_statut
+        CHECK (statut IN ('EN_ATTENTE', 'ACCEPTEE', 'REFUSEE', 'ANNULEE')),
+    CONSTRAINT chk_demande_reprise_decision
+        CHECK (
+            (statut = 'EN_ATTENTE' AND date_decision IS NULL)
+            OR (statut <> 'EN_ATTENTE' AND date_decision IS NOT NULL)
+        )
+);
+
+CREATE INDEX ix_demande_reprise_activite
+    ON demande_reprise_activite (id_activite, date_demande DESC);
+
+CREATE INDEX ix_demande_reprise_demandeur
+    ON demande_reprise_activite (id_demandeur, date_demande DESC);
+
+-- Une seule demande EN_ATTENTE par activite : evite les conflits.
+CREATE UNIQUE INDEX uq_demande_reprise_active
+    ON demande_reprise_activite (id_activite)
+    WHERE statut = 'EN_ATTENTE';
