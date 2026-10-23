@@ -680,3 +680,38 @@ CREATE INDEX ix_demande_reprise_demandeur
 CREATE UNIQUE INDEX uq_demande_reprise_active
     ON demande_reprise_activite (id_activite)
     WHERE statut = 'EN_ATTENTE';
+
+CREATE TABLE demande_reprise_plan_action (
+    id_demande_reprise_plan_action SERIAL,
+    date_demande TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    date_decision TIMESTAMP,
+    statut VARCHAR(20) NOT NULL DEFAULT 'EN_ATTENTE',
+    motif TEXT,
+    commentaire_decision TEXT,
+    id_plan_action INTEGER NOT NULL,
+    id_demandeur INTEGER NOT NULL,
+    id_responsable_actuel INTEGER NOT NULL,
+    id_decideur INTEGER,
+    PRIMARY KEY (id_demande_reprise_plan_action),
+    FOREIGN KEY (id_plan_action) REFERENCES plan_action(id_plan_action),
+    FOREIGN KEY (id_demandeur) REFERENCES utilisateur(id_utilisateur),
+    FOREIGN KEY (id_responsable_actuel) REFERENCES utilisateur(id_utilisateur),
+    FOREIGN KEY (id_decideur) REFERENCES utilisateur(id_utilisateur),
+    CONSTRAINT chk_demande_reprise_plan_statut
+        CHECK (statut IN ('EN_ATTENTE', 'ACCEPTEE', 'REFUSEE', 'ANNULEE')),
+    CONSTRAINT chk_demande_reprise_plan_decision
+        CHECK (
+            (statut = 'EN_ATTENTE' AND date_decision IS NULL)
+            OR (statut <> 'EN_ATTENTE' AND date_decision IS NOT NULL)
+        )
+);
+
+CREATE INDEX ix_demande_reprise_plan_action
+    ON demande_reprise_plan_action (id_plan_action, date_demande DESC);
+
+CREATE INDEX ix_demande_reprise_plan_demandeur
+    ON demande_reprise_plan_action (id_demandeur, date_demande DESC);
+
+CREATE UNIQUE INDEX uq_demande_reprise_plan_active
+    ON demande_reprise_plan_action (id_plan_action)
+    WHERE statut = 'EN_ATTENTE';
