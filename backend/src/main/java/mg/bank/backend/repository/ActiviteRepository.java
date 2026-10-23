@@ -30,6 +30,7 @@ import mg.bank.backend.repository.projection.ResultatIntermediaireRow;
 import mg.bank.backend.repository.projection.SousActiviteDetailRow;
 import mg.bank.backend.repository.projection.SousActiviteSuiviRow;
 import mg.bank.backend.repository.projection.StatutCourantRow;
+import mg.bank.backend.repository.projection.UtilisateurActiviteAnneeRow;
 import mg.bank.backend.repository.projection.ValeurIndicateurRow;
 
 public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
@@ -985,4 +986,77 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """, nativeQuery = true)
        long existsLiaison(@Param("idActivite") Integer idActivite,
                      @Param("idIndicateur") Integer idIndicateur);
+
+       /**
+        * Activites de l'utilisateur qui touchent l'annee demandee (chevauchement).
+        *
+        * Une activite touche l'annee si :
+        * - date_debut_prevue <= 31/12/N
+        * - ET (date_fin_prevue IS NULL OR date_fin_prevue >= 01/01/N)
+        *
+        * Tous les roles sont inclus. Tri par statut (en retard d'abord) puis
+        * par date de debut prevue.
+        */
+       @Query(value = """
+                     SELECT a.id_activite       AS id,
+                            a.code              AS code,
+                            a.designation       AS designation,
+                            a.reference         AS reference,
+                            a.date_debut_prevue AS dateDebutPrevue,
+                            a.date_fin_prevue   AS dateFinPrevue,
+                            a.date_debut_reelle AS dateDebutReelle,
+                            a.date_fin_reelle   AS dateFinReelle,
+                            aa.date_affectation AS dateAffectation,
+                            aa.date_desaffectation AS dateDesaffectation,
+                            r.code              AS roleCode,
+                            r.designation       AS roleLibelle,
+                            sta.code            AS statutCode,
+                            sta.libelle         AS statutLibelle,
+                            COALESCE(av.avancement, 0) AS avancement
+                     FROM affectation_activite aa
+                     JOIN role r     ON r.id_role = aa.id_role
+                     JOIN activite a ON a.id_activite = aa.id_activite
+                     LEFT JOIN LATERAL (
+                         SELECT h.id_statut
+                         FROM historique_activite h
+                         WHERE h.id_activite = a.id_activite
+                         ORDER BY h.date_changement DESC, h.id_historique_activite DESC
+                         LIMIT 1
+                     ) hist ON TRUE
+                     LEFT JOIN statut sta ON sta.id_statut = hist.id_statut
+                     LEFT JOIN LATERAL (
+                         SELECT AVG(dernier.valeur_pourcentage) AS avancement
+                         FROM sous_activite sa
+                         JOIN LATERAL (
+                             SELECT av2.valeur_pourcentage
+                             FROM avancement_sous_activite av2
+                             WHERE av2.id_sous_activite = sa.id_sous_activite
+                             ORDER BY av2.date_changement DESC, av2.id_historique_sous_activite DESC
+                             LIMIT 1
+                         ) dernier ON TRUE
+                         WHERE sa.id_activite = a.id_activite
+                     ) av ON TRUE
+                     WHERE aa.id_utilisateur = :idUtilisateur
+                       AND aa.date_desaffectation IS NULL
+                       AND a.date_debut_prevue <= CAST(:finAnnee AS DATE)
+                       AND (a.date_fin_prevue IS NULL
+                            OR a.date_fin_prevue >= CAST(:debutAnnee AS DATE))
+                     ORDER BY
+                         CASE
+                             WHEN sta.code = 'EN_RETARD' THEN 0
+                             WHEN a.date_fin_prevue IS NOT NULL
+                                  AND a.date_fin_prevue < CURRENT_DATE
+                                  AND sta.code NOT IN ('TERMINEE', 'ANNULEE', 'REJETEE') THEN 0
+                             WHEN sta.code = 'EN_COURS' THEN 1
+                             WHEN sta.code = 'NON_COMMENCEE' THEN 2
+                             WHEN sta.code = 'TERMINEE' THEN 3
+                             ELSE 4
+                         END,
+                         a.date_debut_prevue DESC,
+                         a.id_activite DESC
+                     """, nativeQuery = true)
+       List<UtilisateurActiviteAnneeRow> findActivitesAnneePourUtilisateur(
+                     @Param("idUtilisateur") Integer idUtilisateur,
+                     @Param("debutAnnee") java.time.LocalDate debutAnnee,
+                     @Param("finAnnee") java.time.LocalDate finAnnee);
 }

@@ -11,10 +11,12 @@ import org.springframework.data.repository.query.Param;
 
 import mg.bank.backend.model.PlanAction;
 import mg.bank.backend.repository.projection.PlanActionListRow;
+import mg.bank.backend.repository.projection.UtilisateurPlanActionAnneeRow;
 
 public interface PlanActionRepository extends JpaRepository<PlanAction, Integer> {
 
     Optional<PlanAction> findByCode(String code);
+
     boolean existsByCode(String code);
 
     /**
@@ -93,8 +95,7 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
                    ))
               AND (:responsableId IS NULL
                    OR resp.id_utilisateur = :responsableId)
-            """,
-            countQuery = """
+            """, countQuery = """
             SELECT COUNT(*)
             FROM plan_action pa
             LEFT JOIN LATERAL (
@@ -133,8 +134,7 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
                    ))
               AND (:responsableId IS NULL
                    OR resp.id_utilisateur = :responsableId)
-            """,
-            nativeQuery = true)
+            """, nativeQuery = true)
     Page<PlanActionListRow> findPlans(
             @Param("statutCode") String statutCode,
             @Param("statutsParDefautCsv") String statutsParDefautCsv,
@@ -186,8 +186,7 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
             ) resp ON TRUE
             INNER JOIN utilisateur u ON u.id_utilisateur = resp.id_utilisateur
             WHERE sta.code = 'BROUILLON'
-            """,
-            countQuery = """
+            """, countQuery = """
             SELECT COUNT(*)
             FROM plan_action pa
             LEFT JOIN LATERAL (
@@ -209,9 +208,63 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
                 LIMIT 1
             ) resp ON TRUE
             WHERE sta.code = 'BROUILLON'
-            """,
-            nativeQuery = true)
+            """, nativeQuery = true)
     Page<PlanActionListRow> findMesBrouillons(
             @Param("idUtilisateur") Integer idUtilisateur,
             Pageable pageable);
+
+    /**
+     * Plans d'action de l'utilisateur qui touchent l'annee demandee.
+     *
+     * Le statut et l'avancement viennent de la derniere ligne de
+     * avancement_plan_action. Un plan sans avancement est considere
+     * NON_COMMENCEE a 0 %.
+     */
+    @Query(value = """
+            SELECT pa.id_plan_action       AS id,
+                   pa.code                 AS code,
+                   pa.designation          AS designation,
+                   pa.date_debut_prevue    AS dateDebutPrevue,
+                   pa.date_fin_prevue      AS dateFinPrevue,
+                   pa.date_debut_reelle    AS dateDebutReelle,
+                   pa.date_fin_reelle      AS dateFinReelle,
+                   apa.date_affectation    AS dateAffectation,
+                   apa.date_desaffectation AS dateDesaffectation,
+                   r.code                  AS roleCode,
+                   r.designation           AS roleLibelle,
+                   sta.code                AS statutCode,
+                   sta.libelle             AS statutLibelle,
+                   COALESCE(av.valeur_pourcentage, 0) AS avancement
+            FROM affectation_plan_action apa
+            JOIN role r           ON r.id_role = apa.id_role
+            JOIN plan_action pa   ON pa.id_plan_action = apa.id_plan_action
+            LEFT JOIN LATERAL (
+                SELECT a.valeur_pourcentage, a.id_statut
+                FROM avancement_plan_action a
+                WHERE a.id_plan_action = pa.id_plan_action
+                ORDER BY a.date_changement DESC, a.id_avancement_plan_action DESC
+                LIMIT 1
+            ) av ON TRUE
+            LEFT JOIN statut sta ON sta.id_statut = av.id_statut
+            WHERE apa.id_utilisateur = :idUtilisateur
+              AND apa.date_desaffectation IS NULL
+              AND pa.date_debut_prevue <= CAST(:finAnnee AS DATE)
+              AND pa.date_fin_prevue >= CAST(:debutAnnee AS DATE)
+            ORDER BY
+                CASE
+                    WHEN sta.code = 'EN_RETARD' THEN 0
+                    WHEN pa.date_fin_prevue < CURRENT_DATE
+                         AND sta.code NOT IN ('TERMINEE', 'ANNULEE') THEN 0
+                    WHEN sta.code = 'EN_COURS' THEN 1
+                    WHEN sta.code IS NULL OR sta.code = 'NON_COMMENCEE' THEN 2
+                    WHEN sta.code = 'TERMINEE' THEN 3
+                    ELSE 4
+                END,
+                pa.date_debut_prevue DESC,
+                pa.id_plan_action DESC
+            """, nativeQuery = true)
+    List<UtilisateurPlanActionAnneeRow> findPlansAnneePourUtilisateur(
+            @Param("idUtilisateur") Integer idUtilisateur,
+            @Param("debutAnnee") java.time.LocalDate debutAnnee,
+            @Param("finAnnee") java.time.LocalDate finAnnee);
 }
