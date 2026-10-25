@@ -36,7 +36,6 @@ CREATE TABLE objectif_specifique(
    annee INTEGER NOT NULL,
    date_creation TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
    PRIMARY KEY(id_objectif_specifique),
-   UNIQUE(code),
    CONSTRAINT chk_objectif_specifique_annee CHECK (annee BETWEEN 1900 AND 2100)
 );
 
@@ -715,3 +714,47 @@ CREATE INDEX ix_demande_reprise_plan_demandeur
 CREATE UNIQUE INDEX uq_demande_reprise_plan_active
     ON demande_reprise_plan_action (id_plan_action)
     WHERE statut = 'EN_ATTENTE';
+
+-- ============================================================
+-- INDEX PHASE 4 — Ajouts pour les requêtes existantes
+-- ============================================================
+
+-- Reverse lookup sur activite_indicateur (findDestinatairesIndicateur,
+-- compterDansPerimetre, findActifsAvecFrequenceDansPerimetre)
+CREATE INDEX ix_activite_indicateur_indicateur
+    ON activite_indicateur (id_indicateur);
+
+-- Reverse lookup sur plan_action_origine (findPlansActionByOrigine)
+CREATE INDEX ix_plan_action_origine_origine
+    ON plan_action_origine (id_origine);
+
+-- Reverse lookup sur etape_validation_decideur (findDestinatairesEtape,
+-- findFirstByProcedure_IdProcedureAndActifTrueAndPostesDecideurs_IdPoste...)
+CREATE INDEX ix_etape_validation_decideur_poste
+    ON etape_validation_decideur (id_poste);
+
+-- Index partiels "actives" (WHERE date_desaffectation IS NULL) —
+-- consommés par countActivesPourRole, countResponsableActif,
+-- findPlans, findMesBrouillons, findByIdWithDetails, findBrouillons,
+-- et tous les LATERAL "responsable actif"
+CREATE INDEX ix_affectation_activite_active
+    ON affectation_activite (id_activite, id_role)
+    WHERE date_desaffectation IS NULL;
+
+CREATE INDEX ix_affectation_sous_activite_active
+    ON affectation_sous_activite (id_sous_activite, id_role)
+    WHERE date_desaffectation IS NULL;
+
+CREATE INDEX ix_affectation_plan_action_active
+    ON affectation_plan_action (id_plan_action, id_role)
+    WHERE date_desaffectation IS NULL;
+
+-- Notification — non lues par utilisateur (countNonLues + lister)
+CREATE INDEX ix_notification_non_lues
+    ON notification (id_utilisateur, date_creation DESC)
+    WHERE date_lecture IS NULL;
+
+-- Utilisateur — destinataires d'une étape : jointure sur id_poste
+CREATE INDEX ix_utilisateur_poste
+    ON utilisateur (id_poste)
+    WHERE actif = TRUE;

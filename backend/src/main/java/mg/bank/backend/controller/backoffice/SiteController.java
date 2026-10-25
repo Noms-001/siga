@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.backoffice.SiteRequest;
 import mg.bank.backend.dto.backoffice.SiteResponse;
-import mg.bank.backend.service.SiteService;
+import mg.bank.backend.dto.common.ApiResponse;
+import mg.bank.backend.service.referentiel.SiteService;
 
 @RestController
 @RequestMapping("/api/backoffice/sites")

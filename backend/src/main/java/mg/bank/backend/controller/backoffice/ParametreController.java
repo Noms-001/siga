@@ -14,11 +14,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.backoffice.ParametreFiltresResponse;
 import mg.bank.backend.dto.backoffice.ParametreResponse;
 import mg.bank.backend.dto.backoffice.ParametreUpdateRequest;
-import mg.bank.backend.service.ParametreService;
+import mg.bank.backend.dto.common.ApiResponse;
+import mg.bank.backend.service.parametre.ParametreService;
 
 @RestController
 @RequestMapping("/api/backoffice/parametres")

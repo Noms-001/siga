@@ -55,12 +55,6 @@ public final class StatutsActivite {
      */
     public static final String EN_RETARD = "EN_RETARD";
 
-    /**
-     * Statuts terminaux, separes par une virgule : format attendu par
-     * string_to_array puis unnest en SQL.
-     */
-    public static final String TERMINAUX = TERMINEE + "," + ANNULEE + "," + REPORTEE;
-
     private StatutsActivite() {
     }
 

@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.backoffice.PosteRequest;
 import mg.bank.backend.dto.backoffice.PosteResponse;
-import mg.bank.backend.service.PosteService;
+import mg.bank.backend.dto.common.ApiResponse;
+import mg.bank.backend.service.utilisateur.PosteService;
 
 @RestController
 @RequestMapping("/api/backoffice/postes")

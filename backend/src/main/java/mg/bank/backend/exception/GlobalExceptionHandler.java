@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import mg.bank.backend.dto.ApiResponse;
+import mg.bank.backend.dto.common.ApiResponse;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {

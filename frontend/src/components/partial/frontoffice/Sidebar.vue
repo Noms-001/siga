@@ -1,60 +1,46 @@
 <template>
     <aside class="sidebar" :class="{ open: isOpen, collapsed: isCollapsed }">
         <!-- Marque : clic = ferme (mobile) ou collapse (desktop) -->
-        <router-link
-            to="/dashboard"
-            class="brand"
-            aria-label="GESTIA accueil"
-            :title="isCollapsed ? 'Déplier le menu' : 'Replier le menu'"
-            @click.prevent="handleBrandClick"
-        >
+        <div class="brand" aria-label="GESTIA accueil" :title="isCollapsed ? 'Déplier le menu' : 'Replier le menu'"
+            @click="handleBrandClick">
             <img src="/logo/logo.png" alt="" class="brand-icon">
             <span class="brand-word">
                 <img src="/logo/titre.png" alt="GESTIA">
                 <small>GESTION D’ACTIVITÉ</small>
             </span>
-        </router-link>
+        </div>
 
         <!-- Zone de navigation scrollable -->
         <div class="sidebar-nav-scroll">
             <nav class="nav" aria-label="Navigation principale">
 
                 <!-- Vue d'ensemble -->
-                <router-link
-                    to="/dashboard"
-                    class="nav-item"
-                    :class="{ active: isActive('/dashboard') }"
-                    :title="isCollapsed ? 'Vue d’ensemble' : undefined"
-                >
+                <router-link to="/dashboard" class="nav-item" :class="{ active: isActive('/dashboard') }"
+                    :title="isCollapsed ? 'Vue d’ensemble' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-                            <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-                            <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-                            <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                            <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                            <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                            <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                            <rect x="3" y="14" width="7" height="7" rx="1.5" />
                         </svg>
                     </span>
                     <span class="nav-text">Vue d’ensemble</span>
                 </router-link>
 
                 <!-- ACTIVITÉS -->
-                <button
-                    type="button"
-                    class="nav-item nav-toggle"
-                    :class="{ 'has-active': isGroupActive('activites') }"
-                    @click="toggle('activites')"
-                    :aria-expanded="openSections.activites"
-                    :title="isCollapsed ? 'Activités' : undefined"
-                >
+                <button type="button" class="nav-item nav-toggle" :class="{ 'has-active': isGroupActive('activites') }"
+                    @click="toggle('activites')" :aria-expanded="openSections.activites"
+                    :title="isCollapsed ? 'Activités' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <circle cx="12" cy="12" r="9"/>
-                            <polyline points="12 7 12 12 15 14"/>
+                            <circle cx="12" cy="12" r="9" />
+                            <polyline points="12 7 12 12 15 14" />
                         </svg>
                     </span>
                     <span class="nav-text">Activités</span>
                     <svg class="chev" :class="{ open: openSections.activites }" viewBox="0 0 24 24" aria-hidden="true">
-                        <polyline points="6 9 12 15 18 9"/>
+                        <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
                 <div class="nav-sub" :class="{ open: openSections.activites }">
@@ -69,7 +55,7 @@
                         </router-link>
                         <router-link to="/affectation" class="nav-sub-item"
                             :class="{ active: isActive('/affectation') }">
-                            Affectation
+                            Affectation des activitées
                         </router-link>
                         <router-link to="/activites/brouillons" class="nav-sub-item"
                             :class="{ active: isActive('/activites/brouillons') }">
@@ -87,22 +73,17 @@
                 </div>
 
                 <!-- PLANS D'ACTION -->
-                <button
-                    type="button"
-                    class="nav-item nav-toggle"
-                    :class="{ 'has-active': isGroupActive('plans') }"
-                    @click="toggle('plans')"
-                    :aria-expanded="openSections.plans"
-                    :title="isCollapsed ? 'Plans d’action' : undefined"
-                >
+                <button type="button" class="nav-item nav-toggle" :class="{ 'has-active': isGroupActive('plans') }"
+                    @click="toggle('plans')" :aria-expanded="openSections.plans"
+                    :title="isCollapsed ? 'Plans d’action' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                         </svg>
                     </span>
                     <span class="nav-text">Plans d’action</span>
                     <svg class="chev" :class="{ open: openSections.plans }" viewBox="0 0 24 24" aria-hidden="true">
-                        <polyline points="6 9 12 15 18 9"/>
+                        <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
                 <div class="nav-sub" :class="{ open: openSections.plans }">
@@ -123,24 +104,21 @@
                 </div>
 
                 <!-- SIGNALEMENTS -->
-                <button
-                    type="button"
-                    class="nav-item nav-toggle"
-                    :class="{ 'has-active': isGroupActive('signalements') }"
-                    @click="toggle('signalements')"
-                    :aria-expanded="openSections.signalements"
-                    :title="isCollapsed ? 'Signalements' : undefined"
-                >
+                <button type="button" class="nav-item nav-toggle"
+                    :class="{ 'has-active': isGroupActive('signalements') }" @click="toggle('signalements')"
+                    :aria-expanded="openSections.signalements" :title="isCollapsed ? 'Signalements' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                            <line x1="12" y1="9" x2="12" y2="13"/>
-                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            <path
+                                d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                            <line x1="12" y1="9" x2="12" y2="13" />
+                            <line x1="12" y1="17" x2="12.01" y2="17" />
                         </svg>
                     </span>
                     <span class="nav-text">Signalements</span>
-                    <svg class="chev" :class="{ open: openSections.signalements }" viewBox="0 0 24 24" aria-hidden="true">
-                        <polyline points="6 9 12 15 18 9"/>
+                    <svg class="chev" :class="{ open: openSections.signalements }" viewBox="0 0 24 24"
+                        aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
                 <div class="nav-sub" :class="{ open: openSections.signalements }">
@@ -157,22 +135,18 @@
                 </div>
 
                 <!-- INDICATEURS -->
-                <button
-                    type="button"
-                    class="nav-item nav-toggle"
-                    :class="{ 'has-active': isGroupActive('indicateurs') }"
-                    @click="toggle('indicateurs')"
-                    :aria-expanded="openSections.indicateurs"
-                    :title="isCollapsed ? 'Indicateurs' : undefined"
-                >
+                <button type="button" class="nav-item nav-toggle"
+                    :class="{ 'has-active': isGroupActive('indicateurs') }" @click="toggle('indicateurs')"
+                    :aria-expanded="openSections.indicateurs" :title="isCollapsed ? 'Indicateurs' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M18 20V10M12 20V4M6 20v-6"/>
+                            <path d="M18 20V10M12 20V4M6 20v-6" />
                         </svg>
                     </span>
                     <span class="nav-text">Indicateurs</span>
-                    <svg class="chev" :class="{ open: openSections.indicateurs }" viewBox="0 0 24 24" aria-hidden="true">
-                        <polyline points="6 9 12 15 18 9"/>
+                    <svg class="chev" :class="{ open: openSections.indicateurs }" viewBox="0 0 24 24"
+                        aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
                 <div class="nav-sub" :class="{ open: openSections.indicateurs }">
@@ -189,26 +163,24 @@
                 </div>
 
                 <!-- Utilisateurs -->
-                <router-link to="/utilisateurs" class="nav-item"
-                    :class="{ active: isActive('/utilisateurs') }"
+                <router-link to="/utilisateurs" class="nav-item" :class="{ active: isActive('/utilisateurs') }"
                     :title="isCollapsed ? 'Utilisateurs' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/>
-                            <circle cx="10" cy="7" r="4"/>
-                            <path d="M21 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+                            <circle cx="10" cy="7" r="4" />
+                            <path d="M21 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
                         </svg>
                     </span>
                     <span class="nav-text">Utilisateurs</span>
                 </router-link>
 
                 <!-- Notifications -->
-                <router-link to="/notifications" class="nav-item"
-                    :class="{ active: isActive('/notifications') }"
+                <router-link to="/notifications" class="nav-item" :class="{ active: isActive('/notifications') }"
                     :title="isCollapsed ? 'Notifications' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/>
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
                         </svg>
                     </span>
                     <span class="nav-text">Notifications</span>
@@ -216,23 +188,18 @@
                 </router-link>
 
                 <!-- Mon profil -->
-                <button
-                    type="button"
-                    class="nav-item nav-toggle"
-                    :class="{ 'has-active': isGroupActive('profil') }"
-                    @click="toggle('profil')"
-                    :aria-expanded="openSections.profil"
-                    :title="isCollapsed ? 'Mon profil' : undefined"
-                >
+                <button type="button" class="nav-item nav-toggle" :class="{ 'has-active': isGroupActive('profil') }"
+                    @click="toggle('profil')" :aria-expanded="openSections.profil"
+                    :title="isCollapsed ? 'Mon profil' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                            <circle cx="12" cy="7" r="4"/>
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
                         </svg>
                     </span>
                     <span class="nav-text">Mon profil</span>
                     <svg class="chev" :class="{ open: openSections.profil }" viewBox="0 0 24 24" aria-hidden="true">
-                        <polyline points="6 9 12 15 18 9"/>
+                        <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
                 <div class="nav-sub" :class="{ open: openSections.profil }">
@@ -415,11 +382,16 @@ const closeSidebar = () => emit('close')
     cursor: pointer;
     transition: background .15s ease, margin .25s ease, padding .25s ease;
 }
-.brand:hover { background: #f7f9fd; }
+
+.brand:hover {
+    background: #f7f9fd;
+}
+
 .brand:focus-visible {
     outline: 2px solid #4a6cf7;
     outline-offset: 2px;
 }
+
 .brand::after {
     content: "";
     position: absolute;
@@ -431,6 +403,7 @@ const closeSidebar = () => emit('close')
     background: linear-gradient(90deg, #1a2a6c, #d4af37);
     opacity: .9;
 }
+
 .brand-icon {
     width: 40px;
     height: 40px;
@@ -440,6 +413,7 @@ const closeSidebar = () => emit('close')
     flex: none;
     transition: width .25s ease, height .25s ease;
 }
+
 .brand-word {
     font: 800 22px "Manrope", system-ui, sans-serif;
     letter-spacing: -1.2px;
@@ -448,7 +422,12 @@ const closeSidebar = () => emit('close')
     overflow: hidden;
     transition: opacity .2s ease, width .25s ease;
 }
-.brand-word img { width: 80%; display: block; }
+
+.brand-word img {
+    width: 80%;
+    display: block;
+}
+
 .brand-word small {
     display: block;
     margin-top: 6px;
@@ -467,7 +446,11 @@ const closeSidebar = () => emit('close')
     padding: 4px 16px 8px;
     transition: padding .25s ease;
 }
-.sidebar-nav-scroll::-webkit-scrollbar { width: 9px; }
+
+.sidebar-nav-scroll::-webkit-scrollbar {
+    width: 9px;
+}
+
 .sidebar-nav-scroll::-webkit-scrollbar-thumb {
     background: rgba(26, 42, 108, .18);
     border-radius: 20px;
@@ -502,12 +485,18 @@ const closeSidebar = () => emit('close')
     cursor: pointer;
     transition: background .18s, color .18s, padding .25s ease, gap .25s ease;
 }
-.nav-item:hover { background: #f3f6fc; color: #1a2a6c; }
+
+.nav-item:hover {
+    background: #f3f6fc;
+    color: #1a2a6c;
+}
+
 .nav-item.active {
     background: #edf1fd;
     color: #1a2a6c;
     font-weight: 700;
 }
+
 .nav-item.active::before {
     content: "";
     position: absolute;
@@ -518,6 +507,7 @@ const closeSidebar = () => emit('close')
     border-radius: 0 3px 3px 0;
     background: linear-gradient(180deg, #4a6cf7, #d4af37);
 }
+
 .nav-item:focus-visible {
     outline: 2px solid #d4af37;
     outline-offset: 1px;
@@ -528,7 +518,10 @@ const closeSidebar = () => emit('close')
     color: #1a2a6c;
     font-weight: 600;
 }
-.nav-toggle.has-active .nav-icon { color: #4a6cf7; }
+
+.nav-toggle.has-active .nav-icon {
+    color: #4a6cf7;
+}
 
 /* --- Icônes SVG --- */
 .nav-icon {
@@ -540,6 +533,7 @@ const closeSidebar = () => emit('close')
     color: #8a95a8;
     transition: color .18s;
 }
+
 .nav-icon svg {
     width: 18px;
     height: 18px;
@@ -549,8 +543,14 @@ const closeSidebar = () => emit('close')
     stroke-linecap: round;
     stroke-linejoin: round;
 }
-.nav-item:hover .nav-icon { color: #4a6cf7; }
-.nav-item.active .nav-icon { color: #4a6cf7; }
+
+.nav-item:hover .nav-icon {
+    color: #4a6cf7;
+}
+
+.nav-item.active .nav-icon {
+    color: #4a6cf7;
+}
 
 .nav-text {
     flex: 1;
@@ -574,8 +574,15 @@ const closeSidebar = () => emit('close')
     opacity: .55;
     transition: transform .22s ease, opacity .2s;
 }
-.nav-item:hover .chev { opacity: .85; }
-.chev.open { transform: rotate(180deg); opacity: 1; }
+
+.nav-item:hover .chev {
+    opacity: .85;
+}
+
+.chev.open {
+    transform: rotate(180deg);
+    opacity: 1;
+}
 
 /* --- Sous-navigation (accordéon animé) --- */
 .nav-sub {
@@ -583,9 +590,11 @@ const closeSidebar = () => emit('close')
     grid-template-rows: 0fr;
     transition: grid-template-rows .22s ease;
 }
+
 .nav-sub.open {
     grid-template-rows: 1fr;
 }
+
 .nav-sub-inner {
     overflow: hidden;
     min-height: 0;
@@ -609,28 +618,22 @@ const closeSidebar = () => emit('close')
     border-radius: 8px;
     transition: background .15s, color .15s;
 }
-.nav-sub-item::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 50%;
-    width: 4px;
-    height: 4px;
-    margin-top: -2px;
-    border-radius: 50%;
-    background: #c3cad5;
-    transition: background .18s, transform .18s;
-}
+
 .nav-sub-item:hover {
     background: #f3f6fc;
     color: #1a2a6c;
 }
-.nav-sub-item:hover::before { background: #8fa6fa; }
+
+.nav-sub-item:hover::before {
+    background: #8fa6fa;
+}
+
 .nav-sub-item.active {
     background: #edf1fd;
     color: #1a2a6c;
     font-weight: 700;
 }
+
 .nav-sub-item.active::before {
     background: linear-gradient(135deg, #4a6cf7, #d4af37);
     transform: scale(1.35);
@@ -668,6 +671,7 @@ const closeSidebar = () => emit('close')
     transition: opacity .2s ease, max-height .25s ease, padding .25s ease, margin .25s ease;
     max-height: 200px;
 }
+
 .help-symbol {
     width: 26px;
     height: 26px;
@@ -679,24 +683,34 @@ const closeSidebar = () => emit('close')
     color: #b8860b;
     font-weight: 800;
 }
-.help-card strong { font-size: 11.5px; color: #1a2a6c; }
+
+.help-card strong {
+    font-size: 11.5px;
+    color: #1a2a6c;
+}
+
 .help-card p {
     margin: 6px 0 10px;
     font-size: 10.5px;
     line-height: 1.6;
     color: #6b7280;
 }
+
 .help-card a {
     font-size: 10.5px;
     font-weight: 700;
     color: #1769c2;
     text-decoration: none;
 }
+
 .help-card a span {
     margin-left: 5px;
     transition: margin .18s;
 }
-.help-card a:hover span { margin-left: 9px; }
+
+.help-card a:hover span {
+    margin-left: 9px;
+}
 
 .profile {
     width: 100%;
@@ -711,6 +725,7 @@ const closeSidebar = () => emit('close')
     text-decoration: none;
     transition: padding .25s ease, gap .25s ease;
 }
+
 .avatar {
     display: grid;
     place-items: center;
@@ -724,6 +739,7 @@ const closeSidebar = () => emit('close')
     background: linear-gradient(135deg, #1a2a6c, #4a6cf7);
     box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px rgba(212, 175, 55, .7);
 }
+
 .profile-copy {
     display: flex;
     flex-direction: column;
@@ -731,6 +747,7 @@ const closeSidebar = () => emit('close')
     min-width: 0;
     transition: opacity .2s ease;
 }
+
 .profile-copy strong {
     font-size: 11.5px;
     color: #1a2a6c;
@@ -738,7 +755,13 @@ const closeSidebar = () => emit('close')
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.profile-copy small { margin-top: 3px; font-size: 10.5px; color: #6b7280; }
+
+.profile-copy small {
+    margin-top: 3px;
+    font-size: 10.5px;
+    color: #6b7280;
+}
+
 .dots {
     margin-left: auto;
     color: #8a95a8;
@@ -760,19 +783,23 @@ const closeSidebar = () => emit('close')
     padding: 0 0 20px;
     gap: 0;
 }
+
 .sidebar.collapsed .brand:hover {
     background: transparent;
 }
+
 .sidebar.collapsed .brand-icon {
     width: 36px;
     height: 36px;
     box-shadow: 0 4px 12px rgba(7, 26, 61, .22);
 }
+
 .sidebar.collapsed .brand-word {
     opacity: 0;
     width: 0;
     pointer-events: none;
 }
+
 .sidebar.collapsed .brand::after {
     left: 10px;
     right: 10px;
@@ -790,6 +817,7 @@ const closeSidebar = () => emit('close')
     gap: 0;
     height: 44px;
 }
+
 .sidebar.collapsed .nav-text {
     flex: 0 0 0;
     width: 0;
@@ -798,7 +826,7 @@ const closeSidebar = () => emit('close')
 }
 
 .sidebar.collapsed .chev {
-    display: none; 
+    display: none;
 }
 
 /* Indicateur actif recentré */
@@ -847,12 +875,14 @@ const closeSidebar = () => emit('close')
     padding: 12px 0 0;
     gap: 0;
 }
+
 .sidebar.collapsed .profile-copy {
     opacity: 0;
     width: 0;
     overflow: hidden;
     pointer-events: none;
 }
+
 .sidebar.collapsed .dots {
     opacity: 0;
     width: 0;
@@ -876,6 +906,7 @@ const closeSidebar = () => emit('close')
         opacity .3s cubic-bezier(.4, 0, .2, 1),
         visibility 0s linear .3s;
 }
+
 .sidebar-overlay.show {
     opacity: 1;
     visibility: visible;
@@ -899,6 +930,7 @@ const closeSidebar = () => emit('close')
             visibility 0s linear .3s;
         will-change: transform;
     }
+
     .sidebar.open {
         transform: translateX(0);
         visibility: visible;
@@ -912,36 +944,43 @@ const closeSidebar = () => emit('close')
     .sidebar.collapsed {
         width: 248px !important;
     }
+
     .sidebar.collapsed .brand {
         justify-content: flex-start;
         margin: 27px 16px 10px;
         padding: 0 8px 20px;
         gap: 10px;
     }
+
     .sidebar.collapsed .brand-icon {
         width: 40px;
         height: 40px;
     }
+
     .sidebar.collapsed .brand-word {
         opacity: 1;
         width: auto;
         pointer-events: auto;
     }
+
     .sidebar.collapsed .nav-item {
         justify-content: flex-start;
         padding: 0 12px;
         gap: 12px;
         height: 40px;
     }
+
     .sidebar.collapsed .nav-text,
     .sidebar.collapsed .chev {
         opacity: 1;
         width: auto;
         pointer-events: auto;
     }
+
     .sidebar.collapsed .nav-sub {
         display: grid;
     }
+
     .sidebar.collapsed .nav-count {
         position: static;
         margin-left: auto;
@@ -950,6 +989,7 @@ const closeSidebar = () => emit('close')
         min-width: 0;
         text-align: left;
     }
+
     .sidebar.collapsed .help-card {
         opacity: 1;
         max-height: 200px;
@@ -958,20 +998,24 @@ const closeSidebar = () => emit('close')
         border: 1px solid #e6ebf3;
         pointer-events: auto;
     }
+
     .sidebar.collapsed .profile-copy,
     .sidebar.collapsed .dots {
         opacity: 1;
         width: auto;
         pointer-events: auto;
     }
+
     .sidebar.collapsed .profile {
         justify-content: flex-start;
         padding: 12px 4px 0;
         gap: 10px;
     }
+
     .sidebar.collapsed .sidebar-nav-scroll {
         padding: 4px 16px 8px;
     }
+
     .sidebar.collapsed .sidebar-bottom {
         padding: 10px 16px 14px;
     }
@@ -986,6 +1030,7 @@ const closeSidebar = () => emit('close')
         visibility: visible !important;
         box-shadow: none !important;
     }
+
     .sidebar-overlay {
         display: none !important;
     }
@@ -995,6 +1040,7 @@ const closeSidebar = () => emit('close')
    Accessibilité
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
+
     .sidebar,
     .sidebar-overlay,
     .sidebar * {

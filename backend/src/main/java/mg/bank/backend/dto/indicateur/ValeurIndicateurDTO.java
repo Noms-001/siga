@@ -6,20 +6,28 @@ import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import mg.bank.backend.dto.common.UtilisateurResumeDTO;
+
 
 @Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
+@AllArgsConstructor
 public class ValeurIndicateurDTO {
+
     private Integer id;
+
     private BigDecimal valeur;
+
     private LocalDateTime periodeDebut;
+
     private LocalDateTime periodeFin;
+
     private String commentaire;
+
     private LocalDateTime dateSaisie;
-    private UtilisateurMinimalDTO saisiePar;
+
+    private UtilisateurResumeDTO utilisateur;
+
+    private boolean valeurCourante;
+
 }

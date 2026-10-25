@@ -1,5 +1,7 @@
 package mg.bank.backend.dto.backoffice;
 
+import java.util.List;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -18,4 +20,6 @@ public class OrigineRequest {
     private String typeOrigine;
 
     private String description;
+
+    private List<Integer> activiteIds;
 }

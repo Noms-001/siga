@@ -15,11 +15,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.backoffice.PermissionPourPosteResponse;
 import mg.bank.backend.dto.backoffice.PostePermissionRequest;
 import mg.bank.backend.dto.backoffice.PostePermissionUpdateRequest;
-import mg.bank.backend.service.PostePermissionService;
+import mg.bank.backend.dto.common.ApiResponse;
+import mg.bank.backend.service.utilisateur.PostePermissionService;
 
 @RestController
 @RequestMapping("/api/backoffice/postes/{idPoste}/permissions")

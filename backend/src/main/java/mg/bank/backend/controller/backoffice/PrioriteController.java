@@ -10,9 +10,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
-import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.backoffice.PrioriteResponse;
-import mg.bank.backend.service.PrioriteService;
+import mg.bank.backend.dto.common.ApiResponse;
+import mg.bank.backend.service.referentiel.PrioriteService;
 
 @RestController
 @RequestMapping("/api/backoffice/priorites")

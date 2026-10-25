@@ -10,11 +10,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
-import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.backoffice.PermissionDetailResponse;
 import mg.bank.backend.dto.backoffice.PermissionFiltresResponse;
 import mg.bank.backend.dto.backoffice.PermissionResponse;
-import mg.bank.backend.service.PermissionService;
+import mg.bank.backend.dto.common.ApiResponse;
+import mg.bank.backend.service.utilisateur.PermissionService;
 
 @RestController
 @RequestMapping("/api/backoffice/permissions")
