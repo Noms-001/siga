@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.backoffice.TypeActiviteRequest;
 import mg.bank.backend.dto.backoffice.TypeActiviteResponse;
-import mg.bank.backend.service.TypeActiviteService;
+import mg.bank.backend.dto.common.ApiResponse;
+import mg.bank.backend.service.referentiel.TypeActiviteService;
 
 @RestController
 @RequestMapping("/api/backoffice/types-activite")

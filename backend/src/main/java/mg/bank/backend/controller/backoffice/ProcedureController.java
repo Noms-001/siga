@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.backoffice.ProcedureRequest;
 import mg.bank.backend.dto.backoffice.ProcedureResponse;
-import mg.bank.backend.service.ProcedureService;
+import mg.bank.backend.dto.common.ApiResponse;
+import mg.bank.backend.service.validation.ProcedureService;
 
 @RestController
 @RequestMapping("/api/backoffice/procedures")

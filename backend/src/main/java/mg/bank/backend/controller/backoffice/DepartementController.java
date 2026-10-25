@@ -14,10 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.backoffice.DepartementRequest;
 import mg.bank.backend.dto.backoffice.DepartementResponse;
-import mg.bank.backend.service.DepartementService;
+import mg.bank.backend.dto.common.ApiResponse;
+import mg.bank.backend.service.referentiel.DepartementService;
 
 @RestController
 @RequestMapping("/api/backoffice/departements")

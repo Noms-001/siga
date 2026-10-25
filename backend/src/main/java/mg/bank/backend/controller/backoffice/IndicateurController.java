@@ -16,11 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.backoffice.IndicateurFiltresResponse;
 import mg.bank.backend.dto.backoffice.IndicateurRequest;
 import mg.bank.backend.dto.backoffice.IndicateurResponse;
-import mg.bank.backend.service.IndicateurService;
+import mg.bank.backend.dto.common.ApiResponse;
+import mg.bank.backend.service.indicateur.IndicateurService;
 
 @RestController
 @RequestMapping("/api/backoffice/indicateurs")

@@ -9,7 +9,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import mg.bank.backend.dto.ReferenceDTO;
+import mg.bank.backend.dto.affectation.AffectationPlanActionDTO;
+import mg.bank.backend.dto.common.ReferenceDTO;
 
 @Getter
 @Setter

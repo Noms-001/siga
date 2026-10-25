@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import mg.bank.backend.dto.ApiResponse;
 import mg.bank.backend.dto.backoffice.RoleRequest;
 import mg.bank.backend.dto.backoffice.RoleResponse;
-import mg.bank.backend.service.RoleService;
+import mg.bank.backend.dto.common.ApiResponse;
+import mg.bank.backend.service.utilisateur.RoleService;
 
 @RestController
 @RequestMapping("/api/backoffice/roles")
