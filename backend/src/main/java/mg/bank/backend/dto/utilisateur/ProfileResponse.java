@@ -1,6 +1,7 @@
 package mg.bank.backend.dto.utilisateur;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -25,7 +26,9 @@ public class ProfileResponse {
     private LocalDateTime dateDesactivation;
     private LocalDateTime dateDerniereConnexion;
 
-    public static ProfileResponse from(Utilisateur utilisateur) {
+    private List<String> permissions;
+
+    public static ProfileResponse from(Utilisateur utilisateur, List<String> permissions) {
         return ProfileResponse.builder()
                 .idUtilisateur(utilisateur.getIdUtilisateur())
                 .nom(utilisateur.getNom())
@@ -42,6 +45,7 @@ public class ProfileResponse {
                 .dateCreation(utilisateur.getDateCreation())
                 .dateDesactivation(utilisateur.getDateDesactivation())
                 .dateDerniereConnexion(utilisateur.getDateDerniereConnexion())
+                .permissions(permissions)
                 .build();
     }
 }

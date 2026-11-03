@@ -91,20 +91,10 @@ export const useSessionWatchdog = (
         try {
             await router.push(destination)
         } catch {
-            /*
-             * Une redirection déjà en cours rejette la promesse. La session
-             * est fermée dans tous les cas, l'utilisateur finira sur la page
-             * de connexion.
-             */
+
         }
     }
 
-    /**
-     * (Re)lance le compte à rebours d'inactivité.
-     *
-     * Un seul timer à la fois : chaque activité repart de zéro au lieu
-     * d'empiler des minuteries.
-     */
     const arm = () => {
 
         if (!authStore.isAuthenticated) {

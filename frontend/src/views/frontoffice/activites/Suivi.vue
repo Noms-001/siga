@@ -34,6 +34,24 @@ const size = ref(20)
 
 const options = ref<ActiviteOptions | null>(null)
 
+/**
+ * Repli/dépli des sous-activités, par identifiant d'activité.
+ * Un identifiant absent du Set signifie « déplié » — c'est le comportement
+ * par défaut, on ne stocke que ce qui a été explicitement replié.
+ */
+const sousActivitesRepliees = ref<Set<number>>(new Set())
+
+function toggleSousActivites(id: number): void {
+    const prochain = new Set(sousActivitesRepliees.value)
+    if (prochain.has(id)) prochain.delete(id)
+    else prochain.add(id)
+    sousActivitesRepliees.value = prochain
+}
+
+function sousActivitesOuvertes(id: number): boolean {
+    return !sousActivitesRepliees.value.has(id)
+}
+
 /* -------------------- modal d'avancement (2 étapes) -------------------- */
 
 const modalOpen = ref(false)
@@ -134,6 +152,13 @@ async function confirmerEnregistrement(): Promise<void> {
         if (sa) {
             sa.avancement = res.data.avancement
             activite.avancement = res.data.avancementActivite
+
+            if (res.data.statutActiviteCode && activite.statut) {
+                activite.statut.code = res.data.statutActiviteCode
+                if (res.data.statutActiviteLibelle) {
+                    activite.statut.libelle = res.data.statutActiviteLibelle
+                }
+            }
             break
         }
     }
@@ -141,6 +166,9 @@ async function confirmerEnregistrement(): Promise<void> {
     modalOpen.value = false
     modalStep.value = 'edit'
     sousActiviteSelectionnee.value = null
+
+    await chargerStats()
+    await chargerListe()
 }
 
 /* Filtres actifs */
@@ -203,6 +231,39 @@ const filtresActifs = computed(() =>
     || idService.value !== 'all'
     || idPriorite.value !== 'all'
 )
+
+/** Y a-t-il au moins une activité qui porte des sous-activités ? */
+const aDesSousActivites = computed(() =>
+    activites.value.some(a => a.sousActivites.length > 0)
+)
+
+/** Toutes les activités sont-elles actuellement repliées ? */
+const toutesRepliees = computed(() => {
+    const avecSous = activites.value.filter(a => a.sousActivites.length > 0)
+    if (avecSous.length === 0) return false
+    return avecSous.every(a => sousActivitesRepliees.value.has(a.id))
+})
+
+function toutReplier(): void {
+    const prochain = new Set(sousActivitesRepliees.value)
+    for (const a of activites.value) {
+        if (a.sousActivites.length > 0) prochain.add(a.id)
+    }
+    sousActivitesRepliees.value = prochain
+}
+
+function toutDeplier(): void {
+    const prochain = new Set(sousActivitesRepliees.value)
+    for (const a of activites.value) {
+        prochain.delete(a.id)
+    }
+    sousActivitesRepliees.value = prochain
+}
+
+function basculerTout(): void {
+    if (toutesRepliees.value) toutDeplier()
+    else toutReplier()
+}
 
 /* -------------------- chargements -------------------- */
 
@@ -376,27 +437,16 @@ watch([idService, idPriorite], () => {
 
             <div class="welcome-row__right">
                 <div class="scope-switch" role="tablist" aria-label="Périmètre">
-                    <button
-                        type="button"
-                        role="tab"
-                        class="scope-switch__btn"
-                        :class="{ 'scope-switch__btn--active': pta }"
-                        :aria-selected="pta"
-                        @click="basculerPta(true)"
-                    >
+                    <button type="button" role="tab" class="scope-switch__btn"
+                        :class="{ 'scope-switch__btn--active': pta }" :aria-selected="pta" @click="basculerPta(true)">
                         <i class="bi bi-clipboard-check"></i>
                         PTA
                     </button>
-                    <button
-                        type="button"
-                        role="tab"
-                        class="scope-switch__btn"
-                        :class="{ 'scope-switch__btn--active': !pta }"
-                        :aria-selected="!pta"
-                        @click="basculerPta(false)"
-                    >
+                    <button type="button" role="tab" class="scope-switch__btn"
+                        :class="{ 'scope-switch__btn--active': !pta }" :aria-selected="!pta"
+                        @click="basculerPta(false)">
                         <i class="bi bi-clipboard"></i>
-                        NON PTA
+                        Courante
                     </button>
                 </div>
             </div>
@@ -404,58 +454,39 @@ watch([idService, idPriorite], () => {
 
         <!-- ============ SYNTHÈSE ============ -->
         <section class="summary" aria-label="Synthèse du suivi">
-            <!-- Tuiles statistiques — au-dessus de la progression -->
             <div class="summary__stats" role="group" aria-label="Filtres par statut">
-                <button
-                    type="button"
-                    class="stat-tile stat-tile--total"
-                    :class="{ 'stat-tile--active': carteActive === 'all' }"
-                    :aria-pressed="carteActive === 'all'"
-                    :disabled="statsLoading"
-                    @click="choisirCarte('all')"
-                >
+                <button type="button" class="stat-tile stat-tile--total"
+                    :class="{ 'stat-tile--active': carteActive === 'all' }" :aria-pressed="carteActive === 'all'"
+                    :disabled="statsLoading" @click="choisirCarte('all')">
                     <span class="stat-tile__count">{{ stats?.total ?? 0 }}</span>
                     <span class="stat-tile__label">Total</span>
                 </button>
 
-                <button
-                    type="button"
-                    class="stat-tile stat-tile--nc"
+                <button type="button" class="stat-tile stat-tile--nc"
                     :class="{ 'stat-tile--active': carteActive === 'NON_COMMENCEE' }"
-                    :aria-pressed="carteActive === 'NON_COMMENCEE'"
-                    :disabled="statsLoading"
-                    @click="choisirCarte('NON_COMMENCEE')"
-                >
+                    :aria-pressed="carteActive === 'NON_COMMENCEE'" :disabled="statsLoading"
+                    @click="choisirCarte('NON_COMMENCEE')">
                     <span class="stat-tile__count">{{ stats?.nonCommencees ?? 0 }}</span>
                     <span class="stat-tile__label">Non commencées</span>
                 </button>
 
-                <button
-                    type="button"
-                    class="stat-tile stat-tile--ec"
+                <button type="button" class="stat-tile stat-tile--ec"
                     :class="{ 'stat-tile--active': carteActive === 'EN_COURS' }"
-                    :aria-pressed="carteActive === 'EN_COURS'"
-                    :disabled="statsLoading"
-                    @click="choisirCarte('EN_COURS')"
-                >
+                    :aria-pressed="carteActive === 'EN_COURS'" :disabled="statsLoading"
+                    @click="choisirCarte('EN_COURS')">
                     <span class="stat-tile__count">{{ stats?.enCours ?? 0 }}</span>
                     <span class="stat-tile__label">En cours</span>
                 </button>
 
-                <button
-                    type="button"
-                    class="stat-tile stat-tile--te"
+                <button type="button" class="stat-tile stat-tile--te"
                     :class="{ 'stat-tile--active': carteActive === 'TERMINEE' }"
-                    :aria-pressed="carteActive === 'TERMINEE'"
-                    :disabled="statsLoading"
-                    @click="choisirCarte('TERMINEE')"
-                >
+                    :aria-pressed="carteActive === 'TERMINEE'" :disabled="statsLoading"
+                    @click="choisirCarte('TERMINEE')">
                     <span class="stat-tile__count">{{ stats?.terminees ?? 0 }}</span>
                     <span class="stat-tile__label">Terminées</span>
                 </button>
             </div>
 
-            <!-- Progression globale — sous les tuiles -->
             <div class="summary__progress">
                 <div class="summary__progress-head">
                     <span class="summary__progress-label">Avancement global</span>
@@ -463,20 +494,13 @@ watch([idService, idPriorite], () => {
                         {{ avancementGlobal }}<small>%</small>
                     </span>
                 </div>
-                <div
-                    class="summary__bar"
-                    role="progressbar"
-                    :aria-valuenow="avancementGlobal"
-                    aria-valuemin="0"
-                    aria-valuemax="100"
-                >
-                    <div
-                        class="summary__bar-fill"
-                        :style="{ width: avancementGlobal + '%' }"
-                    ></div>
+                <div class="summary__bar" role="progressbar" :aria-valuenow="avancementGlobal" aria-valuemin="0"
+                    aria-valuemax="100">
+                    <div class="summary__bar-fill" :style="{ width: avancementGlobal + '%' }"></div>
                 </div>
                 <div class="summary__progress-foot">
-                    {{ activites.length }} activité{{ activites.length > 1 ? 's' : '' }} affichée{{ activites.length > 1 ? 's' : '' }}
+                    {{ activites.length }} activité{{ activites.length > 1 ? 's' : '' }} affichée{{ activites.length > 1
+                        ? 's' : '' }}
                     <span class="summary__dot">•</span>
                     {{ totalSousActivites }} sous-activité{{ totalSousActivites > 1 ? 's' : '' }}
                 </div>
@@ -495,13 +519,8 @@ watch([idService, idPriorite], () => {
                         {{ filtresActifs ? 'Filtres actifs' : 'Affiner la liste des activités' }}
                     </span>
                 </div>
-                <BaseButton
-                    v-if="filtresActifs"
-                    variant="secondary"
-                    size="sm"
-                    icon="bi bi-x-lg"
-                    @click="reinitialiserFiltres"
-                >
+                <BaseButton v-if="filtresActifs" variant="secondary" size="sm" icon="bi bi-x-lg"
+                    @click="reinitialiserFiltres">
                     Réinitialiser
                 </BaseButton>
             </header>
@@ -509,23 +528,13 @@ watch([idService, idPriorite], () => {
             <div class="filters-card__body">
                 <div class="filters__search" @focusout="fermerSuggestions">
                     <i class="bi bi-search" aria-hidden="true"></i>
-                    <input
-                        type="text"
-                        placeholder="Rechercher une activité (code, référence, désignation)…"
-                        v-model="recherche"
-                        aria-label="Rechercher une activité"
-                        @input="onRechercheInput"
+                    <input type="text" placeholder="Rechercher une activité (code, référence, désignation)…"
+                        v-model="recherche" aria-label="Rechercher une activité" @input="onRechercheInput"
                         @focus="suggestions.length && (suggestionsOpen = true)"
-                        @keydown.enter="page = 0; recharger()"
-                    />
+                        @keydown.enter="page = 0; recharger()" />
                     <ul v-if="suggestionsOpen && suggestions.length" class="filters__suggestions" role="listbox">
-                        <li
-                            v-for="s in suggestions"
-                            :key="s.id"
-                            role="option"
-                            class="filters__suggestion"
-                            @mousedown.prevent="choisirSuggestion(s)"
-                        >
+                        <li v-for="s in suggestions" :key="s.id" role="option" class="filters__suggestion"
+                            @mousedown.prevent="choisirSuggestion(s)">
                             <span class="filters__suggestion-code">{{ s.code }}</span>
                             <span class="filters__suggestion-label">{{ s.libelle }}</span>
                             <span v-if="s.libelleSecondaire" class="filters__suggestion-secondary">
@@ -536,21 +545,13 @@ watch([idService, idPriorite], () => {
                 </div>
 
                 <div v-if="(options?.services?.length ?? 0) > 0" class="filters__select">
-                    <BaseSelect
-                        v-model="idService"
-                        size="sm"
-                        placeholder="Tous les services"
-                        :options="serviceOptions"
-                    />
+                    <BaseSelect v-model="idService" size="sm" placeholder="Tous les services"
+                        :options="serviceOptions" />
                 </div>
 
                 <div class="filters__select">
-                    <BaseSelect
-                        v-model="idPriorite"
-                        size="sm"
-                        placeholder="Toutes les priorités"
-                        :options="prioriteOptions"
-                    />
+                    <BaseSelect v-model="idPriorite" size="sm" placeholder="Toutes les priorités"
+                        :options="prioriteOptions" />
                 </div>
             </div>
         </section>
@@ -560,7 +561,8 @@ watch([idService, idPriorite], () => {
             {{ statsError }}
         </div>
 
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center" role="alert">
+        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
+            role="alert">
             <span>{{ errorMessage }}</span>
             <BaseButton size="sm" variant="secondary" @click="recharger">Réessayer</BaseButton>
         </div>
@@ -584,28 +586,38 @@ watch([idService, idPriorite], () => {
             <p class="empty-state__text">
                 Aucune activité ne correspond aux critères sélectionnés.
             </p>
-            <BaseButton
-                v-if="filtresActifs"
-                variant="secondary"
-                size="sm"
-                @click="reinitialiserFiltres"
-            >
+            <BaseButton v-if="filtresActifs" variant="secondary" size="sm" @click="reinitialiserFiltres">
                 Réinitialiser les filtres
             </BaseButton>
         </div>
 
         <!-- ============ LISTE DES ACTIVITÉS ============ -->
         <div v-else class="activities">
-            <article
-                v-for="a in activites"
-                :key="a.id"
-                class="activity-card"
-                :class="classeStatut(a)"
-            >
+
+            <!-- Barre d'actions globale : tout replier / tout déplier -->
+            <div v-if="aDesSousActivites" class="activities__toolbar">
+                <span class="activities__toolbar-label">
+                    <i class="bi bi-diagram-3" aria-hidden="true"></i>
+                    {{ activites.length }} activité{{ activites.length > 1 ? 's' : '' }}
+                    sur cette page
+                </span>
+                <BaseButton size="sm" variant="secondary" @click="basculerTout">
+                    <i class="bi" :class="toutesRepliees ? 'bi-arrows-expand' : 'bi-arrows-collapse'"></i>
+                    {{ toutesRepliees ? 'Tout déplier' : 'Tout replier' }}
+                </BaseButton>
+            </div>
+
+            <article v-for="a in activites" :key="a.id" class="activity-card" :class="classeStatut(a)">
                 <div class="activity-card__head">
                     <div class="activity-card__ids">
-                        <span class="activity-card__code">{{ a.code }}</span>
-                        <span v-if="a.reference" class="activity-card__ref">{{ a.reference }}</span>
+                        <RouterLink :to="{ name: 'activite-detail', params: { id: a.id } }" class="activity-card__code"
+                            :aria-label="`Voir la fiche de l'activité ${a.code}`">
+                            {{ a.code }}
+                        </RouterLink>
+                        <RouterLink v-if="a.reference" :to="{ name: 'activite-detail', params: { id: a.id } }"
+                            class="activity-card__ref" :aria-label="`Voir la fiche de l'activité ${a.reference}`">
+                            {{ a.reference }}
+                        </RouterLink>
                     </div>
                     <div class="activity-card__badges">
                         <span v-if="a.statut" class="badge-statut" :class="classeStatut(a)">
@@ -617,7 +629,12 @@ watch([idService, idPriorite], () => {
                     </div>
                 </div>
 
-                <h3 class="activity-card__title">{{ a.designation }}</h3>
+                <h3 class="activity-card__title">
+                    <RouterLink :to="{ name: 'activite-detail', params: { id: a.id } }"
+                        :aria-label="`Voir la fiche de l'activité ${a.designation}`">
+                        {{ a.designation }}
+                    </RouterLink>
+                </h3>
 
                 <div class="activity-card__meta">
                     <span v-if="a.responsable" class="activity-card__meta-item">
@@ -639,48 +656,47 @@ watch([idService, idPriorite], () => {
                         <span class="activity-card__progress-label">Avancement</span>
                         <strong class="activity-card__progress-value">{{ a.avancement }}&nbsp;%</strong>
                     </div>
-                    <div
-                        class="activity-card__progress-bar"
-                        role="progressbar"
-                        :aria-valuenow="a.avancement"
-                        aria-valuemin="0"
-                        aria-valuemax="100"
-                    >
-                        <div
-                            class="activity-card__progress-fill"
-                            :style="{ width: a.avancement + '%' }"
-                        ></div>
+                    <div class="activity-card__progress-bar" role="progressbar" :aria-valuenow="a.avancement"
+                        aria-valuemin="0" aria-valuemax="100">
+                        <div class="activity-card__progress-fill" :style="{ width: a.avancement + '%' }"></div>
                     </div>
                 </div>
 
                 <div v-if="a.sousActivites.length" class="sous-activites">
-                    <div class="sous-activites__head">
+                    <button type="button" class="sous-activites__head" :aria-expanded="sousActivitesOuvertes(a.id)"
+                        :aria-controls="`sous-activites-${a.id}`" @click="toggleSousActivites(a.id)">
                         <i class="bi bi-diagram-3" aria-hidden="true"></i>
                         <span class="sous-activites__title">Sous-activités</span>
                         <span class="sous-activites__count">{{ a.sousActivites.length }}</span>
-                    </div>
-                    <ul class="sous-activites__list">
-                        <li
-                            v-for="s in a.sousActivites"
-                            :key="s.id"
-                            class="sous-item"
-                            :class="sousStatutClass(s.avancement ?? 0)"
-                        >
+                        <i class="bi sous-activites__chevron"
+                            :class="sousActivitesOuvertes(a.id) ? 'bi-chevron-up' : 'bi-chevron-down'"
+                            aria-hidden="true"></i>
+                    </button>
+
+                    <ul v-show="sousActivitesOuvertes(a.id)" :id="`sous-activites-${a.id}`"
+                        class="sous-activites__list">
+                        <li v-for="s in a.sousActivites" :key="s.id" class="sous-item"
+                            :class="sousStatutClass(s.avancement ?? 0)">
                             <span class="sous-item__dot" aria-hidden="true"></span>
                             <div class="sous-item__infos">
-                                <span class="sous-item__designation">{{ s.designation }}</span>
-                                <span class="sous-item__code">{{ s.code }}</span>
+                                <RouterLink
+                                    :to="{ name: 'sous-activite-detail', params: { id: a.id, sousActiviteId: s.id } }"
+                                    class="sous-item__designation"
+                                    :aria-label="`Voir la fiche de la sous-activité ${s.designation}`">
+                                    {{ s.designation }}
+                                </RouterLink>
+                                <RouterLink
+                                    :to="{ name: 'sous-activite-detail', params: { id: a.id, sousActiviteId: s.id } }"
+                                    class="sous-item__code" :aria-label="`Voir la fiche de la sous-activité ${s.code}`">
+                                    {{ s.code }}
+                                </RouterLink>
                             </div>
-                            <ProgressCircle
-                                :value="s.avancement ?? 0"
-                                label="Modifier l'avancement"
-                                @click="ouvrirModalAvancement({
-                                    id: s.id,
-                                    code: s.code,
-                                    designation: s.designation,
-                                    avancement: s.avancement ?? 0,
-                                })"
-                            />
+                            <ProgressCircle :value="s.avancement ?? 0" label="Modifier l'avancement" @click="ouvrirModalAvancement({
+                                id: s.id,
+                                code: s.code,
+                                designation: s.designation,
+                                avancement: s.avancement ?? 0,
+                            })" />
                         </li>
                     </ul>
                 </div>
@@ -689,12 +705,7 @@ watch([idService, idPriorite], () => {
 
         <!-- ============ PAGINATION ============ -->
         <nav v-if="totalElements > size" class="pagination" aria-label="Pagination">
-            <BaseButton
-                size="sm"
-                variant="secondary"
-                :disabled="page === 0"
-                @click="page--; chargerListe()"
-            >
+            <BaseButton size="sm" variant="secondary" :disabled="page === 0" @click="page--; chargerListe()">
                 <i class="bi bi-chevron-left"></i>
                 Précédent
             </BaseButton>
@@ -703,12 +714,8 @@ watch([idService, idPriorite], () => {
                 <span class="pagination__sep">•</span>
                 {{ totalElements }} résultat{{ totalElements > 1 ? 's' : '' }}
             </span>
-            <BaseButton
-                size="sm"
-                variant="secondary"
-                :disabled="(page + 1) * size >= totalElements"
-                @click="page++; chargerListe()"
-            >
+            <BaseButton size="sm" variant="secondary" :disabled="(page + 1) * size >= totalElements"
+                @click="page++; chargerListe()">
                 Suivant
                 <i class="bi bi-chevron-right"></i>
             </BaseButton>
@@ -716,14 +723,10 @@ watch([idService, idPriorite], () => {
     </div>
 
     <!-- ============ MODAL AVANCEMENT ============ -->
-    <BaseModal
-        v-model="modalOpen"
-        :title="modalStep === 'edit' ? 'Modifier l\'avancement' : 'Confirmer la modification'"
-        size="md"
-        :loading="modalLoading"
-        :closeOnOutside="!modalLoading"
-        @update:modelValue="(v: boolean) => !v && fermerModalAvancement()"
-    >
+    <BaseModal v-model="modalOpen"
+        :title="modalStep === 'edit' ? 'Modifier l\'avancement' : 'Confirmer la modification'" size="md"
+        :loading="modalLoading" :closeOnOutside="!modalLoading"
+        @update:modelValue="(v: boolean) => !v && fermerModalAvancement()">
         <div v-if="modalStep === 'edit' && sousActiviteSelectionnee" class="modal-avancement">
             <div class="modal-avancement__sous">
                 <strong>{{ sousActiviteSelectionnee.designation }}</strong>
@@ -739,8 +742,8 @@ watch([idService, idPriorite], () => {
                 <div>
                     <strong>Réouverture de la sous-activité</strong>
                     <p>Cette sous-activité est actuellement terminée (100 %).<br>
-                    Vous allez ramener son avancement à {{ Math.round(modalValeur) }} %.<br>
-                    Une justification est obligatoire.</p>
+                        Vous allez ramener son avancement à {{ Math.round(modalValeur) }} %.<br>
+                        Une justification est obligatoire.</p>
                 </div>
             </div>
 
@@ -749,12 +752,13 @@ watch([idService, idPriorite], () => {
                 <div>
                     <strong>Diminution de l'avancement</strong>
                     <p>L'avancement actuel est de {{ valeurActuelle }} %.<br>
-                    La nouvelle valeur est de {{ Math.round(modalValeur) }} %.<br>
-                    Une justification est obligatoire.</p>
+                        La nouvelle valeur est de {{ Math.round(modalValeur) }} %.<br>
+                        Une justification est obligatoire.</p>
                 </div>
             </div>
 
-            <div v-else-if="sens === 'up' && Math.round(modalValeur) >= 100" class="modal-warning modal-warning--success" role="note">
+            <div v-else-if="sens === 'up' && Math.round(modalValeur) >= 100"
+                class="modal-warning modal-warning--success" role="note">
                 <i class="bi bi-check-circle-fill"></i>
                 <div>
                     <strong>Sous-activité terminée</strong>
@@ -764,7 +768,9 @@ watch([idService, idPriorite], () => {
 
             <div v-else-if="sens === 'same'" class="modal-warning modal-warning--neutral" role="note">
                 <i class="bi bi-info-circle-fill"></i>
-                <div><p>Aucune modification de l'avancement.</p></div>
+                <div>
+                    <p>Aucune modification de l'avancement.</p>
+                </div>
             </div>
 
             <div class="modal-avancement__current">
@@ -774,15 +780,8 @@ watch([idService, idPriorite], () => {
             <div class="modal-avancement__field">
                 <label class="modal-avancement__label">Nouvel avancement</label>
                 <div class="modal-avancement__value">{{ Math.round(modalValeur) }} %</div>
-                <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
-                    v-model.number="modalValeur"
-                    class="modal-avancement__range"
-                    :disabled="modalLoading"
-                />
+                <input type="range" min="0" max="100" step="1" v-model.number="modalValeur"
+                    class="modal-avancement__range" :disabled="modalLoading" />
                 <div class="modal-avancement__range-bounds">
                     <span>0 %</span><span>100 %</span>
                 </div>
@@ -794,23 +793,20 @@ watch([idService, idPriorite], () => {
                     <span v-if="commentaireObligatoire" class="required">*</span>
                     <span v-else class="text-muted-custom">(facultatif)</span>
                 </label>
-                <textarea
-                    v-model="modalCommentaire"
-                    class="form-control"
-                    rows="3"
-                    maxlength="2000"
+                <textarea v-model="modalCommentaire" class="form-control" rows="3" maxlength="2000"
                     :placeholder="commentaireObligatoire ? 'Justifiez la diminution…' : 'Précisez l\'état d\'avancement…'"
-                    :disabled="modalLoading"
-                ></textarea>
+                    :disabled="modalLoading"></textarea>
             </div>
         </div>
 
-        <div v-else-if="modalStep === 'confirm' && sousActiviteSelectionnee" class="modal-avancement modal-avancement--confirm">
+        <div v-else-if="modalStep === 'confirm' && sousActiviteSelectionnee"
+            class="modal-avancement modal-avancement--confirm">
             <div v-if="sens === 'reopen'" class="modal-warning modal-warning--danger" role="note">
                 <i class="bi bi-exclamation-triangle-fill"></i>
                 <div>
                     <strong>Réouverture de la sous-activité</strong>
-                    <p>L'avancement va diminuer et la sous-activité repassera d'un état terminé vers un état en cours.</p>
+                    <p>L'avancement va diminuer et la sous-activité repassera d'un état terminé vers un état en cours.
+                    </p>
                 </div>
             </div>
 
@@ -855,11 +851,8 @@ watch([idService, idPriorite], () => {
                     <BaseButton variant="secondary" :disabled="modalLoading" @click="revenirEnEdition">
                         Annuler
                     </BaseButton>
-                    <BaseButton
-                        :loading="modalLoading"
-                        :variant="commentaireObligatoire ? 'danger' : 'primary'"
-                        @click="confirmerEnregistrement"
-                    >
+                    <BaseButton :loading="modalLoading" :variant="commentaireObligatoire ? 'danger' : 'primary'"
+                        @click="confirmerEnregistrement">
                         Confirmer
                     </BaseButton>
                 </template>
@@ -928,14 +921,20 @@ watch([idService, idPriorite], () => {
     background: #f7f9fd;
     color: #1a2a6c;
 }
-.scope-switch__btn:hover:not(.scope-switch__btn--active) i { color: #4a6cf7; }
+
+.scope-switch__btn:hover:not(.scope-switch__btn--active) i {
+    color: #4a6cf7;
+}
 
 .scope-switch__btn--active {
     background: linear-gradient(135deg, #1a2a6c 0%, #4a6cf7 100%);
     color: #fff;
     box-shadow: 0 4px 12px rgba(26, 42, 108, .25);
 }
-.scope-switch__btn--active i { color: #ffd04a; }
+
+.scope-switch__btn--active i {
+    color: #ffd04a;
+}
 
 /* ============================================================
    SYNTHÈSE
@@ -953,7 +952,6 @@ watch([idService, idPriorite], () => {
         0 8px 24px rgba(26, 42, 108, .06);
 }
 
-/* Tuiles alignées en 4 colonnes sur toute la largeur */
 .summary__stats {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1010,11 +1008,18 @@ watch([idService, idPriorite], () => {
     white-space: nowrap;
 }
 
-.stat-tile--nc .stat-tile__count { color: #5b6b7d; }
-.stat-tile--ec .stat-tile__count { color: #b8860b; }
-.stat-tile--te .stat-tile__count { color: #1e7e34; }
+.stat-tile--nc .stat-tile__count {
+    color: #5b6b7d;
+}
 
-/* Progression globale — sous les tuiles */
+.stat-tile--ec .stat-tile__count {
+    color: #b8860b;
+}
+
+.stat-tile--te .stat-tile__count {
+    color: #1e7e34;
+}
+
 .summary__progress {
     min-width: 0;
 }
@@ -1043,6 +1048,7 @@ watch([idService, idPriorite], () => {
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
 }
+
 .summary__progress-value small {
     font-size: 0.9rem;
     font-weight: 700;
@@ -1070,13 +1076,14 @@ watch([idService, idPriorite], () => {
     font-size: 0.75rem;
     color: #6b7280;
 }
+
 .summary__dot {
     color: #c3cad5;
     margin: 0 0.35rem;
 }
 
 /* ============================================================
-   FILTRES — carte avec titre
+   FILTRES
    ============================================================ */
 .filters-card {
     background: #fff;
@@ -1141,7 +1148,6 @@ watch([idService, idPriorite], () => {
     padding: 1rem 1.25rem;
 }
 
-/* --- Recherche --- */
 .filters__search {
     position: relative;
     display: flex;
@@ -1154,6 +1160,7 @@ watch([idService, idPriorite], () => {
     border-radius: 10px;
     transition: border-color .15s, box-shadow .15s;
 }
+
 .filters__search:focus-within {
     border-color: #4a6cf7;
     box-shadow: 0 0 0 3px rgba(74, 108, 247, .14);
@@ -1175,6 +1182,7 @@ watch([idService, idPriorite], () => {
     padding: 0.55rem 0;
     font-family: inherit;
 }
+
 .filters__search input::placeholder {
     color: #9aa4b8;
 }
@@ -1205,6 +1213,7 @@ watch([idService, idPriorite], () => {
     font-size: 0.83rem;
     align-items: baseline;
 }
+
 .filters__suggestion:hover {
     background: #eef5f8;
 }
@@ -1215,9 +1224,11 @@ watch([idService, idPriorite], () => {
     font-size: 0.78rem;
     font-weight: 600;
 }
+
 .filters__suggestion-label {
     color: #15233c;
 }
+
 .filters__suggestion-secondary {
     color: #8a95a8;
     font-size: 0.75rem;
@@ -1287,29 +1298,84 @@ watch([idService, idPriorite], () => {
 }
 
 .skeleton {
-    background: linear-gradient(90deg, #eef1f5 25%, #f6f8fa 50%, #eef1f5 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s infinite;
+    position: relative;
+    overflow: hidden;
+    background: #eef1f5;
     border-radius: 6px;
 }
 
-.skeleton--line { height: 12px; }
-.skeleton--short { width: 30%; }
-.skeleton--medium { width: 60%; }
-.skeleton--bar { height: 8px; border-radius: 4px; }
+
+.skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.65) 50%,
+            transparent 100%);
+    transform: translateX(-100%);
+    animation: shimmer 2s ease-in-out infinite;
+}
+
+.skeleton--line {
+    height: 12px;
+}
+
+.skeleton--short {
+    width: 30%;
+}
+
+.skeleton--medium {
+    width: 60%;
+}
+
+.skeleton--bar {
+    height: 8px;
+    border-radius: 4px;
+}
 
 @keyframes shimmer {
-    from { background-position: 200% 0; }
-    to { background-position: -200% 0; }
+    from {
+        transform: translateX(-100%);
+    }
+
+    to {
+        transform: translateX(100%);
+    }
 }
 
 /* ============================================================
-   CARTES ACTIVITÉS
+   LISTE DES ACTIVITÉS + BARRE TOUT REPLIER / TOUT DÉPLIER
    ============================================================ */
 .activities {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+}
+
+.activities__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    color: #6b7280;
+    box-shadow: 0 1px 2px rgba(26, 42, 108, .04);
+}
+
+.activities__toolbar-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.activities__toolbar-label i {
+    color: #8a95a8;
+    font-size: 0.9rem;
 }
 
 .activity-card {
@@ -1327,7 +1393,6 @@ watch([idService, idPriorite], () => {
     overflow: hidden;
 }
 
-/* Bandeau de statut à gauche */
 .activity-card::before {
     content: "";
     position: absolute;
@@ -1337,12 +1402,23 @@ watch([idService, idPriorite], () => {
     width: 4px;
     background: #c8d6fb;
 }
-.activity-card.statut--non-commencee::before { background: #8a95a8; }
-.activity-card.statut--en-cours::before { background: #f4b91f; }
-.activity-card.statut--terminee::before { background: #4ad8a7; }
-.activity-card.statut--autre::before { background: #c8d6fb; }
 
-/* --- En-tête --- */
+.activity-card.statut--non-commencee::before {
+    background: #8a95a8;
+}
+
+.activity-card.statut--en-cours::before {
+    background: #f4b91f;
+}
+
+.activity-card.statut--terminee::before {
+    background: #4ad8a7;
+}
+
+.activity-card.statut--autre::before {
+    background: #c8d6fb;
+}
+
 .activity-card__head {
     display: flex;
     justify-content: space-between;
@@ -1365,11 +1441,23 @@ watch([idService, idPriorite], () => {
     font-weight: 700;
     color: #1a2a6c;
     letter-spacing: 0.02em;
+    text-decoration: none;
+    transition: color .12s;
+}
+
+.activity-card__code:hover {
+    color: #4a6cf7;
 }
 
 .activity-card__ref {
     font-size: 0.76rem;
     color: #8a95a8;
+    text-decoration: none;
+    transition: color .12s;
+}
+
+.activity-card__ref:hover {
+    color: #4a6cf7;
 }
 
 .activity-card__badges {
@@ -1390,33 +1478,54 @@ watch([idService, idPriorite], () => {
 }
 
 .badge-statut.statut--non-commencee {
-    background: #eef1f5; color: #5b6b7d; border: 1px solid #dfe5ec;
+    background: #eef1f5;
+    color: #5b6b7d;
+    border: 1px solid #dfe5ec;
 }
+
 .badge-statut.statut--en-cours {
-    background: #fdf3e2; color: #9a6409; border: 1px solid #f4e2c2;
+    background: #fdf3e2;
+    color: #9a6409;
+    border: 1px solid #f4e2c2;
 }
+
 .badge-statut.statut--terminee {
-    background: #e6f4ea; color: #1e7e34; border: 1px solid #c8e5cf;
+    background: #e6f4ea;
+    color: #1e7e34;
+    border: 1px solid #c8e5cf;
 }
+
 .badge-statut.statut--autre {
-    background: #eef1f5; color: #5b6b7d; border: 1px solid #dfe5ec;
+    background: #eef1f5;
+    color: #5b6b7d;
+    border: 1px solid #dfe5ec;
 }
 
 .badge-prio.prio--critique {
-    background: #fdecea; color: #a61b16; border: 1px solid #f6cfcc;
-}
-.badge-prio.prio--haute {
-    background: #fdf3e2; color: #9a6409; border: 1px solid #f4e2c2;
-}
-.badge-prio.prio--normale {
-    background: #e4f0fb; color: #135d95; border: 1px solid #cde2f6;
-}
-.badge-prio.prio--faible,
-.badge-prio.prio--autre {
-    background: #eef1f5; color: #5b6b7d; border: 1px solid #dfe5ec;
+    background: #fdecea;
+    color: #a61b16;
+    border: 1px solid #f6cfcc;
 }
 
-/* --- Titre --- */
+.badge-prio.prio--haute {
+    background: #fdf3e2;
+    color: #9a6409;
+    border: 1px solid #f4e2c2;
+}
+
+.badge-prio.prio--normale {
+    background: #e4f0fb;
+    color: #135d95;
+    border: 1px solid #cde2f6;
+}
+
+.badge-prio.prio--faible,
+.badge-prio.prio--autre {
+    background: #eef1f5;
+    color: #5b6b7d;
+    border: 1px solid #dfe5ec;
+}
+
 .activity-card__title {
     margin: 0;
     font-family: Manrope, "DM Sans", sans-serif;
@@ -1427,7 +1536,26 @@ watch([idService, idPriorite], () => {
     letter-spacing: -0.01em;
 }
 
-/* --- Meta --- */
+.activity-card__title a {
+    text-decoration: none;
+    color: inherit;
+    transition: color .12s;
+}
+
+.activity-card__title a:hover {
+    color: #4a6cf7;
+}
+
+.activity-card__title a:focus-visible,
+.activity-card__code:focus-visible,
+.activity-card__ref:focus-visible,
+.sous-item__designation:focus-visible,
+.sous-item__code:focus-visible {
+    outline: 2px solid #4a6cf7;
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
 .activity-card__meta {
     display: flex;
     flex-wrap: wrap;
@@ -1447,7 +1575,6 @@ watch([idService, idPriorite], () => {
     font-size: 0.85rem;
 }
 
-/* --- Barre d'avancement --- */
 .activity-card__progress {
     display: flex;
     flex-direction: column;
@@ -1492,12 +1619,13 @@ watch([idService, idPriorite], () => {
 .activity-card.statut--terminee .activity-card__progress-fill {
     background: linear-gradient(90deg, #138a68 0%, #4ad8a7 100%);
 }
+
 .activity-card.statut--en-cours .activity-card__progress-fill {
     background: linear-gradient(90deg, #b8860b 0%, #f4b91f 100%);
 }
 
 /* ============================================================
-   SOUS-ACTIVITÉS
+   SOUS-ACTIVITÉS — repli / dépli
    ============================================================ */
 .sous-activites {
     margin-top: 0.25rem;
@@ -1510,23 +1638,51 @@ watch([idService, idPriorite], () => {
     gap: 0.55rem;
 }
 
+/* Header transformé en bouton : reset des styles natifs puis
+   ré-application des styles de l'ancien <div> de titre. */
 .sous-activites__head {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    font-family: inherit;
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #6b7280;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+    text-align: left;
 }
 
-.sous-activites__head i {
+.sous-activites__head:hover {
+    background: #eef2f7;
+    color: #1a2a6c;
+}
+
+.sous-activites__head:focus-visible {
+    outline: 2px solid #4a6cf7;
+    outline-offset: 2px;
+}
+
+.sous-activites__head>i.bi-diagram-3 {
     color: #8a95a8;
     font-size: 0.85rem;
+    transition: color .15s;
 }
 
-.sous-activites__title { flex: 1; }
+.sous-activites__head:hover>i.bi-diagram-3 {
+    color: #4a6cf7;
+}
+
+.sous-activites__title {
+    flex: 1;
+}
 
 .sous-activites__count {
     padding: 0.1rem 0.5rem;
@@ -1536,6 +1692,16 @@ watch([idService, idPriorite], () => {
     font-size: 0.68rem;
     font-weight: 700;
     letter-spacing: 0;
+}
+
+.sous-activites__chevron {
+    color: #8a95a8;
+    font-size: 0.75rem;
+    transition: color .15s, transform .15s;
+}
+
+.sous-activites__head:hover .sous-activites__chevron {
+    color: #4a6cf7;
 }
 
 .sous-activites__list {
@@ -1570,11 +1736,16 @@ watch([idService, idPriorite], () => {
     border-radius: 50%;
     background: #c8d6fb;
 }
-.sous-item--idle .sous-item__dot { background: #c8d6fb; }
+
+.sous-item--idle .sous-item__dot {
+    background: #c8d6fb;
+}
+
 .sous-item--wip .sous-item__dot {
     background: #f4b91f;
     box-shadow: 0 0 0 3px rgba(244, 185, 31, .18);
 }
+
 .sous-item--done .sous-item__dot {
     background: #4ad8a7;
     box-shadow: 0 0 0 3px rgba(74, 216, 167, .18);
@@ -1589,18 +1760,31 @@ watch([idService, idPriorite], () => {
 }
 
 .sous-item__designation {
+    display: block;
     font-size: 0.85rem;
     font-weight: 500;
     color: #15233c;
+    text-decoration: none;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    transition: color .12s;
+}
+
+.sous-item__designation:hover {
+    color: #4a6cf7;
 }
 
 .sous-item__code {
     font-family: ui-monospace, Menlo, monospace;
     font-size: 0.72rem;
     color: #8a95a8;
+    text-decoration: none;
+    transition: color .12s;
+}
+
+.sous-item__code:hover {
+    color: #4a6cf7;
 }
 
 /* ============================================================
@@ -1619,7 +1803,10 @@ watch([idService, idPriorite], () => {
     font-size: 0.82rem;
     color: #6b7280;
 }
-.pagination__info strong { color: #1a2a6c; }
+
+.pagination__info strong {
+    color: #1a2a6c;
+}
 
 .pagination__sep {
     color: #c3cad5;
@@ -1627,7 +1814,7 @@ watch([idService, idPriorite], () => {
 }
 
 /* ============================================================
-   MODAL — améliorations visuelles
+   MODAL AVANCEMENT
    ============================================================ */
 .modal-avancement {
     display: flex;
@@ -1655,6 +1842,7 @@ watch([idService, idPriorite], () => {
     font-size: 0.85rem;
     color: #6b7280;
 }
+
 .modal-avancement__current strong {
     color: #1a2a6c;
     margin-left: 0.25rem;
@@ -1712,30 +1900,55 @@ watch([idService, idPriorite], () => {
     font-size: 1rem;
     margin-top: 0.1rem;
 }
+
 .modal-warning strong {
     display: block;
     margin-bottom: 0.2rem;
     font-weight: 700;
 }
-.modal-warning p { margin: 0; }
+
+.modal-warning p {
+    margin: 0;
+}
 
 .modal-warning--danger {
-    background: #fdecea; border-left: 3px solid #d64545; color: #5c1a17;
+    background: #fdecea;
+    border-left: 3px solid #d64545;
+    color: #5c1a17;
 }
-.modal-warning--danger i { color: #d64545; }
+
+.modal-warning--danger i {
+    color: #d64545;
+}
 
 .modal-warning--success {
-    background: #e6f4ea; border-left: 3px solid #1e7e34; color: #14532d;
+    background: #e6f4ea;
+    border-left: 3px solid #1e7e34;
+    color: #14532d;
 }
-.modal-warning--success i { color: #1e7e34; }
+
+.modal-warning--success i {
+    color: #1e7e34;
+}
 
 .modal-warning--neutral {
-    background: #eef1f5; border-left: 3px solid #9fb0c2; color: #384a5e;
+    background: #eef1f5;
+    border-left: 3px solid #9fb0c2;
+    color: #384a5e;
 }
-.modal-warning--neutral i { color: #5b6b7d; }
 
-.required { color: #d64545; }
-.text-muted-custom { color: #8a95a8; font-weight: 400; }
+.modal-warning--neutral i {
+    color: #5b6b7d;
+}
+
+.required {
+    color: #d64545;
+}
+
+.text-muted-custom {
+    color: #8a95a8;
+    font-weight: 400;
+}
 
 .modal-avancement__question {
     font-size: 1rem;
@@ -1782,62 +1995,109 @@ watch([idService, idPriorite], () => {
    RESPONSIVE
    ============================================================ */
 @media (max-width: 1199.98px) {
-    .suivi-page { padding-left: 24px; padding-right: 24px; }
+    .suivi-page {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
 }
 
 @media (max-width: 991.98px) {
     .summary__stats {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
     .filters-card__body {
         grid-template-columns: 1fr 1fr;
     }
+
     .filters__search {
         grid-column: 1 / -1;
     }
 }
 
 @media (max-width: 767.98px) {
-    .suivi-page { padding: 24px 16px 20px; }
+    .suivi-page {
+        padding: 24px 16px 20px;
+    }
+
     .filters-card__body {
         grid-template-columns: 1fr;
     }
-    .filters__select { min-width: 0; }
+
+    .filters__select {
+        min-width: 0;
+    }
 }
 
 @media (max-width: 575.98px) {
-    .suivi-page { padding: 20px 12px 16px; }
-    .summary { padding: 1rem; }
+    .suivi-page {
+        padding: 20px 12px 16px;
+    }
+
+    .summary {
+        padding: 1rem;
+    }
+
     .summary__stats {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.5rem;
     }
+
     .stat-tile {
         padding: 0.65rem 0.5rem;
     }
+
     .stat-tile__count {
         font-size: 1.35rem;
     }
+
     .stat-tile__label {
         font-size: 0.6rem;
     }
-    .summary__progress-value { font-size: 1.6rem; }
-    .filters-card__head { padding: 0.75rem 1rem; }
-    .filters-card__body { padding: 0.9rem 1rem; }
-    .activity-card { padding: 1rem 1rem 1rem 1.15rem; }
-    .activity-card__title { font-size: 0.95rem; }
-    .sous-item__designation { font-size: 0.8rem; }
-    .modal-avancement__recap { grid-template-columns: 1fr; }
-    .modal-avancement__recap dt { margin-top: 0.4rem; }
+
+    .summary__progress-value {
+        font-size: 1.6rem;
+    }
+
+    .filters-card__head {
+        padding: 0.75rem 1rem;
+    }
+
+    .filters-card__body {
+        padding: 0.9rem 1rem;
+    }
+
+    .activity-card {
+        padding: 1rem 1rem 1rem 1.15rem;
+    }
+
+    .activity-card__title {
+        font-size: 0.95rem;
+    }
+
+    .sous-item__designation {
+        font-size: 0.8rem;
+    }
+
+    .modal-avancement__recap {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-avancement__recap dt {
+        margin-top: 0.4rem;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     .summary__bar-fill,
     .activity-card__progress-fill,
     .stat-tile,
-    .sous-item {
+    .sous-item,
+    .sous-activites__chevron {
         transition: none !important;
     }
+
     .skeleton {
         animation: none !important;
     }

@@ -13,8 +13,6 @@ public final class IndicateurMapper {
                 .id(i.getIdIndicateur())
                 .code(i.getCode())
                 .designation(i.getDesignation())
-                .codeHopex(i.getCodeHopex())
-                .indicateurHopex(i.getIndicateurHopex())
                 .typeIndicateur(i.getTypeIndicateur())
                 .uniteMesure(i.getUniteMesure())
                 .frequenceVerification(i.getFrequenceVerification())

@@ -39,6 +39,7 @@ import mg.bank.backend.mapper.activite.ActiviteMapper;
 import mg.bank.backend.model.activite.Activite;
 import mg.bank.backend.model.activite.HistoriqueActivite;
 import mg.bank.backend.model.referentiel.ObjectifSpecifique;
+import mg.bank.backend.model.referentiel.Priorite;
 import mg.bank.backend.model.referentiel.Statut;
 import mg.bank.backend.model.utilisateur.Poste;
 import mg.bank.backend.model.utilisateur.Utilisateur;
@@ -53,6 +54,7 @@ import mg.bank.backend.repository.projection.activite.AvancementSousActiviteRow;
 import mg.bank.backend.repository.projection.activite.ResponsableSuiviRow;
 import mg.bank.backend.repository.projection.activite.SousActiviteSuiviRow;
 import mg.bank.backend.repository.projection.common.OptionRow;
+import mg.bank.backend.repository.projection.common.StatutCourantRow;
 import mg.bank.backend.repository.projection.referentiel.ObjectifAutocompleteRow;
 import mg.bank.backend.repository.referentiel.ObjectifSpecifiqueRepository;
 import mg.bank.backend.repository.referentiel.PrioriteRepository;
@@ -75,6 +77,7 @@ public class ActiviteService {
         private static final int TAILLE_AUTOCOMPLETE = 10;
 
         private final ActiviteRepository activiteRepository;
+        private final CodeActiviteService codeActiviteService;
         private final ObjectifSpecifiqueRepository objectifSpecifiqueRepository;
         private final PrioriteRepository prioriteRepository;
         private final TypeActiviteRepository typeActiviteRepository;
@@ -100,6 +103,41 @@ public class ActiviteService {
                                         HttpStatus.NOT_FOUND);
                 }
                 return poste;
+        }
+
+        @Transactional
+        public void changerPriorite(Integer idActivite, Integer idPriorite) {
+                PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
+
+                // Refus 403 / 404 coherent avec le reste du service.
+                Activite activite = activiteRepository.findById(idActivite)
+                                .orElseThrow(() -> refusOuAbsence(idActivite));
+
+                // Verifie que l'activite est dans le perimetre de l'appelant.
+                boolean dansPerimetre = activiteRepository.findStatutCourant(
+                                idActivite,
+                                perimetre.getFiltreService(),
+                                perimetre.getFiltreDepartement())
+                                .isPresent();
+                if (!dansPerimetre) {
+                        throw refusOuAbsence(idActivite);
+                }
+
+                Priorite priorite = null;
+                if (idPriorite != null) {
+                        priorite = prioriteRepository.findById(idPriorite)
+                                        .orElseThrow(() -> new ApiException(
+                                                        "La priorité sélectionnée n'existe pas",
+                                                        HttpStatus.BAD_REQUEST));
+                        if (!Boolean.TRUE.equals(priorite.getActif())) {
+                                throw new ApiException(
+                                                "La priorité sélectionnée n'est pas active",
+                                                HttpStatus.BAD_REQUEST);
+                        }
+                }
+
+                activite.setPriorite(priorite);
+                activiteRepository.save(activite);
         }
 
         @Transactional(readOnly = true)
@@ -234,7 +272,7 @@ public class ActiviteService {
                 return soumise;
         }
 
-        private void changerStatut(
+        public void changerStatut(
                         Activite activite,
                         Statut nouveauStatut,
                         Utilisateur utilisateur,
@@ -354,7 +392,7 @@ public class ActiviteService {
         }
 
         @Transactional
-        public String prochainCodeNonPta(int annee) {
+        public String prochainCodeNonPta(int annee, Integer idServiceDemande) {
 
                 if (annee < 1900 || annee > 2100) {
                         throw new ApiException(
@@ -362,18 +400,41 @@ public class ActiviteService {
                                         HttpStatus.BAD_REQUEST);
                 }
 
-                int dernier = activiteRepository.dernierNumeroNonPta(annee);
-
-                return "A-" + annee + "-" + (dernier + 1);
+                PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
+                Integer idService = perimetre.getIdService();
+                if (idService == null) {
+                        if (idServiceDemande == null) {
+                                throw new ApiException(
+                                                "Le service de rattachement est requis pour proposer un code.",
+                                                HttpStatus.BAD_REQUEST);
+                        }
+                        mg.bank.backend.model.referentiel.Service service = serviceRepository
+                                        .findById(idServiceDemande)
+                                        .orElseThrow(() -> new ApiException(
+                                                        "Le service sélectionné n'existe pas",
+                                                        HttpStatus.BAD_REQUEST));
+                        if (perimetre.estNiveauDepartement()
+                                        && (service.getDepartement() == null
+                                                || !perimetre.getIdDepartement().equals(
+                                                        service.getDepartement().getIdDepartement()))) {
+                                throw new ApiException(
+                                                "Le service sélectionné est hors de votre périmètre",
+                                                HttpStatus.FORBIDDEN);
+                        }
+                        idService = service.getIdService();
+                }
+                return codeActiviteService.proposerCodeNonPta(annee, idService);
         }
 
         public AutocompleteDTO creerObjectifSpecifique(ObjectifSpecifiqueEcritureRequest request) {
 
                 String code = request.getCode().trim();
+                Integer annee = request.getAnnee();
 
-                if (objectifSpecifiqueRepository.existsByCodeIgnoreCase(code)) {
+                // Unicité métier : (code + annee)
+                if (objectifSpecifiqueRepository.existsByCodeIgnoreCaseAndAnnee(code, annee)) {
                         throw new ApiException(
-                                        "Un objectif porte déjà le code « " + code + " »",
+                                        "Un objectif porte déjà le code « " + code + " » pour l'année " + annee + ".",
                                         HttpStatus.CONFLICT);
                 }
 
@@ -384,11 +445,12 @@ public class ActiviteService {
                                         ObjectifSpecifique.builder()
                                                         .code(code)
                                                         .designation(request.getDesignation().trim())
-                                                        .annee(request.getAnnee())
+                                                        .annee(annee)
                                                         .build());
                 } catch (DataIntegrityViolationException e) {
+                        // Filet de sécurité : contrainte UNIQUE(code, annee) en base.
                         throw new ApiException(
-                                        "Un objectif porte déjà le code « " + code + " »",
+                                        "Un objectif porte déjà le code « " + code + " » pour l'année " + annee + ".",
                                         HttpStatus.CONFLICT);
                 }
 
@@ -401,7 +463,6 @@ public class ActiviteService {
                                 .prochainNumero(1)
                                 .build();
         }
-
         // ------------------------------------------------------------------
         // Liste
         // ------------------------------------------------------------------
@@ -747,6 +808,55 @@ public class ActiviteService {
                                                                 .prenom(r.getPrenom())
                                                                 .build(),
                                                 (a, b) -> a));
+        }
+
+        @Transactional(readOnly = true)
+        public PageResponse<ActiviteListItemDTO> rechercherADemarrer(
+                        ActiviteFiltreCriteria filtres, int page, int size, Sort sort) {
+
+                if (page < 0)
+                        throw new ApiException(
+                                        "Le numero de page ne peut pas etre negatif", HttpStatus.BAD_REQUEST);
+                if (size < 1 || size > TAILLE_PAGE_MAX)
+                        throw new ApiException(
+                                        "La taille de page doit etre comprise entre 1 et " + TAILLE_PAGE_MAX,
+                                        HttpStatus.BAD_REQUEST);
+
+                PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
+                var args = ActiviteQuerySupport.arguments(filtres, perimetre);
+                Sort tri = (sort == null || sort.isUnsorted())
+                                ? ActiviteQuerySupport.TRI_PAR_DEFAUT
+                                : sort;
+                Pageable pageable = PageRequest.of(page, size, ActiviteQuerySupport.assainir(tri));
+
+                Page<ActiviteListRow> lignes = activiteRepository.findActivitesADemarrer(
+                                args.pta(), args.recherche(), args.objectifId(),
+                                args.objectifRecherche(), args.servicePerimetre(),
+                                args.departementPerimetre(), args.serviceDemande(),
+                                args.prioriteId(), args.typeActiviteId(), args.siteId(),
+                                null, args.codesTerminaux(), args.annee(),
+                                args.moisDebut(), args.moisFin(), args.dateDebut(), args.dateFin(),
+                                pageable);
+
+                return PageResponse.from(lignes.map(ActiviteMapper::versDto));
+        }
+
+        @Transactional
+        public void supprimerBrouillon(Integer idActivite) {
+                PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
+
+                StatutCourantRow statut = activiteRepository.findStatutCourant(
+                                idActivite, perimetre.getFiltreService(), perimetre.getFiltreDepartement())
+                                .orElseThrow(() -> refusOuAbsence(idActivite));
+
+                if (!StatutsActivite.BROUILLON.equals(statut.getStatutCode())) {
+                        throw new ApiException(
+                                        "Seule une activité en brouillon peut être supprimée définitivement. "
+                                                        + "Statut actuel : " + statut.getStatutCode(),
+                                        HttpStatus.CONFLICT);
+                }
+
+                activiteRepository.supprimerCascade(idActivite);
         }
 
         public Utilisateur utilisateurCourant() {

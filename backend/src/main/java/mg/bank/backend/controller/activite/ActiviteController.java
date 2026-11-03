@@ -1,7 +1,5 @@
 package mg.bank.backend.controller.activite;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,7 +13,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -36,7 +36,9 @@ import mg.bank.backend.dto.activite.ActiviteListItemDTO;
 import mg.bank.backend.dto.activite.ActiviteOptionsDTO;
 import mg.bank.backend.dto.activite.ActiviteStatistiquesDTO;
 import mg.bank.backend.dto.activite.ActiviteSuiviDTO;
+import mg.bank.backend.dto.activite.ActiviteTransitionResponse;
 import mg.bank.backend.dto.activite.AutocompleteDTO;
+import mg.bank.backend.dto.activite.ChangerPrioriteRequest;
 import mg.bank.backend.dto.activite.CodeProposeDTO;
 import mg.bank.backend.dto.activite.FichierTelechargeable;
 import mg.bank.backend.dto.activite.LivrableAjoutRequest;
@@ -54,6 +56,7 @@ import mg.bank.backend.model.validation.ValidationActivite;
 import mg.bank.backend.service.activite.ActiviteDetailService;
 import mg.bank.backend.service.activite.ActiviteEcritureService;
 import mg.bank.backend.service.activite.ActiviteService;
+import mg.bank.backend.service.activite.ActiviteWorkflowService;
 import mg.bank.backend.service.activite.LivrableEcritureService;
 import mg.bank.backend.service.validation.EtapeValidationService;
 import mg.bank.backend.service.validation.ValidationActiviteService;
@@ -72,6 +75,13 @@ public class ActiviteController {
         private final LivrableEcritureService livrableEcritureService;
         private final EtapeValidationService etapeValidationService;
         private final ValidationActiviteService validationActiviteService;
+        private final ActiviteWorkflowService activiteWorkflowService;
+
+        @DeleteMapping("/{idActivite}")
+        public ResponseEntity<ApiResponse<Void>> supprimer(@PathVariable Integer idActivite) {
+                activiteService.supprimerBrouillon(idActivite);
+                return ResponseEntity.ok(ApiResponse.success(null));
+        }
 
         @GetMapping
         public ResponseEntity<ApiResponse<PageResponse<ActiviteListItemDTO>>> lister(
@@ -131,6 +141,33 @@ public class ActiviteController {
 
                 return ResponseEntity.ok(
                                 ApiResponse.success(activiteService.statistiques(filtres)));
+        }
+
+        @GetMapping("/a-demarrer")
+        public ResponseEntity<ApiResponse<PageResponse<ActiviteListItemDTO>>> aDemarrer(
+                        @RequestParam(required = false) Boolean pta,
+                        @RequestParam(required = false) String search,
+                        @RequestParam(required = false) Integer objectifSpecifiqueId,
+                        @RequestParam(required = false) String objectifSearch,
+                        @RequestParam(required = false) Integer serviceId,
+                        @RequestParam(required = false) Integer prioriteId,
+                        @RequestParam(required = false) Integer typeActiviteId,
+                        @RequestParam(required = false) Integer siteId,
+                        @RequestParam(required = false) Integer annee,
+                        @RequestParam(required = false) Integer trimestre,
+                        @RequestParam(required = false) LocalDate dateDebut,
+                        @RequestParam(required = false) LocalDate dateFin,
+                        @PageableDefault(size = 20) Pageable pagination) {
+
+                ActiviteFiltreCriteria filtres = filtres(
+                                pta, search, objectifSpecifiqueId, objectifSearch, serviceId,
+                                prioriteId, typeActiviteId, siteId, null, annee, trimestre,
+                                dateDebut, dateFin);
+
+                return ResponseEntity.ok(ApiResponse.success(
+                                activiteService.rechercherADemarrer(
+                                                filtres, pagination.getPageNumber(),
+                                                pagination.getPageSize(), pagination.getSort())));
         }
 
         /**
@@ -317,10 +354,11 @@ public class ActiviteController {
 
         @GetMapping("/non-pta/prochain-code")
         public ResponseEntity<ApiResponse<CodeProposeDTO>> prochainCodeNonPta(
-                        @RequestParam("annee") int annee) {
+                        @RequestParam("annee") int annee,
+                        @RequestParam(value = "idService", required = false) Integer idService) {
                 return ResponseEntity.ok(
                                 ApiResponse.success(CodeProposeDTO.builder()
-                                                .code(activiteService.prochainCodeNonPta(annee))
+                                                .code(activiteService.prochainCodeNonPta(annee, idService))
                                                 .annee(annee)
                                                 .build()));
         }
@@ -477,6 +515,34 @@ public class ActiviteController {
                                 pagination.getSort());
 
                 return ResponseEntity.ok(ApiResponse.success(resultat));
+        }
+
+        @PatchMapping("/{idActivite}/priorite")
+        public ResponseEntity<ApiResponse<Void>> changerPriorite(
+                        @PathVariable Integer idActivite,
+                        @RequestBody ChangerPrioriteRequest request) {
+                activiteService.changerPriorite(idActivite, request.getIdPriorite());
+                return ResponseEntity.ok(ApiResponse.success(null));
+        }
+
+        @PostMapping("/{idActivite}/demarrer")
+        public ResponseEntity<ApiResponse<ActiviteTransitionResponse>> demarrer(
+                        @PathVariable("idActivite") Integer idActivite,
+                        @RequestParam(required = false) String commentaire) {
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                activiteWorkflowService.demarrer(idActivite, commentaire)));
+        }
+
+        @PostMapping("/{idActivite}/cloturer")
+        public ResponseEntity<ApiResponse<ActiviteTransitionResponse>> cloturer(
+                        @PathVariable("idActivite") Integer idActivite,
+                        @RequestParam(required = false) String commentaire) {
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                activiteWorkflowService.cloturer(idActivite, commentaire)));
         }
 
 }

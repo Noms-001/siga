@@ -31,14 +31,8 @@ public class Indicateur {
     @Column(name = "code", nullable = false, unique = true, length = 50)
     private String code;
 
-    @Column(name = "designation", nullable = false, length = 250)
+    @Column(name = "designation", nullable = false, columnDefinition = "TEXT")
     private String designation;
-
-    @Column(name = "code_hopex", unique = true, length = 150)
-    private String codeHopex;
-
-    @Column(name = "indicateur_hopex", unique = true, length = 250)
-    private String indicateurHopex;
 
     @Column(name = "type_indicateur", length = 20)
     private String typeIndicateur;

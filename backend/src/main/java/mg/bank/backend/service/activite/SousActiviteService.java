@@ -13,13 +13,18 @@ import mg.bank.backend.dto.activite.AvancementRequest;
 import mg.bank.backend.dto.activite.AvancementResponse;
 import mg.bank.backend.enums.StatutsActivite;
 import mg.bank.backend.exception.ApiException;
+import mg.bank.backend.model.activite.Activite;
 import mg.bank.backend.model.activite.AvancementSousActivite;
 import mg.bank.backend.model.activite.SousActivite;
 import mg.bank.backend.model.referentiel.Statut;
 import mg.bank.backend.model.utilisateur.Utilisateur;
+import mg.bank.backend.repository.activite.ActiviteRepository;
 import mg.bank.backend.repository.activite.AvancementSousActiviteRepository;
 import mg.bank.backend.repository.activite.SousActiviteRepository;
+import mg.bank.backend.repository.affectation.AffectationActiviteRepository;
+import mg.bank.backend.repository.affectation.AffectationSousActiviteRepository;
 import mg.bank.backend.repository.projection.activite.AvancementSousActiviteRow;
+import mg.bank.backend.repository.projection.common.StatutCourantRow;
 import mg.bank.backend.repository.referentiel.StatutRepository;
 
 @Service
@@ -30,33 +35,10 @@ public class SousActiviteService {
         private final AvancementSousActiviteRepository avancementRepository;
         private final StatutRepository statutRepository;
         private final ActiviteService activiteService;
+        private final AffectationActiviteRepository affectationActiviteRepository;
+        private final AffectationSousActiviteRepository affectationSousActiviteRepository;
+        private final ActiviteRepository activiteRepository;
 
-        /**
-         * Enregistre un nouvel avancement pour une sous-activité.
-         *
-         * RÈGLES MÉTIER PORTÉES ICI, PAS DANS LE FRONT
-         *
-         * Le frontend désactive le bouton dans les cas ci-dessous, mais la même
-         * règle est vérifiée ici : un appel direct à l'API (curl, script) ne doit
-         * pas pouvoir écrire un avancement incohérent. Le front est une aide à la
-         * saisie, pas une garantie.
-         *
-         * 1. Valeur hors [0 ; 100] → 400.
-         * 2. Valeur identique à la précédente → 400 (aucune écriture d'historique
-         * inutile : ajouter une ligne pour dire la même chose brouillerait le
-         * suivi).
-         * 3. Diminution (nouvelle < ancienne) sans commentaire → 400. La
-         * justification est la seule trace qui permette de comprendre plus
-         * tard pourquoi un avancement a reculé.
-         *
-         * La règle "réouverture" (100 → <100) n'a pas de traitement spécial côté
-         * backend : elle est couverte par la règle de diminution. Le front ajoute
-         * un message plus explicite, le backend se contente de refuser sans
-         * commentaire — la différence de formulation est d'usage, pas de droit.
-         *
-         * Aucun UPDATE, aucune suppression : l'historique est immuable. La valeur
-         * courante d'une sous-activité est toujours la ligne la plus récente.
-         */
         @Transactional
         public AvancementResponse enregistrerAvancement(
                         Integer idSousActivite,
@@ -66,6 +48,14 @@ public class SousActiviteService {
                                 .orElseThrow(() -> new ApiException(
                                                 "Sous-activité introuvable",
                                                 HttpStatus.NOT_FOUND));
+
+                Activite activite = sousActivite.getActivite();
+                Utilisateur utilisateur = activiteService.utilisateurCourant();
+
+                verifierAvancementAutorise(
+                                activite.getIdActivite(),
+                                idSousActivite,
+                                utilisateur);
 
                 /*
                  * La dernière valeur est relue par la même requête que le batch de la
@@ -100,9 +90,6 @@ public class SousActiviteService {
 
                 String commentaire = videSiBlanc(request.getCommentaire());
 
-                // Diminution sans justification : refus. Un premier relevé
-                // (ancienneValeur == null) n'est pas une diminution, la règle ne
-                // s'applique donc pas dans ce cas.
                 if (ancienneValeur != null
                                 && nouvelleValeur < ancienneValeur
                                 && commentaire == null) {
@@ -112,7 +99,6 @@ public class SousActiviteService {
                                         HttpStatus.BAD_REQUEST);
                 }
 
-                Utilisateur utilisateur = activiteService.utilisateurCourant();
                 Statut statut = statutPourAvancement(nouvelleValeur);
 
                 AvancementSousActivite enregistrement = AvancementSousActivite.builder()
@@ -129,6 +115,18 @@ public class SousActiviteService {
                 Double avancementActivite = activiteService
                                 .calculerAvancementActivite(sousActivite.getActivite().getIdActivite());
 
+                // Relecture du statut courant pour le renvoyer au front.
+                String statutActiviteCode = activiteRepository
+                                .findStatutCourant(activite.getIdActivite(), null, null)
+                                .map(StatutCourantRow::getStatutCode)
+                                .orElse(null);
+
+                String statutActiviteLibelle = statutActiviteCode == null
+                                ? null
+                                : statutRepository.findByCode(statutActiviteCode)
+                                                .map(Statut::getLibelle)
+                                                .orElse(null);
+
                 return AvancementResponse.builder()
                                 .idSousActivite(idSousActivite)
                                 .ancienneValeur(ancienneValeur)
@@ -138,22 +136,11 @@ public class SousActiviteService {
                                 .statutCode(statut.getCode())
                                 .statutLibelle(statut.getLibelle())
                                 .avancementActivite(avancementActivite)
+                                .statutActiviteCode(statutActiviteCode) // ⬅️ AJOUTÉ
+                                .statutActiviteLibelle(statutActiviteLibelle)
                                 .build();
         }
 
-        /**
-         * Historique complet des avancements d'une sous-activité.
-         *
-         * La méthode existait dans le repository en SQL natif avec une projection
-         * incomplète (3 champs) alors que la requête en renvoyait 9 : le mapping
-         * était impossible. Le repository porte désormais une requête JPQL sur
-         * l'entité, ce qui aligne le type de retour sur ce que le service déclare
-         * et charge utilisateur + statut en une seule requête.
-         *
-         * Vérifie d'abord l'existence de la sous-activité : sans cela, une
-         * sous-activité inconnue renverrait une liste vide, ce qui se confondrait
-         * avec "aucun historique". Un 404 explicite lève l'ambiguïté.
-         */
         @Transactional(readOnly = true)
         public List<AvancementSousActivite> getHistoriqueAvancement(Integer idSousActivite) {
                 if (!sousActiviteRepository.existsById(idSousActivite)) {
@@ -164,15 +151,6 @@ public class SousActiviteService {
                 return avancementRepository.findHistorique(idSousActivite);
         }
 
-        /**
-         * Statut correspondant à un pourcentage.
-         *
-         * Les codes viennent de StatutsActivite — ils existent déjà en base,
-         * on n'en crée pas de nouveau. Un statut absent lève une erreur
-         * explicite plutôt qu'un NullPointerException silencieux : si la
-         * référence est cassée, c'est un problème d'installation, pas un cas
-         * à ignorer.
-         */
         private Statut statutPourAvancement(int valeur) {
                 String code = valeur == 0
                                 ? StatutsActivite.NON_COMMENCEE
@@ -188,5 +166,44 @@ public class SousActiviteService {
 
         private String videSiBlanc(String v) {
                 return (v == null || v.isBlank()) ? null : v.trim();
+        }
+
+        private void verifierAvancementAutorise(
+                        Integer idActivite,
+                        Integer idSousActivite,
+                        Utilisateur utilisateur) {
+
+                // 1. L'activité doit être affectée quelque part.
+                long affectationsActivite = affectationActiviteRepository
+                                .countActives(idActivite);
+                long affectationsSousActivites = affectationSousActiviteRepository
+                                .countActivesSurSousActivitesDeActivite(idActivite);
+
+                if (affectationsActivite == 0 && affectationsSousActivites == 0) {
+                        throw new ApiException(
+                                        "L'activité n'est affectée à aucun utilisateur : "
+                                                        + "son avancement ne peut pas être saisi.",
+                                        HttpStatus.CONFLICT);
+                }
+
+                // 2. L'utilisateur courant doit être affecté (activité ou cette SA).
+                long affectationsUtilisateurActivite = affectationActiviteRepository
+                                .countActivesPourUtilisateur(idActivite, utilisateur.getIdUtilisateur());
+
+                if (affectationsUtilisateurActivite > 0) {
+                        return;
+                }
+
+                long affectationsUtilisateurSousActivite = affectationSousActiviteRepository
+                                .countActivesPourUtilisateur(idSousActivite, utilisateur.getIdUtilisateur());
+
+                if (affectationsUtilisateurSousActivite > 0) {
+                        return;
+                }
+
+                throw new ApiException(
+                                "Seuls les utilisateurs affectés à cette activité peuvent saisir "
+                                                + "son avancement.",
+                                HttpStatus.FORBIDDEN);
         }
 }

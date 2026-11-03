@@ -14,7 +14,7 @@ public interface SousActiviteRepository
     List<SousActivite> findByActiviteIdActiviteOrderByDateDebutPrevueAscCodeAsc(
             Integer idActivite);
 
-    boolean existsByCodeIgnoreCase(String code);
+    boolean existsByCodeIgnoreCaseAndActivite_IdActivite(String code, Integer idActivite);
 
     @Query(value = """
             SELECT
@@ -24,8 +24,9 @@ public interface SousActiviteRepository
                 WHERE id_sous_activite = :id)
             + (SELECT COUNT(*) FROM avancement_sous_activite
                 WHERE id_sous_activite = :id)
-            """,
-            nativeQuery = true)
+            """, nativeQuery = true)
     long compterDependances(@Param("id") Integer idSousActivite);
+
+    List<SousActivite> findByActivite_IdActivite(Integer idActivite);
 
 }

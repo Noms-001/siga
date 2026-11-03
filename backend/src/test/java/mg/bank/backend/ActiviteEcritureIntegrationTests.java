@@ -1,19 +1,12 @@
 package mg.bank.backend;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +15,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.context.support.WithMockUser;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -44,11 +43,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * par le point d entree reel : ce que teste une modification est alors
  * exactement ce que l application produit, historique compris.
  *
- * AUCUN CONTROLE DE PERMISSION, LE PERIMETRE SEUL
- * data.sql n'accorde "Creer une activite" ni au chef de departement, ni aux
- * techniciens. Aucun chemin de code ne lit ces droits : ces deux profils
- * ecrivent donc, et c'est le comportement attendu. Le perimetre, lui, reste
- * verifie, et ses refus sont testes comme tels.
+ * Les ecritures sont autorisees uniquement si le poste possede la permission
+ * requise, en plus des controles de perimetre existants.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -108,6 +104,8 @@ class ActiviteEcritureIntegrationTests {
 
         Integer id = derniereActivite();
 
+        assertThat(codeActivite(id)).matches("A-2026-\\d{2,}-\\d{2,}");
+
         assertThat(idServiceDe(id)).isEqualTo(serviceDe(UTILISATEUR_SERVICE_UN));
 
         assertThat(statutCourant(id))
@@ -165,12 +163,9 @@ class ActiviteEcritureIntegrationTests {
 
         Integer id = derniereActivite();
 
-        // Format de data.sql : SA-<annee>-<rang de l'activite>-<sequence>,
-        // les deux derniers nombres etant sur au moins deux chiffres. Le rang
-        // est GLOBAL et non remis a zero par objectif, sans quoi deux
-        // activites d'objectifs differents porteraient le meme code.
+        String codeParent = codeActivite(id);
         assertThat(codesSousActivites(id))
-                .containsExactly("SA-2026-" + rangActivite(id) + "-01");
+                .containsExactly("SA-" + codeParent.substring(2) + "-01");
     }
 
     @Test
@@ -194,13 +189,11 @@ class ActiviteEcritureIntegrationTests {
 
         Integer id = derniereActivite();
 
-        // Le zero initial est ce qui distingue ce format de l'ancien
-        // SA-<id>-1 : sans lui, "01" et "1" seraient le meme code pour le
-        // lecteur, et le format ne correspondrait plus a celui de data.sql.
+        String codeParent = codeActivite(id);
         assertThat(codesSousActivites(id))
                 .containsExactly(
-                        "SA-2026-" + rangActivite(id) + "-01",
-                        "SA-2026-" + rangActivite(id) + "-02");
+                        "SA-" + codeParent.substring(2) + "-01",
+                        "SA-" + codeParent.substring(2) + "-02");
     }
 
     // ------------------------------------------------------------------
@@ -257,10 +250,6 @@ class ActiviteEcritureIntegrationTests {
     @WithMockUser(username = UTILISATEUR_SERVICE_UN)
     void nonPtaEnregistreeSansReference() throws Exception {
 
-        // Le corps par defaut porte une reference, et le formulaire en
-        // affiche une. Elle n'a pourtant rien a designer : la ligne doit
-        // etre enregistree sans, et non refusee. Un refus ici transforme un
-        // detail de saisie en erreur pour un corps par ailleurs valide.
         mockMvc.perform(creer(corpsActifite()))
                 .andExpect(status().isCreated());
 
@@ -285,9 +274,6 @@ class ActiviteEcritureIntegrationTests {
                 "SELECT reference FROM activite WHERE id_activite = ?",
                 String.class, id)).isNotNull();
 
-        // Le retrait de l'objectif et celui de la reference sont le meme
-        // changement vu de deux tables. Ne pas les traiter ensemble
-        // laisserait une activite sans objectif portant BCT/1_1.
         mockMvc.perform(modifier(id, avec(corpsActifite(),
                         "pta", false,
                         "idObjectifSpecifique", null)))
@@ -315,13 +301,15 @@ class ActiviteEcritureIntegrationTests {
     @WithMockUser(username = UTILISATEUR_SERVICE_UN)
     void codeActiviteDupliqueRefuse() throws Exception {
 
-        // UNIQUE(code) est global : sans cette verification, la violation
-        // remonterait en 500 au lieu d'etre expliquee.
-        String codePris = jdbc.queryForObject(
-                "SELECT code FROM activite ORDER BY id_activite LIMIT 1",
-                String.class);
+        Map<String, Object> premier = avec(corpsActifite(), "pta", false,
+                "sousActivites", List.of(sousActivite("Première", 0, 5)));
+        mockMvc.perform(creer(premier)).andExpect(status().isCreated());
+        String codePris = codeActivite(derniereActivite());
 
-        mockMvc.perform(creer(avec(corpsActifite(), "code", codePris)))
+        mockMvc.perform(creer(avec(corpsActifite(),
+                        "pta", false,
+                        "code", codePris,
+                        "sousActivites", List.of(sousActivite("Seconde", 0, 5)))))
                 .andExpect(status().isBadRequest());
     }
 
@@ -330,29 +318,22 @@ class ActiviteEcritureIntegrationTests {
     // ------------------------------------------------------------------
 
     @Test
-    @DisplayName("Aucun controle de permission : un utilisateur de service ecrit")
+        @DisplayName("Un utilisateur sans permission de creation est refuse : 403")
     @WithMockUser(username = UTILISATEUR_SANS_ECRITURE)
     void creationSansControleDePermission() throws Exception {
 
-        // data.sql ne donne a cet utilisateur que des droits de
-        // consultation. Aucun chemin de code ne les lit : la seule porte
-        // reste le perimetre, qu'il respecte. Ce test verrouille ce
-        // comportement pour qu'il ne change pas par megarde.
+        // Le perimetre est valide, mais la permission CREATE manque.
         mockMvc.perform(creer(avec(corpsActifite(), "pta", false)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.statut").value("BROUILLON"));
+                .andExpect(status().isForbidden());
     }
 
     @Test
-    @DisplayName("Un chef de departement ecrit des lors qu'il respecte le perimetre")
+    @DisplayName("Un chef de departement sans permission de creation est refuse : 403")
     @WithMockUser(username = UTILISATEUR_SANS_ECRITURE_DEPARTEMENT)
     void creationChefDepartementAcceptee() throws Exception {
 
-        // Symetrique du test precedent, au niveau superieur : avoir le
-        // perimetre le plus large ne fait pas non plus obstacle a l'ecriture.
         mockMvc.perform(creer(avec(corpsActifite(), "pta", false)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.statut").value("BROUILLON"));
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -401,6 +382,7 @@ class ActiviteEcritureIntegrationTests {
 
         Integer id = creerBrouillon();
 
+        String codeOriginal = codeActivite(id);
         String nouveauCode = "MOD" + Math.abs(System.nanoTime() % 1000000);
 
         mockMvc.perform(modifier(id, avec(corpsActifite(),
@@ -409,7 +391,7 @@ class ActiviteEcritureIntegrationTests {
                         "code", nouveauCode,
                         "designation", "Designation revisee")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.code").value(nouveauCode))
+                .andExpect(jsonPath("$.data.code").value(codeOriginal))
                 .andExpect(jsonPath("$.data.designation").value("Designation revisee"))
                 .andExpect(jsonPath("$.data.statut").value("BROUILLON"));
 
@@ -460,16 +442,153 @@ class ActiviteEcritureIntegrationTests {
     }
 
     @Test
-    @DisplayName("Un utilisateur sans droit de modification modifie malgre tout")
+        @DisplayName("Un utilisateur sans droit de modification est refuse : 403")
     @WithMockUser(username = UTILISATEUR_SANS_ECRITURE)
     void modificationSansControleDePermission() throws Exception {
 
         Integer id = creerBrouillon();
 
         mockMvc.perform(modifier(id, avec(corpsActifite(), "pta", false)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.statut").value("BROUILLON"));
+                .andExpect(status().isForbidden());
     }
+
+    @Test
+    @DisplayName("L'import d'activites exige la permission de creation")
+    @WithMockUser(username = UTILISATEUR_SANS_ECRITURE)
+    void importSansPermissionDeCreationRefuse() throws Exception {
+        mockMvc.perform(post(BASE + "/import/valider")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("L'import valide une activite sans date ni priorite au niveau de l'activite")
+    @WithMockUser(username = UTILISATEUR_SERVICE_UN)
+    void importValiderAccepteActiviteSansDateEtSansPrioriteAuNiveauActivite() throws Exception {
+        String payload = """
+                {
+                  "version": "1.0",
+                  "service": 1,
+                  "procedure": 1,
+                  "annee": 2026,
+                  "typeImport": "PTA",
+                  "activitesDejaValidees": false,
+                  "activites": [
+                    {
+                      "designation": "Activité importée sans dates d'activité",
+                      "objectifSpecifique": {
+                        "code": "OBJ-2026-1",
+                        "designation": "Objectif d'import"
+                      },
+                      "sousActivites": [
+                        {
+                          "designation": "Sous-activité importée",
+                          "dateDebut": "2026-02-01",
+                          "dateFin": "2026-02-10"
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """;
+
+        mockMvc.perform(post(BASE + "/import/valider")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.valide").value(true));
+    }
+
+    @Test
+    @DisplayName("L'import confirme une activité sans dates ni priorité au niveau de l'activité")
+    @WithMockUser(username = UTILISATEUR_SERVICE_UN)
+    void importConfirmerCreeActiviteSansDateEtSansPrioriteAuNiveauActivite() throws Exception {
+        String payload = """
+                {
+                  "version": "1.0",
+                  "service": 1,
+                  "procedure": 1,
+                  "annee": 2026,
+                  "typeImport": "PTA",
+                  "activitesDejaValidees": false,
+                  "activites": [
+                    {
+                      "designation": "Activité importée confirmée",
+                      "objectifSpecifique": {
+                        "code": "OBJ-2026-2",
+                        "designation": "Objectif de confirmation"
+                      },
+                      "sousActivites": [
+                        {
+                          "designation": "Sous-activité confirmée",
+                          "dateDebut": "2026-04-01",
+                          "dateFin": "2026-04-07"
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """;
+
+        mockMvc.perform(post(BASE + "/import/confirmer")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                                                                .andExpect(jsonPath("$.data.nombreActivitesImportees").value(1))
+                                                                .andExpect(jsonPath("$.data.codesGeneres[0]").isNotEmpty())
+                                                                .andExpect(jsonPath("$.data.codesGeneres[1]").isNotEmpty());
+
+                                Integer id = derniereActivite();
+                                String code = codeActivite(id);
+                                assertThat(code).matches("A-2026-02-\\d{2,}");
+                                assertThat(codesSousActivites(id)).containsExactly("SA-" + code.substring(2) + "-01");
+    }
+
+                @Test
+                @DisplayName("L'import conserve les codes fournis et conformes")
+                @WithMockUser(username = UTILISATEUR_SERVICE_UN)
+                void importConserveCodeActiviteEtSousActiviteFournis() throws Exception {
+                                String codeActivite = "A-2026-03-9876";
+                                String codeSousActivite = "SA-2026-03-9876-01";
+                                String payload = """
+                                                                {
+                                                                        "version": "1.0",
+                                                                        "service": 1,
+                                                                        "procedure": 1,
+                                                                        "annee": 2026,
+                                                                        "typeImport": "PTA",
+                                                                        "activitesDejaValidees": false,
+                                                                        "activites": [{
+                                                                                "code": "%s",
+                                                                                "designation": "Activité importée avec code fourni",
+                                                                                "objectifSpecifique": {
+                                                                                        "code": "OBJ-2026-3",
+                                                                                        "designation": "Objectif code fourni"
+                                                                                },
+                                                                                "sousActivites": [{
+                                                                                        "code": "%s",
+                                                                                        "designation": "Sous-activité avec code fourni",
+                                                                                        "dateDebut": "2026-05-01",
+                                                                                        "dateFin": "2026-05-07"
+                                                                                }]
+                                                                        }]
+                                                                }
+                                                                """.formatted(codeActivite, codeSousActivite);
+
+                                mockMvc.perform(post(BASE + "/import/confirmer")
+                                                                                                .contentType(MediaType.APPLICATION_JSON)
+                                                                                                .content(payload))
+                                                                .andExpect(status().isCreated())
+                                                                .andExpect(jsonPath("$.data.nombreActivitesImportees").value(1))
+                                                                .andExpect(jsonPath("$.data.codesGeneres").isEmpty());
+
+                                Integer id = derniereActivite();
+                                assertThat(codeActivite(id)).isEqualTo(codeActivite);
+                                assertThat(codesSousActivites(id)).containsExactly(codeSousActivite);
+                }
 
     // ------------------------------------------------------------------
     // Sous-activites : ce qu une modification ne doit pas faire
@@ -614,26 +733,25 @@ class ActiviteEcritureIntegrationTests {
     @WithMockUser(username = UTILISATEUR_SERVICE_UN)
     void codeSousActivitePrisParUneVoisineRefuse() throws Exception {
 
-        String codePremier = "SA-COLL-" + Math.abs(System.nanoTime() % 100000);
-        String codeSecond = "SA-COLL-" + Math.abs(System.nanoTime() % 100000);
-
         Integer id = creerBrouillon(List.of(
-                sousActivite(codePremier, "Premiere", 0, 5),
-                sousActivite(codeSecond, "Seconde", 6, 10)));
+                sousActivite("Premiere", 0, 5),
+                sousActivite("Seconde", 6, 10)));
 
         List<Integer> avant = idsSousActivites(id);
+        List<String> codesAvant = codesSousActivites(id);
 
+        // Une tentative de modification des codes existants est ignorée : le
+        // code historique de chaque sous-activité reste attaché à sa ligne.
         mockMvc.perform(modifier(id, avec(corpsActifite(), "sousActivites", List.of(
-                        sousActiviteExistante(avant.get(0), codeSecond, "Premiere renommee", 0, 5),
-                        sousActiviteExistante(avant.get(1), codeSecond, "Seconde", 6, 10)))))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").isNotEmpty());
+                        sousActiviteExistante(avant.get(0), "CODE-INJECTE", "Premiere renommee", 0, 5),
+                        sousActiviteExistante(avant.get(1), "CODE-INJECTE", "Seconde", 6, 10)))))
+                .andExpect(status().isOk());
 
         // Les deux lignes gardent leur code : prendre celui d'une voisine
         // doit etre refuse comme une saisie, et non se decouvrir au flush
         // pour remonter en 500 sur une violation d'unicite.
         assertThat(codesSousActivites(id))
-                .containsExactly(codePremier, codeSecond);
+                .containsExactlyElementsOf(codesAvant);
     }
 
     @Test
@@ -856,7 +974,6 @@ class ActiviteEcritureIntegrationTests {
      */
     private Map<String, Object> corpsActifite() {
         Map<String, Object> corps = new LinkedHashMap<>();
-        corps.put("code", "T" + Math.abs(System.nanoTime() % 1000000));
         corps.put("reference", "R" + Math.abs(System.nanoTime() % 1000000));
         corps.put("designation", "Activite de test");
         corps.put("dateDebutPrevue", "2026-01-05");
@@ -975,18 +1092,11 @@ class ActiviteEcritureIntegrationTests {
                 "SELECT max(id_activite) FROM activite", Integer.class);
     }
 
-    /**
-     * Rang global d'une activite, calcule independamment de la production.
-     *
-     * Le service utilise un COUNT JPQL sur l'entite ; le test repasse par du
-     * SQL ecrit ici. Reprendre la methode de production n'aurait rien
-     * verifie : les deux se tromperaient ensemble.
-     */
-    private int rangActivite(Integer idActivite) {
-        return jdbc.queryForObject(
-                "SELECT count(*) FROM activite WHERE id_activite <= ?",
-                Integer.class, idActivite);
-    }
+        private String codeActivite(Integer idActivite) {
+                return jdbc.queryForObject(
+                                "SELECT code FROM activite WHERE id_activite = ?",
+                                String.class, idActivite);
+        }
 
     private long nombreActivites() {
         Long nombre = jdbc.queryForObject(

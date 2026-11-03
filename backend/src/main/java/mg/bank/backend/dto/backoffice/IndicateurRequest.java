@@ -17,14 +17,7 @@ public class IndicateurRequest {
     private String code;
 
     @NotBlank(message = "La désignation est obligatoire")
-    @Size(max = 250, message = "La désignation ne doit pas dépasser 250 caractères")
     private String designation;
-
-    @Size(max = 150, message = "Le code HOPEx ne doit pas dépasser 150 caractères")
-    private String codeHopex;
-
-    @Size(max = 250, message = "L'indicateur HOPEx ne doit pas dépasser 250 caractères")
-    private String indicateurHopex;
 
     @Size(max = 20, message = "Le type ne doit pas dépasser 20 caractères")
     private String typeIndicateur;
@@ -66,8 +59,8 @@ public class IndicateurRequest {
      * d'usage courant en cours de paramétrage.
      *
      * @AssertTrue est porté par le DTO plutôt que par le service : la règle
-     * dépend uniquement du contenu de la requête, pas d'un état de la
-     * base. Le service se contente de la respecter.
+     *             dépend uniquement du contenu de la requête, pas d'un état de la
+     *             base. Le service se contente de la respecter.
      */
     @AssertTrue(message = "Les seuils doivent encadrer la valeur cible : seuilMin ≤ valeurCible ≤ seuilMax")
     public boolean isCoherenceSeuils() {

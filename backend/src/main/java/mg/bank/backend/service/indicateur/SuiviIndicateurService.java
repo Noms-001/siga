@@ -4,11 +4,13 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.Locale;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -28,6 +30,9 @@ import mg.bank.backend.dto.indicateur.SuiviIndicateurDTO;
 import mg.bank.backend.dto.indicateur.UtilisateurMinimalDTO;
 import mg.bank.backend.dto.indicateur.ValeurSuiviDTO;
 import mg.bank.backend.dto.indicateur.ValeurIndicateurRequest;
+import mg.bank.backend.dto.indicateur.CalendrierIndicateurDTO;
+import mg.bank.backend.dto.indicateur.DashboardIndicateurDTO;
+import mg.bank.backend.dto.indicateur.PeriodeCalendrierDTO;
 import mg.bank.backend.enums.MethodeAgregation;
 import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.model.indicateur.Indicateur;
@@ -663,5 +668,317 @@ public class SuiviIndicateurService {
             case "ANNUEL" -> base.plusYears(1);
             default -> null;
         };
+    }
+
+    // ------------------------------------------------------------------
+    // F13 — Calendrier des valeurs sur une année
+    // ------------------------------------------------------------------
+
+    @Transactional(readOnly = true)
+    public CalendrierIndicateurDTO calendrier(Integer idIndicateur, Integer annee) {
+
+        Indicateur indicateur = chargerIndicateurDansPerimetre(idIndicateur);
+
+        int anneeCible = (annee != null) ? annee : LocalDate.now().getYear();
+        if (anneeCible < 1900 || anneeCible > 2100) {
+            throw new ApiException(
+                    "L'année doit être comprise entre 1900 et 2100.",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        String freq = indicateur.getFrequenceVerification();
+        if (freq == null || freq.isBlank()) {
+            freq = "MENSUEL"; // fallback pour ne pas bloquer l'affichage
+        }
+
+        LocalDateTime debutAnnee = LocalDate.of(anneeCible, 1, 1).atStartOfDay();
+        LocalDateTime finAnnee = LocalDate.of(anneeCible, 12, 31).atTime(23, 59, 59);
+
+        List<ValeurIndicateur> toutes = valeurIndicateurRepository
+                .findHistoriqueByIndicateur(idIndicateur);
+
+        List<ValeurIndicateur> valeursAnnee = toutes.stream()
+                .filter(v -> !v.getPeriodeFin().isBefore(debutAnnee)
+                        && !v.getPeriodeDebut().isAfter(finAnnee))
+                .toList();
+
+        List<PeriodeCalendrierDTO> periodes = genererPeriodesCalendrier(
+                anneeCible, freq, valeursAnnee, indicateur);
+
+        int saisies = (int) periodes.stream()
+                .filter(p -> p.getValeurId() != null)
+                .count();
+
+        BigDecimal moyenne = periodes.stream()
+                .filter(p -> p.getValeur() != null)
+                .map(PeriodeCalendrierDTO::getValeur)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (saisies > 0) {
+            moyenne = moyenne.divide(BigDecimal.valueOf(saisies), 2, java.math.RoundingMode.HALF_UP);
+        } else {
+            moyenne = BigDecimal.ZERO;
+        }
+
+        return CalendrierIndicateurDTO.builder()
+                .idIndicateur(indicateur.getIdIndicateur())
+                .code(indicateur.getCode())
+                .designation(indicateur.getDesignation())
+                .annee(anneeCible)
+                .frequenceVerification(freq)
+                .typeIndicateur(indicateur.getTypeIndicateur())
+                .uniteMesure(indicateur.getUniteMesure())
+                .valeurCible(indicateur.getValeurCible())
+                .seuilMin(indicateur.getSeuilMin())
+                .seuilMax(indicateur.getSeuilMax())
+                .nombrePeriodes(periodes.size())
+                .nombreSaisies(saisies)
+                .valeurMoyenne(moyenne)
+                .periodes(periodes)
+                .build();
+    }
+
+    private List<PeriodeCalendrierDTO> genererPeriodesCalendrier(
+            int annee, String frequence, List<ValeurIndicateur> valeurs, Indicateur indicateur) {
+
+        List<PeriodeCalendrierDTO> resultat = new ArrayList<>();
+        String freq = normaliserFrequence(frequence);
+        LocalDateTime maintenant = LocalDateTime.now();
+
+        switch (freq) {
+            case "MENSUEL" -> {
+                for (int m = 1; m <= 12; m++) {
+                    LocalDate d = LocalDate.of(annee, m, 1);
+                    LocalDate f = d.withDayOfMonth(d.lengthOfMonth());
+                    String libelle = d.getMonth().getDisplayName(
+                            java.time.format.TextStyle.FULL, Locale.FRENCH);
+                    resultat.add(construirePeriode(
+                            capitaliser(libelle), d.atStartOfDay(), f.atTime(23, 59, 59),
+                            valeurs, indicateur, maintenant));
+                }
+            }
+            case "TRIMESTRIEL" -> {
+                for (int t = 1; t <= 4; t++) {
+                    LocalDate d = LocalDate.of(annee, (t - 1) * 3 + 1, 1);
+                    LocalDate f = d.plusMonths(3).minusDays(1);
+                    resultat.add(construirePeriode(
+                            "T" + t, d.atStartOfDay(), f.atTime(23, 59, 59),
+                            valeurs, indicateur, maintenant));
+                }
+            }
+            case "SEMESTRIEL" -> {
+                for (int s = 1; s <= 2; s++) {
+                    LocalDate d = LocalDate.of(annee, (s - 1) * 6 + 1, 1);
+                    LocalDate f = d.plusMonths(6).minusDays(1);
+                    resultat.add(construirePeriode(
+                            "S" + s, d.atStartOfDay(), f.atTime(23, 59, 59),
+                            valeurs, indicateur, maintenant));
+                }
+            }
+            case "ANNUEL" -> {
+                LocalDate d = LocalDate.of(annee, 1, 1);
+                LocalDate f = LocalDate.of(annee, 12, 31);
+                resultat.add(construirePeriode(
+                        String.valueOf(annee), d.atStartOfDay(), f.atTime(23, 59, 59),
+                        valeurs, indicateur, maintenant));
+            }
+            default -> throw new ApiException(
+                    "Fréquence de vérification non supportée : « " + frequence + " ».",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        return resultat;
+    }
+
+    private String normaliserFrequence(String brut) {
+        if (brut == null || brut.isBlank()) {
+            return "MENSUEL"; // fallback
+        }
+
+        String s = brut.trim()
+                .toUpperCase(Locale.ROOT)
+                .replace("-", "")
+                .replace(" ", "");
+
+        // Retire un eventuel accent (SEMESTRIEL / SEMESTRIEL)
+        s = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+
+        return switch (s) {
+            case "MENSUEL", "MENSUELLE" -> "MENSUEL";
+            case "TRIMESTRIEL", "TRIMESTRIELLE" -> "TRIMESTRIEL";
+            case "SEMESTRIEL", "SEMESTRIELLE" -> "SEMESTRIEL";
+            case "ANNUEL", "ANNUELLE" -> "ANNUEL";
+            default -> throw new ApiException(
+                    "Fréquence de vérification non supportée : « " + brut + " ». "
+                            + "Valeurs acceptées : Mensuel, Trimestriel, Semestriel, Annuel "
+                            + "(ou leurs formes féminines).",
+                    HttpStatus.BAD_REQUEST);
+        };
+    }
+
+    private PeriodeCalendrierDTO construirePeriode(
+            String libelle, LocalDateTime debut, LocalDateTime fin,
+            List<ValeurIndicateur> valeurs, Indicateur indicateur, LocalDateTime maintenant) {
+
+        boolean estEnCours = !maintenant.isBefore(debut) && !maintenant.isAfter(fin);
+        boolean estFuture = debut.isAfter(maintenant);
+        boolean estPassee = fin.isBefore(maintenant);
+
+        // Recherche d'une valeur dont la periode tombe dans la cellule
+        ValeurIndicateur match = valeurs.stream()
+                .filter(v -> !v.getPeriodeDebut().isBefore(debut)
+                        && !v.getPeriodeDebut().isAfter(fin))
+                .findFirst()
+                .orElse(null);
+
+        String statut;
+        if (match == null) {
+            if (estFuture) {
+                statut = "NON_SAISI";
+            } else if (estEnCours) {
+                statut = "EN_COURS";
+            } else {
+                statut = "MANQUANT";
+            }
+        } else {
+            statut = calculerStatutAtteinte(indicateur, match.getValeur());
+        }
+
+        return PeriodeCalendrierDTO.builder()
+                .libelle(libelle)
+                .debut(debut)
+                .fin(fin)
+                .valeurId(match == null ? null : match.getIdValeurIndicateur())
+                .valeur(match == null ? null : match.getValeur())
+                .commentaire(match == null ? null : match.getCommentaire())
+                .dateSaisie(match == null ? null : match.getDateSaisie())
+                .saisieParLibelle(match == null ? null
+                        : match.getUtilisateur().getPrenom() + " " + match.getUtilisateur().getNom())
+                .statut(statut)
+                .estEnCours(estEnCours)
+                .estFuture(estFuture)
+                .estPassee(estPassee)
+                .build();
+    }
+
+    private String calculerStatutAtteinte(Indicateur indicateur, BigDecimal valeur) {
+        BigDecimal cible = indicateur.getValeurCible();
+        String type = indicateur.getTypeIndicateur();
+
+        if (valeur == null || cible == null || type == null) {
+            return "INDETERMINE";
+        }
+        if ("KPI".equals(type)) {
+            return valeur.compareTo(cible) >= 0 ? "ATTEINT" : "NON_ATTEINT";
+        }
+        if ("KRI".equals(type)) {
+            return valeur.compareTo(cible) <= 0 ? "ATTEINT" : "NON_ATTEINT";
+        }
+        return "INDETERMINE";
+    }
+
+    @Transactional(readOnly = true)
+    public DashboardIndicateurDTO dashboard() {
+
+        PerimetreUtilisateur perimetre = activiteService.getPerimetre();
+        Integer servicePerimetre = perimetre.estRattacheService() ? perimetre.getIdService() : null;
+        Integer departementPerimetre = perimetre.estNiveauDepartement() ? perimetre.getIdDepartement() : null;
+
+        List<Indicateur> tous = indicateurRepository
+                .findActifsAvecFrequenceDansPerimetre(servicePerimetre, departementPerimetre);
+
+        // Fallback : si aucun indicateur n'a de frequence, prendre tous les actifs
+        if (tous.isEmpty()) {
+            tous = indicateurRepository.findByActifTrue();
+        }
+
+        int atteints = 0;
+        int nonAtteints = 0;
+        int indetermines = 0;
+        int jamaisSaisis = 0;
+
+        List<DashboardIndicateurDTO.IndicateurAvecAtteinteDTO> items = new ArrayList<>();
+
+        for (Indicateur ind : tous) {
+            ValeurIndicateur derniere = trouverValeurCourante(ind.getIdIndicateur());
+
+            String statut;
+            BigDecimal valeur = null;
+            BigDecimal ecart = null;
+            BigDecimal cible = ind.getValeurCible();
+
+            if (derniere == null) {
+                statut = "JAMAIS_SAISI";
+                jamaisSaisis++;
+            } else {
+                valeur = derniere.getValeur();
+                if (cible != null) {
+                    ecart = valeur.subtract(cible);
+                }
+                statut = calculerStatutAtteinte(ind, valeur);
+
+                if ("ATTEINT".equals(statut))
+                    atteints++;
+                else if ("NON_ATTEINT".equals(statut))
+                    nonAtteints++;
+                else
+                    indetermines++;
+            }
+
+            items.add(DashboardIndicateurDTO.IndicateurAvecAtteinteDTO.builder()
+                    .id(ind.getIdIndicateur())
+                    .code(ind.getCode())
+                    .designation(ind.getDesignation())
+                    .typeIndicateur(ind.getTypeIndicateur())
+                    .uniteMesure(ind.getUniteMesure())
+                    .valeurCible(cible)
+                    .valeurCourante(valeur)
+                    .ecart(ecart)
+                    .statut(statut)
+                    .frequenceVerification(ind.getFrequenceVerification())
+                    .build());
+        }
+
+        // Tri : non atteints d'abord, puis indéterminés, puis jamais saisis, puis
+        // atteints
+        items.sort(Comparator.comparing(
+                DashboardIndicateurDTO.IndicateurAvecAtteinteDTO::getStatut,
+                Comparator.comparingInt(this::prioriteStatut)));
+
+        // En retard (reutilise la methode existante)
+        List<IndicateurEnRetardDTO> enRetard = listerEnRetard(false, true);
+
+        return DashboardIndicateurDTO.builder()
+                .resume(DashboardIndicateurDTO.ResumeDTO.builder()
+                        .total(tous.size())
+                        .atteints(atteints)
+                        .nonAtteints(nonAtteints)
+                        .indetermines(indetermines)
+                        .enRetard(enRetard.size())
+                        .jamaisSaisis(jamaisSaisis)
+                        .build())
+                .indicateurs(items)
+                .enRetard(enRetard)
+                .build();
+    }
+
+    /**
+     * Priorite d'affichage : non atteints et manquants d'abord.
+     */
+    private int prioriteStatut(String statut) {
+        return switch (statut) {
+            case "NON_ATTEINT" -> 0;
+            case "INDETERMINE" -> 1;
+            case "JAMAIS_SAISI" -> 2;
+            case "ATTEINT" -> 3;
+            default -> 4;
+        };
+    }
+
+    private String capitaliser(String s) {
+        if (s == null || s.isEmpty())
+            return s;
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 }

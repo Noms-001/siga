@@ -27,6 +27,26 @@
         </div>
 
         <div class="back-nav__right">
+            
+            <!-- Identité institutionnelle BFM -->
+            <div class="bank-brand" aria-label="Banky Foiben’i Madagasikara">
+                <img
+                    class="bank-brand-logo"
+                    src="/logo/bfm-logo.png"
+                    alt="Logo de Banky Foiben’i Madagasikara"
+                />
+
+                <div class="bank-brand-copy">
+                    <span class="bank-logo">
+                        Banky Foiben’i Madagasikara
+                    </span>
+                    <span class="bank-subtitle">
+                        Banque centrale de Madagascar
+                    </span>
+                </div>
+            </div>
+
+            <span class="back-nav__sep d-none d-md-block"></span>
 
             <!-- Notifications -->
             <div class="back-nav__notif-wrapper">
@@ -178,41 +198,6 @@ const breadcrumbs = computed(() => getPageBreadcrumbs(route))
 
 // --- Notifications simulées ---
 const notifications = ref<Notification[]>([
-    {
-        id: 1,
-        title: 'Nouvelle activité',
-        description: 'Une nouvelle activité a été créée dans le module Sécurité',
-        time: 'Il y a 5 min',
-        type: 'critique',
-        urgence: 'elevee',
-        icon: 'bi bi-exclamation-triangle'
-    },
-    {
-        id: 2,
-        title: 'Mise à jour',
-        description: 'Le système a été mis à jour avec succès',
-        time: 'Il y a 1 heure',
-        type: 'normal',
-        urgence: 'faible',
-        icon: 'bi bi-info-circle'
-    },
-    {
-        id: 3,
-        title: 'Rapport disponible',
-        description: 'Le rapport trimestriel est maintenant disponible',
-        time: 'Il y a 3 heures',
-        type: 'normal',
-        icon: 'bi bi-file-earmark'
-    },
-    {
-        id: 4,
-        title: 'Alerte sécurité',
-        description: 'Une tentative de connexion suspecte a été détectée',
-        time: 'Il y a 5 heures',
-        type: 'critique',
-        urgence: 'critique',
-        icon: 'bi bi-shield-halved'
-    }
 ])
 
 const unreadCount = computed(() => {
@@ -238,7 +223,7 @@ const handleLogout = async () => {
     try {
         isUserMenuOpen.value = false
         await authStore.logout()
-        await router.push('/login')
+        await router.push('/backoffice/login')
     } catch (error) {
         console.error('Erreur lors de la déconnexion :', error)
     }
@@ -842,6 +827,55 @@ onUnmounted(() => {
     margin: 0.25rem 0;
 }
 
+/* ============================================================
+   IDENTITÉ INSTITUTIONNELLE BFM
+   Remplace la barre de recherche
+   ============================================================ */
+
+.bank-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    min-width: 0;
+    max-width: 330px;
+    padding: 0 4px;
+}
+
+.bank-brand-logo {
+    display: block;
+    width: 37px;
+    height: 37px;
+    flex: 0 0 37px;
+    object-fit: contain;
+}
+
+.bank-brand-copy {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    gap: 2px;
+}
+
+/* Même identité visuelle que .footer-brand-copy .bank-logo */
+.bank-logo {
+    color: #2577a7;
+    text-transform: uppercase;
+    font-weight: 900;
+    font-size: 10.5px;
+    line-height: 1.35;
+    letter-spacing: 0.2px;
+    white-space: normal;
+}
+
+.bank-subtitle {
+    color: #7d899a;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
 /* --- Responsive --- */
 @media (max-width: 991.98px) {
     .back-nav__search input {
@@ -872,6 +906,20 @@ onUnmounted(() => {
         width: min(340px, calc(100vw - 2rem));
         right: -1rem;
         top: calc(100% + 8px);
+    }
+}
+
+@media (max-width: 380px) {
+    .bank-subtitle {
+        display: none;
+    }
+
+    .bank-brand {
+        max-width: 135px;
+    }
+
+    .bank-logo {
+        font-size: 7.5px;
     }
 }
 </style>

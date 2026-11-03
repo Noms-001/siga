@@ -42,6 +42,12 @@ public class CurrentUserService {
         return get().getIdUtilisateur();
     }
 
+    /** Identifiant du poste de l'utilisateur authentifie. */
+    @Transactional(readOnly = true)
+    public Integer getIdPoste() {
+        return get().getPoste().getIdPoste();
+    }
+
     /**
      * Perimetre de l'utilisateur authentifie : service + departement, ou
      * null si non rattache. Voir PerimetreUtilisateur pour la semantique.

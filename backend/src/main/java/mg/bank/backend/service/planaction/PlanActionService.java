@@ -90,7 +90,7 @@ public class PlanActionService {
         public PageResponse<PlanActionListItemDTO> rechercher(
                         String statutCode, String search, Integer annee,
                         java.time.LocalDate dateDebut, java.time.LocalDate dateFin,
-                        Integer origineId, Integer responsableId,
+                        Integer origineId, String typeOrigine, Integer responsableId,
                         int page, int size, Sort sort) {
 
                 if (page < 0) {
@@ -123,6 +123,7 @@ public class PlanActionService {
                                 dateDebut,
                                 dateFin,
                                 origineId,
+                                typeOrigine,
                                 responsableId,
                                 pageable)
                                 .map(this::versListItem);

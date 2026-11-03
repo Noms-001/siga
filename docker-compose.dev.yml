@@ -71,6 +71,7 @@ services:
 
       SPRING_PROFILES_ACTIVE: dev
       SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+      
 
     ports:
       - "${BACKEND_PORT:-8080}:8080"
@@ -120,6 +121,15 @@ services:
 
     networks:
       - saga-dev-network
+  mailpit:
+    image: axllent/mailpit
+    container_name: saga-mailpit-dev
+    ports:
+      - "1025:1025"   # SMTP — le backend envoie ici
+      - "8025:8025"   # Interface web — tu lis les emails ici
+    restart: unless-stopped
+    networks:
+      - saga-dev-network   # ← même réseau que backend
 
 
 volumes:

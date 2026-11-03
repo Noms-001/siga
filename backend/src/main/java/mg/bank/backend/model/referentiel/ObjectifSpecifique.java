@@ -31,7 +31,7 @@ public class ObjectifSpecifique {
     @Column(name = "code", nullable = false, length = 20)
     private String code;
 
-    @Column(name = "designation", nullable = false, length = 250)
+    @Column(name = "designation", nullable = false, columnDefinition = "TEXT")
     private String designation;
 
     @Column(name = "annee", nullable = false)

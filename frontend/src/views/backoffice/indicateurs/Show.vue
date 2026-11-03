@@ -148,18 +148,6 @@ onMounted(charger)
             </section>
 
             <section class="bo-detail">
-                <header class="bo-detail__section-head">Référentiel HOPEx</header>
-                <div class="bo-detail__row">
-                    <span class="bo-detail__label">Code HOPEx</span>
-                    <span class="bo-detail__value">{{ v(item.codeHopex) }}</span>
-                </div>
-                <div class="bo-detail__row">
-                    <span class="bo-detail__label">Indicateur HOPEx</span>
-                    <span class="bo-detail__value">{{ v(item.indicateurHopex) }}</span>
-                </div>
-            </section>
-
-            <section class="bo-detail">
                 <header class="bo-detail__section-head">Mesure</header>
                 <div class="bo-detail__row">
                     <span class="bo-detail__label">Unité</span>

@@ -32,7 +32,7 @@ ON service (id_departement, nom);
 CREATE TABLE objectif_specifique(
    id_objectif_specifique SERIAL,
    code VARCHAR(20)  NOT NULL,
-   designation VARCHAR(250)  NOT NULL,
+   designation TEXT NOT NULL,
    annee INTEGER NOT NULL,
    date_creation TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
    PRIMARY KEY(id_objectif_specifique),
@@ -117,18 +117,17 @@ CREATE TABLE activite (
    code VARCHAR(20)  NOT NULL,
    reference VARCHAR(20),
    designation VARCHAR(255)  NOT NULL,
-   date_debut_prevue DATE NOT NULL,
+   date_debut_prevue DATE,
    date_fin_prevue DATE,
    date_debut_reelle DATE,
    date_fin_reelle DATE,
    id_objectif_specifique INTEGER,
    id_type_activite INTEGER,
    id_site INTEGER,
-   id_priorite INTEGER NOT NULL,
+   id_priorite INTEGER,
    id_service INTEGER NOT NULL,
    id_procedure INTEGER,
    PRIMARY KEY(id_activite),
-   UNIQUE(code),
    FOREIGN KEY(id_objectif_specifique) REFERENCES objectif_specifique(id_objectif_specifique),
    FOREIGN KEY(id_type_activite) REFERENCES type_activite(id_type_activite),
    FOREIGN KEY(id_site) REFERENCES site(id_site),
@@ -142,6 +141,8 @@ CREATE TABLE activite (
        date_debut_reelle IS NULL OR date_fin_reelle IS NULL OR date_fin_reelle >= date_debut_reelle
    )
 );
+
+CREATE UNIQUE INDEX uq_activite_service_code_ci ON activite (id_service, LOWER(code));
 
 CREATE INDEX ix_activite_service
 ON activite (id_service);
@@ -159,7 +160,6 @@ CREATE TABLE sous_activite(
    date_fin_reelle DATE,
    id_activite INTEGER NOT NULL,
    PRIMARY KEY(id_sous_activite),
-   UNIQUE(code),
    FOREIGN KEY(id_activite) REFERENCES activite(id_activite),
    CONSTRAINT chk_sous_activite_dates_prevues CHECK (
        date_fin_prevue >= date_debut_prevue
@@ -167,6 +167,13 @@ CREATE TABLE sous_activite(
    CONSTRAINT chk_sous_activite_dates_reelles CHECK (
        date_debut_reelle IS NULL OR date_fin_reelle IS NULL OR date_fin_reelle >= date_debut_reelle
    )
+);
+
+CREATE UNIQUE INDEX uq_sous_activite_parent_code_ci ON sous_activite (id_activite, LOWER(code));
+
+CREATE TABLE code_sequence (
+   cle VARCHAR(120) PRIMARY KEY,
+   dernier_numero INTEGER NOT NULL CHECK (dernier_numero >= 0)
 );
 
 CREATE INDEX ix_sous_activite_activite
@@ -342,8 +349,6 @@ ON validation_activite (id_activite);
 CREATE TABLE indicateur(
    id_indicateur SERIAL,
    code VARCHAR(50)  NOT NULL,
-   code_hopex VARCHAR(150),
-   indicateur_hopex VARCHAR(250),
    actif BOOLEAN DEFAULT TRUE,
    unite_mesure VARCHAR(50),
    frequence_verification VARCHAR(50),
@@ -354,12 +359,10 @@ CREATE TABLE indicateur(
    valeur_cible NUMERIC(15,2),
    seuil_min NUMERIC(15,2),
    seuil_max NUMERIC(15,2),
-   designation VARCHAR(250)  NOT NULL,
+   designation TEXT NOT NULL,
    type_indicateur VARCHAR(20),
    PRIMARY KEY(id_indicateur),
-   UNIQUE(code),
-   UNIQUE(code_hopex),
-   UNIQUE(indicateur_hopex)
+   UNIQUE(code)
 );
 
 CREATE TABLE valeur_indicateur(
@@ -485,9 +488,11 @@ CREATE TABLE notification(
    id_notification SERIAL,
    titre VARCHAR(255)  NOT NULL,
    message TEXT NOT NULL,
+   nombre_tentatives_email INTEGER NOT NULL DEFAULT 0,
+   date_envoi_email TIMESTAMP,
    date_creation TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
    date_lecture TIMESTAMP,
-   id_priorite INTEGER NOT NULL,
+   id_priorite INTEGER,
    id_utilisateur INTEGER NOT NULL,
    id_reference INTEGER,
    resource VARCHAR(100),

@@ -26,7 +26,9 @@ import mg.bank.backend.dto.planaction.PlanActionDetailDTO;
 import mg.bank.backend.dto.planaction.PlanActionEcritureRequest;
 import mg.bank.backend.dto.planaction.PlanActionEcritureResponse;
 import mg.bank.backend.dto.planaction.PlanActionListItemDTO;
+import mg.bank.backend.dto.planaction.SuiviGlobalPlanActionDTO;
 import mg.bank.backend.service.planaction.PlanActionService;
+import mg.bank.backend.service.planaction.SuiviGlobalPlanActionService;
 
 @RestController
 @RequestMapping("/api/plans-action")
@@ -34,6 +36,7 @@ import mg.bank.backend.service.planaction.PlanActionService;
 public class PlanActionController {
 
         private final PlanActionService planActionService;
+        private final SuiviGlobalPlanActionService suiviGlobalPlanActionService;
 
         @GetMapping
         public ResponseEntity<ApiResponse<PageResponse<PlanActionListItemDTO>>> lister(
@@ -43,13 +46,14 @@ public class PlanActionController {
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateDebut,
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFin,
                         @RequestParam(required = false) Integer origineId,
+                        @RequestParam(required = false) String typeOrigine,
                         @RequestParam(required = false) Integer responsableId,
                         @PageableDefault(size = 20) Pageable pagination) {
 
                 return ResponseEntity.ok(ApiResponse.success(
                                 planActionService.rechercher(
                                                 statut, search, annee, dateDebut, dateFin,
-                                                origineId, responsableId,
+                                                origineId, typeOrigine, responsableId,
                                                 pagination.getPageNumber(),
                                                 pagination.getPageSize(),
                                                 pagination.getSort())));
@@ -100,5 +104,11 @@ public class PlanActionController {
                 return ResponseEntity.status(HttpStatus.CREATED)
                                 .body(ApiResponse.success(
                                                 planActionService.saisirAvancement(id, request)));
+        }
+
+        @GetMapping("/suivi-global")
+        public ResponseEntity<ApiResponse<SuiviGlobalPlanActionDTO>> suiviGlobal() {
+                return ResponseEntity.ok(ApiResponse.success(
+                                suiviGlobalPlanActionService.suiviGlobal()));
         }
 }

@@ -22,6 +22,18 @@ public class PermissionService {
     private final PermissionRepository permissionRepository;
     private final PostePermissionRepository postePermissionRepository;
 
+    /** Check an active permission assigned to the user's post. */
+    @Transactional(readOnly = true)
+    public boolean hasPermission(Integer idPoste, String resource, String action) {
+        return postePermissionRepository.existsActivePermission(idPoste, resource, action);
+    }
+
+    /** Effective permissions serialized for the authenticated profile. */
+    @Transactional(readOnly = true)
+    public List<String> permissionsFor(Integer idPoste) {
+        return postePermissionRepository.findActivePermissionKeys(idPoste);
+    }
+
     /* -------------------- lecture -------------------- */
 
     @Transactional(readOnly = true)

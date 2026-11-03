@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.activite.ActiviteListItemDTO;
 import mg.bank.backend.dto.affectation.AffectationActiviteDTO;
 import mg.bank.backend.dto.affectation.AffectationActiviteRequest;
+import mg.bank.backend.dto.affectation.AffectationBatchRequest;
 import mg.bank.backend.dto.affectation.UtilisateurAffectableDTO;
 import mg.bank.backend.dto.common.ActiviteFiltreCriteria;
 import mg.bank.backend.dto.common.ApiResponse;
@@ -31,99 +32,121 @@ import mg.bank.backend.service.affectation.AffectationService;
 @RequiredArgsConstructor
 public class AffectationController {
 
-    private final AffectationService affectationService;
+        private final AffectationService affectationService;
 
-    /** F1 — liste des activites NON_COMMENCEE sans affectation active. */
-    @GetMapping("/non-affectees")
-    public ResponseEntity<ApiResponse<PageResponse<ActiviteListItemDTO>>> nonAffectees(
-            @RequestParam(required = false) Boolean pta,
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) Integer serviceId,
-            @RequestParam(required = false) Integer prioriteId,
-            @RequestParam(required = false) Integer annee,
-            @RequestParam(required = false) Integer trimestre,
-            @PageableDefault(size = 20) Pageable pagination) {
+        /** F1 — liste des activites NON_COMMENCEE sans affectation active. */
+        @GetMapping("/non-affectees")
+        public ResponseEntity<ApiResponse<PageResponse<ActiviteListItemDTO>>> nonAffectees(
+                        @RequestParam(required = false) Boolean pta,
+                        @RequestParam(required = false) String search,
+                        @RequestParam(required = false) Integer serviceId,
+                        @RequestParam(required = false) Integer prioriteId,
+                        @RequestParam(required = false) Integer annee,
+                        @RequestParam(required = false) Integer trimestre,
+                        @PageableDefault(size = 20) Pageable pagination) {
 
-        ActiviteFiltreCriteria filtres = ActiviteFiltreCriteria.builder()
-                .pta(pta)
-                .search(search)
-                .serviceId(serviceId)
-                .prioriteId(prioriteId)
-                .annee(annee)
-                .trimestre(trimestre)
-                .build();
+                ActiviteFiltreCriteria filtres = ActiviteFiltreCriteria.builder()
+                                .pta(pta)
+                                .search(search)
+                                .serviceId(serviceId)
+                                .prioriteId(prioriteId)
+                                .annee(annee)
+                                .trimestre(trimestre)
+                                .build();
 
-        return ResponseEntity.ok(ApiResponse.success(
-                affectationService.rechercherNonAffectees(
-                        filtres,
-                        pagination.getPageNumber(),
-                        pagination.getPageSize(),
-                        pagination.getSort())));
-    }
+                return ResponseEntity.ok(ApiResponse.success(
+                                affectationService.rechercherNonAffectees(
+                                                filtres,
+                                                pagination.getPageNumber(),
+                                                pagination.getPageSize(),
+                                                pagination.getSort())));
+        }
 
-    /** F2 — historique des affectations d'une activite. */
-    @GetMapping("/{idActivite}")
-    public ResponseEntity<ApiResponse<List<AffectationActiviteDTO>>> historique(
-            @PathVariable Integer idActivite) {
-        return ResponseEntity.ok(ApiResponse.success(
-                affectationService.listerAffectations(idActivite)));
-    }
+        /** F2 — historique des affectations d'une activite. */
+        @GetMapping("/{idActivite}")
+        public ResponseEntity<ApiResponse<List<AffectationActiviteDTO>>> historique(
+                        @PathVariable Integer idActivite) {
+                return ResponseEntity.ok(ApiResponse.success(
+                                affectationService.listerAffectations(idActivite)));
+        }
 
-    /** F3 — historique des affectations d'une sous-activite. */
-    @GetMapping("/{idActivite}/sous-activites/{idSousActivite}")
-    public ResponseEntity<ApiResponse<List<AffectationActiviteDTO>>> historiqueSousActivite(
-            @PathVariable Integer idActivite,
-            @PathVariable Integer idSousActivite) {
-        return ResponseEntity.ok(ApiResponse.success(
-                affectationService.listerAffectationsSousActivite(idActivite, idSousActivite)));
-    }
+        /** F3 — historique des affectations d'une sous-activite. */
+        @GetMapping("/{idActivite}/sous-activites/{idSousActivite}")
+        public ResponseEntity<ApiResponse<List<AffectationActiviteDTO>>> historiqueSousActivite(
+                        @PathVariable Integer idActivite,
+                        @PathVariable Integer idSousActivite) {
+                return ResponseEntity.ok(ApiResponse.success(
+                                affectationService.listerAffectationsSousActivite(idActivite, idSousActivite)));
+        }
 
-    /** F4 — utilisateurs du service de l'activite, actifs. */
-    @GetMapping("/{idActivite}/utilisateurs-disponibles")
-    public ResponseEntity<ApiResponse<List<UtilisateurAffectableDTO>>> utilisateursDisponibles(
-            @PathVariable Integer idActivite) {
-        return ResponseEntity.ok(ApiResponse.success(
-                affectationService.utilisateursAffectables(idActivite)));
-    }
+        /** F4 — utilisateurs du service de l'activite, actifs. */
+        @GetMapping("/{idActivite}/utilisateurs-disponibles")
+        public ResponseEntity<ApiResponse<List<UtilisateurAffectableDTO>>> utilisateursDisponibles(
+                        @PathVariable Integer idActivite) {
+                return ResponseEntity.ok(ApiResponse.success(
+                                affectationService.utilisateursAffectables(idActivite)));
+        }
 
-    /** F5 — affecter une activite. */
-    @PostMapping("/{idActivite}")
-    public ResponseEntity<ApiResponse<AffectationActiviteDTO>> affecterActivite(
-            @PathVariable Integer idActivite,
-            @Valid @RequestBody AffectationActiviteRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(
-                        affectationService.affecterActivite(idActivite, request)));
-    }
+        /** F5 — affecter une activite. */
+        @PostMapping("/{idActivite}")
+        public ResponseEntity<ApiResponse<AffectationActiviteDTO>> affecterActivite(
+                        @PathVariable Integer idActivite,
+                        @Valid @RequestBody AffectationActiviteRequest request) {
+                return ResponseEntity.status(HttpStatus.CREATED)
+                                .body(ApiResponse.success(
+                                                affectationService.affecterActivite(idActivite, request)));
+        }
 
-    /** F6 — affecter une sous-activite. */
-    @PostMapping("/{idActivite}/sous-activites/{idSousActivite}")
-    public ResponseEntity<ApiResponse<AffectationActiviteDTO>> affecterSousActivite(
-            @PathVariable Integer idActivite,
-            @PathVariable Integer idSousActivite,
-            @Valid @RequestBody AffectationActiviteRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(
-                        affectationService.affecterSousActivite(
-                                idActivite, idSousActivite, request)));
-    }
+        /** F6 — affecter une sous-activite. */
+        @PostMapping("/{idActivite}/sous-activites/{idSousActivite}")
+        public ResponseEntity<ApiResponse<AffectationActiviteDTO>> affecterSousActivite(
+                        @PathVariable Integer idActivite,
+                        @PathVariable Integer idSousActivite,
+                        @Valid @RequestBody AffectationActiviteRequest request) {
+                return ResponseEntity.status(HttpStatus.CREATED)
+                                .body(ApiResponse.success(
+                                                affectationService.affecterSousActivite(
+                                                                idActivite, idSousActivite, request)));
+        }
 
-    /** F7 — desaffecter une activite. */
-    @DeleteMapping("/{idActivite}/{idAffectation}")
-    public ResponseEntity<Void> desaffecterActivite(
-            @PathVariable Integer idActivite,
-            @PathVariable Integer idAffectation) {
-        affectationService.desaffecterActivite(idActivite, idAffectation);
-        return ResponseEntity.noContent().build();
-    }
+        /** F7 — desaffecter une activite. */
+        @DeleteMapping("/{idActivite}/{idAffectation}")
+        public ResponseEntity<Void> desaffecterActivite(
+                        @PathVariable Integer idActivite,
+                        @PathVariable Integer idAffectation) {
+                affectationService.desaffecterActivite(idActivite, idAffectation);
+                return ResponseEntity.noContent().build();
+        }
 
-    /** F8 — desaffecter une sous-activite. */
-    @DeleteMapping("/{idActivite}/sous-activites/{idSousActivite}/{idAffectation}")
-    public ResponseEntity<Void> desaffecterSousActivite(
-            @PathVariable Integer idActivite,
-            @PathVariable Integer idSousActivite,
-            @PathVariable Integer idAffectation) {
-        affectationService.desaffecterSousActivite(idActivite, idSousActivite, idAffectation);
-        return ResponseEntity.noContent().build();
-    }
+        /** F8 — desaffecter une sous-activite. */
+        @DeleteMapping("/{idActivite}/sous-activites/{idSousActivite}/{idAffectation}")
+        public ResponseEntity<Void> desaffecterSousActivite(
+                        @PathVariable Integer idActivite,
+                        @PathVariable Integer idSousActivite,
+                        @PathVariable Integer idAffectation) {
+                affectationService.desaffecterSousActivite(idActivite, idSousActivite, idAffectation);
+                return ResponseEntity.noContent().build();
+        }
+
+        @PostMapping("/{idActivite}/batch")
+        public ResponseEntity<ApiResponse<List<AffectationActiviteDTO>>> affecterBatch(
+                        @PathVariable Integer idActivite,
+                        @Valid @RequestBody AffectationBatchRequest request) {
+                return ResponseEntity.status(HttpStatus.CREATED)
+                                .body(ApiResponse.success(
+                                                affectationService.affecterActivitesBatch(
+                                                                idActivite, request.getAffectations())));
+        }
+
+        @PostMapping("/{idActivite}/sous-activites/{idSousActivite}/batch")
+        public ResponseEntity<ApiResponse<List<AffectationActiviteDTO>>> affecterSousActiviteBatch(
+                        @PathVariable Integer idActivite,
+                        @PathVariable Integer idSousActivite,
+                        @Valid @RequestBody AffectationBatchRequest request) {
+                return ResponseEntity.status(HttpStatus.CREATED)
+                                .body(ApiResponse.success(
+                                                affectationService.affecterSousActivitesBatch(
+                                                                idActivite, idSousActivite,
+                                                                request.getAffectations())));
+        }
 }

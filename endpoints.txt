@@ -1,0 +1,291 @@
+ENDPOINTS DU PROJET SAGA
+=========================
+
+Généré à partir des controllers Spring (@RequestMapping + @*Mapping).
+
+ActiviteController — base: /api/activites
+----------------------------------------
+DELETE  /api/activites/{idActivite}
+GET     /api/activites
+GET     /api/activites/statistiques
+GET     /api/activites/a-demarrer
+GET     /api/activites/options
+GET     /api/activites/autocomplete
+POST    /api/activites/{idActivite}/soumettre-validation
+POST    /api/activites/{idActivite}/valider
+GET     /api/activites/a-soumettre
+GET     /api/activites/a-valider
+GET     /api/activites/objectifs/autocomplete
+POST    /api/activites/objectifs
+GET     /api/activites/non-pta/prochain-code
+POST    /api/activites
+PUT     /api/activites/{idActivite}
+GET     /api/activites/{idActivite}/formulaire
+GET     /api/activites/{idActivite}
+GET     /api/activites/{idActivite}/sous-activites/{idSousActivite}
+GET     /api/activites/{idActivite}/sous-activites/{idSousActivite}/fichiers/{idFichier}
+POST    /api/activites/{idActivite}/sous-activites/{idSousActivite}/livrables
+POST    /api/activites/{idActivite}/sous-activites/{idSousActivite}/livrables/{idLivrable}/fichiers
+GET     /api/activites/suivi
+PATCH   /api/activites/{idActivite}/priorite
+POST    /api/activites/{idActivite}/demarrer
+POST    /api/activites/{idActivite}/cloturer
+
+SousActiviteController — base: /api/sous-activites
+--------------------------------------------------
+POST    /api/sous-activites/{id}/avancement
+
+AffectationController — base: /api/activites/affectations
+---------------------------------------------------------
+GET     /api/activites/affectations/non-affectees
+GET     /api/activites/affectations/{idActivite}
+GET     /api/activites/affectations/{idActivite}/sous-activites/{idSousActivite}
+GET     /api/activites/affectations/{idActivite}/utilisateurs-disponibles
+POST    /api/activites/affectations/{idActivite}
+POST    /api/activites/affectations/{idActivite}/sous-activites/{idSousActivite}
+DELETE  /api/activites/affectations/{idActivite}/{idAffectation}
+DELETE  /api/activites/affectations/{idActivite}/sous-activites/{idSousActivite}/{idAffectation}
+POST    /api/activites/affectations/{idActivite}/batch
+POST    /api/activites/affectations/{idActivite}/sous-activites/{idSousActivite}/batch
+
+DemandeRepriseController — base: /api/demandes-reprise
+------------------------------------------------------
+POST    /api/demandes-reprise/activites/{idActivite}
+GET     /api/demandes-reprise/activites/{idActivite}
+GET     /api/demandes-reprise/mes-demandes
+GET     /api/demandes-reprise/a-traiter
+POST    /api/demandes-reprise/{id}/accepter
+POST    /api/demandes-reprise/{id}/refuser
+POST    /api/demandes-reprise/{id}/annuler
+
+DemandeReprisePlanController — base: /api/demandes-reprise-plans
+----------------------------------------------------------------
+POST    /api/demandes-reprise-plans/plans/{idPlanAction}
+GET     /api/demandes-reprise-plans/plans/{idPlanAction}
+GET     /api/demandes-reprise-plans/mes-demandes
+GET     /api/demandes-reprise-plans/a-traiter
+POST    /api/demandes-reprise-plans/{id}/accepter
+POST    /api/demandes-reprise-plans/{id}/refuser
+POST    /api/demandes-reprise-plans/{id}/annuler
+
+Backoffice controllers
+======================
+
+DepartementController — base: /api/backoffice/departements
+---------------------------------------------------------
+GET     /api/backoffice/departements
+GET     /api/backoffice/departements/{id}
+POST    /api/backoffice/departements
+PUT     /api/backoffice/departements/{id}
+
+IndicateurController — base: /api/backoffice/indicateurs
+-------------------------------------------------------
+GET     /api/backoffice/indicateurs
+GET     /api/backoffice/indicateurs/filtres
+GET     /api/backoffice/indicateurs/{id}
+POST    /api/backoffice/indicateurs
+PUT     /api/backoffice/indicateurs/{id}
+PATCH   /api/backoffice/indicateurs/{id}/desactiver
+PATCH   /api/backoffice/indicateurs/{id}/activer
+
+ParametreController — base: /api/backoffice/parametres
+-----------------------------------------------------
+GET     /api/backoffice/parametres
+GET     /api/backoffice/parametres/filtres
+GET     /api/backoffice/parametres/{id}
+PUT     /api/backoffice/parametres/{id}
+PATCH   /api/backoffice/parametres/{id}/desactiver
+PATCH   /api/backoffice/parametres/{id}/activer
+
+PermissionController — base: /api/backoffice/permissions
+--------------------------------------------------------
+GET     /api/backoffice/permissions
+GET     /api/backoffice/permissions/filtres
+GET     /api/backoffice/permissions/{id}
+
+PosteController — base: /api/backoffice/postes
+----------------------------------------------
+GET     /api/backoffice/postes
+GET     /api/backoffice/postes/{id}
+POST    /api/backoffice/postes
+PUT     /api/backoffice/postes/{id}
+PATCH   /api/backoffice/postes/{id}/desactiver
+PATCH   /api/backoffice/postes/{id}/activer
+
+PostePermissionController — base: /api/backoffice/postes/{idPoste}/permissions
+------------------------------------------------------------------------------
+GET     /api/backoffice/postes/{idPoste}/permissions
+POST    /api/backoffice/postes/{idPoste}/permissions
+PUT     /api/backoffice/postes/{idPoste}/permissions/{idPermission}
+DELETE  /api/backoffice/postes/{idPoste}/permissions/{idPermission}
+
+PrioriteController — base: /api/backoffice/priorites
+---------------------------------------------------
+GET     /api/backoffice/priorites
+GET     /api/backoffice/priorites/{id}
+
+ProcedureController — base: /api/backoffice/procedures
+-----------------------------------------------------
+GET     /api/backoffice/procedures
+GET     /api/backoffice/procedures/{id}
+POST    /api/backoffice/procedures
+PUT     /api/backoffice/procedures/{id}
+PATCH   /api/backoffice/procedures/{id}/desactiver
+PATCH   /api/backoffice/procedures/{id}/activer
+
+RoleController — base: /api/backoffice/roles
+--------------------------------------------
+GET     /api/backoffice/roles
+GET     /api/backoffice/roles/{id}
+POST    /api/backoffice/roles
+PUT     /api/backoffice/roles/{id}
+PATCH   /api/backoffice/roles/{id}/desactiver
+PATCH   /api/backoffice/roles/{id}/activer
+
+ServiceController — base: /api/backoffice/services
+-------------------------------------------------
+GET     /api/backoffice/services
+GET     /api/backoffice/services/{id}
+POST    /api/backoffice/services
+PUT     /api/backoffice/services/{id}
+PATCH   /api/backoffice/services/{id}/desactiver
+PATCH   /api/backoffice/services/{id}/activer
+
+SiteController — base: /api/backoffice/sites
+--------------------------------------------
+GET     /api/backoffice/sites
+GET     /api/backoffice/sites/{id}
+POST    /api/backoffice/sites
+PUT     /api/backoffice/sites/{id}
+PATCH   /api/backoffice/sites/{id}/desactiver
+PATCH   /api/backoffice/sites/{id}/activer
+
+TypeActiviteController — base: /api/backoffice/types-activite
+------------------------------------------------------------
+GET     /api/backoffice/types-activite
+GET     /api/backoffice/types-activite/{id}
+POST    /api/backoffice/types-activite
+PUT     /api/backoffice/types-activite/{id}
+PATCH   /api/backoffice/types-activite/{id}/desactiver
+PATCH   /api/backoffice/types-activite/{id}/activer
+
+DashboardController — base: /api/dashboard
+-----------------------------------------
+GET     /api/dashboard/kpi
+GET     /api/dashboard/avancement
+GET     /api/dashboard/statuts
+GET     /api/dashboard/services
+GET     /api/dashboard/priorites
+GET     /api/dashboard/validations
+GET     /api/dashboard/echeances
+GET     /api/dashboard/pta
+GET     /api/dashboard/risques-incidents
+
+IndicateurFrontController — base: /api/indicateurs
+--------------------------------------------------
+GET     /api/indicateurs
+GET     /api/indicateurs/{id}
+
+SuiviIndicateurController — base: /api/indicateurs
+-------------------------------------------------
+GET     /api/indicateurs/{id}/valeurs
+POST    /api/indicateurs/{id}/valeurs
+GET     /api/indicateurs/{id}/valeur-courante
+GET     /api/indicateurs/{id}/atteinte
+GET     /api/indicateurs/activites/{idActivite}/suivi
+GET     /api/indicateurs/{id}/agregation
+GET     /api/indicateurs/en-retard
+GET     /api/indicateurs/{id}/calendrier
+GET     /api/indicateurs/dashboard
+
+LiaisonIndicateurController — base: /api/activites/{idActivite}/indicateurs
+---------------------------------------------------------------------------
+POST    /api/activites/{idActivite}/indicateurs/{idIndicateur}
+DELETE  /api/activites/{idActivite}/indicateurs/{idIndicateur}
+GET     /api/activites/{idActivite}/indicateurs/disponibles
+
+NotificationController — base: /api/notifications
+-------------------------------------------------
+GET     /api/notifications
+GET     /api/notifications/page
+GET     /api/notifications/non-lues/count
+PUT     /api/notifications/{id}/lue
+PUT     /api/notifications/lues
+
+SignalementFrontController — base: /api/signalements
+----------------------------------------------------
+GET     /api/signalements
+GET     /api/signalements/filtres
+POST    /api/signalements
+GET     /api/signalements/{id}
+GET     /api/signalements/prochain-code
+
+PlanActionController — base: /api/plans-action
+----------------------------------------------
+GET     /api/plans-action
+GET     /api/plans-action/mes-brouillons
+POST    /api/plans-action
+GET     /api/plans-action/{id}
+GET     /api/plans-action/{id}/avancements
+GET     /api/plans-action/{id}/avancement-courant
+POST    /api/plans-action/{id}/avancements
+GET     /api/plans-action/suivi-global
+
+AuthController — base: /api/auth
+--------------------------------
+POST    /api/auth/login
+POST    /api/auth/logout
+GET     /api/auth/me
+GET     /api/auth/activation/verify
+POST    /api/auth/activation
+POST    /api/auth/password/forgot
+GET     /api/auth/password/reset/verify
+POST    /api/auth/password/reset
+
+BackAuthController — base: /api/backoffice/auth
+----------------------------------------------
+POST    /api/backoffice/auth/login
+
+UtilisateurAvancementController — base: /api/utilisateurs
+---------------------------------------------------------
+GET     /api/utilisateurs/{id}/avancement-annee
+
+UtilisateurController — base: /api (routes variées)
+--------------------------------------------------
+PUT     /api/utilisateur/me
+POST    /api/utilisateur/me/mot-de-passe
+GET     /api/backoffice/utilisateurs
+GET     /api/backoffice/utilisateurs/{id}
+POST    /api/backoffice/utilisateurs
+PATCH   /api/backoffice/utilisateurs/{id}/desactiver
+PATCH   /api/backoffice/utilisateurs/{id}/activer
+
+Imports
+=======
+
+ActiviteImportController — base: /api/activites/import
+-----------------------------------------------------
+POST    /api/activites/import/valider
+POST    /api/activites/import/confirmer
+
+IndicateurImportController — base: /api/activites/import/indicateurs
+-------------------------------------------------------------------
+POST    /api/activites/import/indicateurs/valider
+POST    /api/activites/import/indicateurs/confirmer
+
+OrigineImportController — base: /api/activites/import/origines
+-------------------------------------------------------------
+POST    /api/activites/import/origines/valider
+POST    /api/activites/import/origines/confirmer
+
+ResultatIntermediaireImportController — base: /api/activites/import/resultats
+----------------------------------------------------------------------------
+POST    /api/activites/import/resultats/valider
+POST    /api/activites/import/resultats/confirmer
+
+SousActiviteImportController — base: /api/activites/import/sous-activites
+------------------------------------------------------------------------
+POST    /api/activites/import/sous-activites/valider
+POST    /api/activites/import/sous-activites/confirmer
+
+<<<END>>> (fin du fichier)

@@ -30,6 +30,7 @@ import mg.bank.backend.model.utilisateur.Utilisateur;
 import mg.bank.backend.service.utilisateur.AuthService;
 import mg.bank.backend.service.utilisateur.CustomUserDetailsService;
 import mg.bank.backend.service.utilisateur.JwtService;
+import mg.bank.backend.service.utilisateur.PermissionService;
 import mg.bank.backend.service.utilisateur.UtilisateurService;
 
 @RestController
@@ -41,6 +42,7 @@ public class UtilisateurController {
     private final AuthService authService;
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
+    private final PermissionService permissionService;
 
     /**
      * Met à jour les informations personnelles de l'utilisateur connecté.
@@ -76,7 +78,9 @@ public class UtilisateurController {
         return ResponseEntity.ok(
                 ApiResponse.success(
                         ModifierProfilResponse.builder()
-                                .profil(ProfileResponse.from(utilisateur))
+                                .profil(ProfileResponse.from(
+                                        utilisateur,
+                                        permissionService.permissionsFor(utilisateur.getPoste().getIdPoste())))
                                 .accessToken(accessToken)
                                 .refreshToken(refreshToken)
                                 .jetonRenouvele(emailModifie)

@@ -1,16 +1,13 @@
 <template>
-    <BaseConfirm
-        v-model="confirmation.ouvert.value"
-        :demande="confirmation.demande.value"
-        :loading="confirmation.enCours.value || isSavingProfile || isSavingPassword"
-        @confirme="confirmation.confirmer"
-        @annule="confirmation.annuler"
-    />
+    <BaseConfirm v-model="confirmation.ouvert.value" :demande="confirmation.demande.value"
+        :loading="confirmation.enCours.value || isSavingProfile || isSavingPassword" @confirme="confirmation.confirmer"
+        @annule="confirmation.annuler" />
 
     <div class="profile-page">
         <!-- ============ EN-TÊTE ============ -->
         <header class="welcome-row">
             <div class="welcome-row__left">
+
                 <div class="eyebrow">
                     <span class="live-dot"></span>
                     {{ dateDuJour }}
@@ -23,13 +20,11 @@
             </div>
 
             <div class="welcome-row__right">
-                <BaseButton
-                    v-if="user"
-                    variant="secondary"
-                    :loading="loading"
-                    :disabled="loading"
-                    @click="loadProfile"
-                >
+                <BaseButton variant="secondary" icon="bi bi-graph-up-arrow"
+                    @click="router.push({ name: 'utilisateur-avancement', params: { id: userId } })">
+                    Mon avancement
+                </BaseButton>
+                <BaseButton v-if="user" variant="secondary" :loading="loading" :disabled="loading" @click="loadProfile">
                     <i class="bi bi-arrow-clockwise"></i>
                     Actualiser
                 </BaseButton>
@@ -91,10 +86,7 @@
                             <i class="bi bi-person"></i>
                         </span>
                         <h2 class="content-card__title">Informations personnelles</h2>
-                        <span
-                            v-if="isEditingProfile"
-                            class="content-card__badge content-card__badge--edit"
-                        >
+                        <span v-if="isEditingProfile" class="content-card__badge content-card__badge--edit">
                             Édition
                         </span>
                     </header>
@@ -130,47 +122,26 @@
                         <div v-else class="edit-form">
                             <div class="edit-grid">
                                 <div class="edit-field">
-                                    <BaseInput
-                                        v-model="form.nom"
-                                        label="Nom"
-                                        icon="bi bi-person"
-                                        :error="errors.nom"
-                                        :disabled="isSavingProfile"
-                                    />
+                                    <BaseInput v-model="form.nom" label="Nom" icon="bi bi-person" :error="errors.nom"
+                                        :disabled="isSavingProfile" />
                                 </div>
                                 <div class="edit-field">
-                                    <BaseInput
-                                        v-model="form.prenom"
-                                        label="Prénom"
-                                        icon="bi bi-person"
-                                        :error="errors.prenom"
-                                        :disabled="isSavingProfile"
-                                    />
+                                    <BaseInput v-model="form.prenom" label="Prénom" icon="bi bi-person"
+                                        :error="errors.prenom" :disabled="isSavingProfile" />
                                 </div>
                                 <div class="edit-field">
-                                    <BaseInput
-                                        v-model="form.email"
-                                        label="Email"
-                                        type="email"
-                                        icon="bi bi-envelope"
-                                        :error="errors.email"
-                                        :disabled="isSavingProfile"
-                                    />
+                                    <BaseInput v-model="form.email" label="Email" type="email" icon="bi bi-envelope"
+                                        :error="errors.email" :disabled="isSavingProfile" />
                                 </div>
                                 <div class="edit-field">
-                                    <BaseInput
-                                        v-model="form.telephone"
-                                        label="Téléphone"
-                                        type="tel"
-                                        icon="bi bi-telephone"
-                                        :error="errors.telephone"
-                                        :disabled="isSavingProfile"
-                                    />
+                                    <BaseInput v-model="form.telephone" label="Téléphone" type="tel"
+                                        icon="bi bi-telephone" :error="errors.telephone" :disabled="isSavingProfile" />
                                 </div>
                             </div>
 
                             <div v-if="formAlert" class="alert" :class="`alert--${formAlert.type}`" role="alert">
-                                <i :class="formAlert.type === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'"></i>
+                                <i
+                                    :class="formAlert.type === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'"></i>
                                 <span>{{ formAlert.message }}</span>
                             </div>
                         </div>
@@ -183,18 +154,10 @@
                         </BaseButton>
 
                         <div v-else class="content-card__actions">
-                            <BaseButton
-                                variant="secondary"
-                                :disabled="isSavingProfile"
-                                @click="cancelEditProfile"
-                            >
+                            <BaseButton variant="secondary" :disabled="isSavingProfile" @click="cancelEditProfile">
                                 Annuler
                             </BaseButton>
-                            <BaseButton
-                                variant="primary"
-                                :loading="isSavingProfile"
-                                @click="saveProfile"
-                            >
+                            <BaseButton variant="primary" :loading="isSavingProfile" @click="saveProfile">
                                 <i class="bi bi-check-lg"></i>
                                 Enregistrer
                             </BaseButton>
@@ -240,7 +203,7 @@
                             </div>
                         </div>
                     </div>
-
+                    
                     <footer class="content-card__foot">
                         <BaseButton v-if="!isEditingPassword" variant="primary" @click="startChangePassword">
                             <i class="bi bi-key"></i>
@@ -250,37 +213,20 @@
                         <div v-else class="edit-form">
                             <div class="edit-grid edit-grid--1">
                                 <div class="edit-field">
-                                    <BaseInput
-                                        v-model="passwordForm.ancienMotDePasse"
-                                        label="Mot de passe actuel"
-                                        type="password"
-                                        icon="bi bi-lock"
-                                        autocomplete="current-password"
-                                        :error="passwordErrors.ancienMotDePasse"
-                                        :disabled="isSavingPassword"
-                                    />
+                                    <BaseInput v-model="passwordForm.ancienMotDePasse" label="Mot de passe actuel"
+                                        type="password" icon="bi bi-lock" autocomplete="current-password"
+                                        :error="passwordErrors.ancienMotDePasse" :disabled="isSavingPassword" />
                                 </div>
                                 <div class="edit-field">
-                                    <BaseInput
-                                        v-model="passwordForm.password"
-                                        label="Nouveau mot de passe"
-                                        type="password"
-                                        icon="bi bi-lock"
-                                        autocomplete="new-password"
-                                        :error="passwordErrors.password"
-                                        :disabled="isSavingPassword"
-                                    />
+                                    <BaseInput v-model="passwordForm.password" label="Nouveau mot de passe"
+                                        type="password" icon="bi bi-lock" autocomplete="new-password"
+                                        :error="passwordErrors.password" :disabled="isSavingPassword" />
                                 </div>
                                 <div class="edit-field">
-                                    <BaseInput
-                                        v-model="passwordForm.confirmPassword"
-                                        label="Confirmer le nouveau mot de passe"
-                                        type="password"
-                                        icon="bi bi-lock"
-                                        autocomplete="new-password"
-                                        :error="passwordErrors.confirmPassword"
-                                        :disabled="isSavingPassword"
-                                    />
+                                    <BaseInput v-model="passwordForm.confirmPassword"
+                                        label="Confirmer le nouveau mot de passe" type="password" icon="bi bi-lock"
+                                        autocomplete="new-password" :error="passwordErrors.confirmPassword"
+                                        :disabled="isSavingPassword" />
                                 </div>
                             </div>
 
@@ -290,24 +236,19 @@
                                 minuscule, un chiffre et un caractère spécial.
                             </p>
 
-                            <div v-if="passwordAlert" class="alert" :class="`alert--${passwordAlert.type}`" role="alert">
-                                <i :class="passwordAlert.type === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'"></i>
+                            <div v-if="passwordAlert" class="alert" :class="`alert--${passwordAlert.type}`"
+                                role="alert">
+                                <i
+                                    :class="passwordAlert.type === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'"></i>
                                 <span>{{ passwordAlert.message }}</span>
                             </div>
 
                             <div class="content-card__actions">
-                                <BaseButton
-                                    variant="secondary"
-                                    :disabled="isSavingPassword"
-                                    @click="cancelChangePassword"
-                                >
+                                <BaseButton variant="secondary" :disabled="isSavingPassword"
+                                    @click="cancelChangePassword">
                                     Annuler
                                 </BaseButton>
-                                <BaseButton
-                                    variant="primary"
-                                    :loading="isSavingPassword"
-                                    @click="savePassword"
-                                >
+                                <BaseButton variant="primary" :loading="isSavingPassword" @click="savePassword">
                                     <i class="bi bi-check-lg"></i>
                                     Modifier
                                 </BaseButton>
@@ -323,10 +264,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { BaseCard, BaseButton, BaseConfirm, BaseInput } from '@/components/base'
+import { BaseButton, BaseConfirm, BaseInput } from '@/components/base'
 import { useConfirmation } from '@/composables/useConfirmation'
 import { formatDate } from '@/utils/date'
 import * as authService from '@/services/auth'
+import router from '@/router'
 
 const authStore = useAuthStore()
 
@@ -362,6 +304,8 @@ const passwordAlert = ref<{ type: 'success' | 'danger'; message: string } | null
 
 /* -------------------- computed -------------------- */
 const user = computed(() => authStore.user)
+
+const userId = computed(() => user.value?.idUtilisateur)
 
 const userInitials = computed(() => {
     if (!user.value) return ''
@@ -973,14 +917,20 @@ onMounted(() => {
     border: 1px solid #c8e5cf;
     color: #1e7e34;
 }
-.alert--success i { color: #1e7e34; }
+
+.alert--success i {
+    color: #1e7e34;
+}
 
 .alert--danger {
     background: #fdecea;
     border: 1px solid #f6cfcc;
     color: #a61b16;
 }
-.alert--danger i { color: #a61b16; }
+
+.alert--danger i {
+    color: #a61b16;
+}
 
 /* ============================================================
    ÉTAT D'ERREUR
@@ -1040,13 +990,26 @@ onMounted(() => {
     border-radius: 6px;
 }
 
-.skeleton--line { height: 12px; }
-.skeleton--short { width: 40%; }
-.skeleton--medium { width: 65%; }
+.skeleton--line {
+    height: 12px;
+}
+
+.skeleton--short {
+    width: 40%;
+}
+
+.skeleton--medium {
+    width: 65%;
+}
 
 @keyframes shimmer {
-    from { background-position: 200% 0; }
-    to { background-position: -200% 0; }
+    from {
+        background-position: 200% 0;
+    }
+
+    to {
+        background-position: -200% 0;
+    }
 }
 
 .profile-skeleton {
@@ -1082,70 +1045,96 @@ onMounted(() => {
    RESPONSIVE
    ============================================================ */
 @media (max-width: 1199.98px) {
-    .profile-page { padding-left: 24px; padding-right: 24px; }
+    .profile-page {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
 }
 
 @media (max-width: 991.98px) {
+
     .profile-layout,
     .loading-state {
         grid-template-columns: 1fr;
     }
+
     .profile-side {
         position: static;
         display: grid;
         grid-template-columns: 1fr 1fr;
     }
+
     .avatar-card {
         padding: 1.5rem 1rem;
     }
 }
 
 @media (max-width: 767.98px) {
-    .profile-page { padding: 24px 16px 20px; }
+    .profile-page {
+        padding: 24px 16px 20px;
+    }
+
     .profile-side {
         grid-template-columns: 1fr;
     }
+
     .info-grid,
     .info-grid--2 {
         grid-template-columns: 1fr;
     }
+
     .edit-grid {
         grid-template-columns: 1fr;
     }
+
     .content-card__foot {
         justify-content: stretch;
     }
+
     .content-card__foot :deep(.base-btn),
     .content-card__foot :deep(.btn) {
         flex: 1;
     }
+
     .content-card__actions {
         flex-direction: column-reverse;
     }
 }
 
 @media (max-width: 575.98px) {
-    .profile-page { padding: 20px 12px 16px; }
+    .profile-page {
+        padding: 20px 12px 16px;
+    }
+
     .avatar-card__circle {
         width: 80px;
         height: 80px;
     }
+
     .avatar-card__initials {
         font-size: 1.9rem;
     }
+
     .content-card__body {
         padding: 0.9rem 1rem;
     }
+
     .content-card__head {
         padding: 0.75rem 1rem;
     }
+
     .content-card__foot {
         padding: 0.75rem 1rem;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .skeleton { animation: none !important; }
-    .avatar-card__circle { transition: none !important; }
+    .skeleton {
+        animation: none !important;
+    }
+
+    .avatar-card__circle {
+        transition: none !important;
+    }
 }
 </style>

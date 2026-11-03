@@ -16,16 +16,16 @@ import lombok.Setter;
 @Builder
 public class SousActiviteImportDTO {
 
+    /** Code facultatif : généré à partir de l'activité parente s'il est absent. */
     private String code;
+
     private String designation;
 
+    /** Obligatoire : sert au calcul de la date de debut de l'activite. */
     private LocalDate dateDebut;
 
+    /** Obligatoire : sert au calcul de la date de fin de l'activite. */
     private LocalDate dateFin;
-
-    private LocalDate dateDebutReelle;
-
-    private LocalDate dateFinReelle;
 
     private List<LivrableImportDTO> livrables;
 }

@@ -25,8 +25,6 @@ const id = computed<number | null>(() =>
 const form = ref<{
     code: string
     designation: string
-    codeHopex: string
-    indicateurHopex: string
     typeIndicateur: string
     uniteMesure: string
     frequenceVerification: string
@@ -41,8 +39,6 @@ const form = ref<{
 }>({
     code: '',
     designation: '',
-    codeHopex: '',
-    indicateurHopex: '',
     typeIndicateur: '',
     uniteMesure: '',
     frequenceVerification: '',
@@ -71,8 +67,6 @@ async function charger(): Promise<void> {
     form.value = {
         code: d.code,
         designation: d.designation,
-        codeHopex: d.codeHopex ?? '',
-        indicateurHopex: d.indicateurHopex ?? '',
         typeIndicateur: d.typeIndicateur ?? '',
         uniteMesure: d.uniteMesure ?? '',
         frequenceVerification: d.frequenceVerification ?? '',
@@ -103,8 +97,6 @@ function valider(): boolean {
     if (!form.value.designation.trim()) errors.value.designation = 'La désignation est obligatoire'
     else if (form.value.designation.trim().length > 250) errors.value.designation = 'Maximum 250 caractères'
 
-    if (form.value.codeHopex.trim().length > 150) errors.value.codeHopex = 'Maximum 150 caractères'
-    if (form.value.indicateurHopex.trim().length > 250) errors.value.indicateurHopex = 'Maximum 250 caractères'
 
     // Validation numérique : "12.3.4" ou "abc" doivent être refusés avant
     // d'atteindre le backend.
@@ -146,8 +138,6 @@ async function soumettre(): Promise<void> {
     const payload: IndicateurRequest = {
         code: form.value.code.trim(),
         designation: form.value.designation.trim(),
-        codeHopex: form.value.codeHopex.trim() || null,
-        indicateurHopex: form.value.indicateurHopex.trim() || null,
         typeIndicateur: form.value.typeIndicateur.trim() || null,
         uniteMesure: form.value.uniteMesure.trim() || null,
         frequenceVerification: form.value.frequenceVerification.trim() || null,
@@ -211,17 +201,6 @@ onMounted(charger)
                 </div>
                 <BaseInput v-model="form.typeIndicateur" label="Type d'indicateur"
                     placeholder="Ex : PERFORMANCE, RISQUE…" :disabled="loading || submitting" />
-            </section>
-
-            <!-- Référentiel HOPEx -->
-            <section class="bo-form__section">
-                <h2 class="bo-form__section-title">Référentiel HOPEx</h2>
-                <div class="bo-form__row">
-                    <BaseInput v-model="form.codeHopex" label="Code HOPEx" :error="errors.codeHopex"
-                        :disabled="loading || submitting" />
-                    <BaseInput v-model="form.indicateurHopex" label="Indicateur HOPEx" :error="errors.indicateurHopex"
-                        :disabled="loading || submitting" />
-                </div>
             </section>
 
             <!-- Mesure -->

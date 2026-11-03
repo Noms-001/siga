@@ -46,7 +46,7 @@ public class Activite {
     @Column(name = "id_activite")
     private Integer idActivite;
 
-    @Column(name = "code", nullable = false, unique = true, length = 20)
+    @Column(name = "code", nullable = false, length = 20)
     private String code;
 
     @Column(name = "reference", length = 20)
@@ -87,7 +87,7 @@ public class Activite {
     private Site site;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_priorite", nullable = false)
+    @JoinColumn(name = "id_priorite")
     private Priorite priorite;
 
     @ManyToOne(fetch = FetchType.LAZY)

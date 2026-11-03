@@ -215,6 +215,7 @@ export interface SousActiviteDetail {
     affectations: AffectationDetail[]
     livrables: LivrableDetail[]
     statutActivite: string | null
+    peutSaisirAvancement: boolean
 }
 
 export interface DecisionResultat {
@@ -274,8 +275,6 @@ export interface ValeurIndicateur {
 export interface IndicateurDetail {
     id: number
     code: string | null
-    codeHopex: string | null
-    indicateurHopex: string | null
     designation: string | null
     typeIndicateur: string | null
     uniteMesure: string | null
@@ -358,13 +357,11 @@ export interface ActiviteEcriture {
     code: string
     reference: string | null
     designation: string
-    dateDebutPrevue: string
-    dateFinPrevue: string | null
     pta: boolean
     idObjectifSpecifique: number | null
     idTypeActivite: number | null
     idSite: number | null
-    idPriorite: number
+    idPriorite: number | null
     idService: number | null
     sousActivites: SousActiviteEcriture[]
     resultatsIntermediaires: ResultatIntermediaireEcriture[]
@@ -435,7 +432,7 @@ export interface ActiviteFormulaire {
     objectifAnnee: number | null
     idTypeActivite: number | null
     idSite: number | null
-    idPriorite: number
+    idPriorite: number | null
     idService: number
     statut: string
     sousActivites: SousActiviteFormulaire[]
@@ -457,4 +454,38 @@ export interface ValidationActiviteResponse {
     obligatoire: boolean | null
     idDemandeur: number
     idDecideur: number | null
+}
+
+// Statuts manquants dans les constantes de couleur des vues
+export const VALIDEE = 'VALIDEE'
+
+// Réponse des endpoints démarrer / clôturer
+export interface ActiviteTransitionResultat {
+    idActivite: number
+    code: string
+    designation: string
+    statutCode: string
+    statutLibelle: string
+    dateDebutReelle: string | null
+    dateFinReelle: string | null
+    dateTransition: string
+}
+
+// ============================================================
+// Nouveau workflow — démarrer / clôturer
+// ============================================================
+
+/** Statut stable post-validation : l'activité est prête à être exécutée. */
+export const NON_COMMENCEE = 'NON_COMMENCEE'
+
+/** Transition explicite (démarrage ou clôture) renvoyée par le backend. */
+export interface ActiviteTransitionResultat {
+    idActivite: number
+    code: string
+    designation: string
+    statutCode: string
+    statutLibelle: string
+    dateDebutReelle: string | null
+    dateFinReelle: string | null
+    dateTransition: string
 }

@@ -376,22 +376,11 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("servicePerimetre") Integer servicePerimetre,
                      @Param("departementPerimetre") Integer departementPerimetre);
 
-       boolean existsByCodeIgnoreCase(String code);
+       boolean existsByCodeIgnoreCaseAndService_IdService(String code, Integer idService);
 
        @Lock(LockModeType.PESSIMISTIC_WRITE)
        @Query("SELECT a FROM Activite a WHERE a.idActivite = :id")
        Optional<Activite> verrouillerActivite(@Param("id") Integer id);
-
-       @Query("SELECT COUNT(a) FROM Activite a WHERE a.idActivite <= :id")
-       int compterActivitesJusqua(@Param("id") Integer id);
-
-       @Query(value = """
-                     SELECT COALESCE(MAX(CAST(SUBSTRING(a.code FROM '^A-[0-9]{4}-([0-9]+)$')
-                                           AS INTEGER)), 0)
-                     FROM activite a
-                     WHERE a.code ~ ('^A-' || :annee || '-\\d+$')
-                     """, nativeQuery = true)
-       int dernierNumeroNonPta(@Param("annee") int annee);
 
        @Modifying
        @Query(value = """
@@ -522,8 +511,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
        @Query(value = """
                      SELECT i.id_indicateur              AS id,
                             i.code                       AS code,
-                            i.code_hopex                 AS codeHopex,
-                            i.indicateur_hopex           AS indicateurHopex,
                             i.designation                AS designation,
                             i.type_indicateur            AS typeIndicateur,
                             i.unite_mesure               AS uniteMesure,
@@ -1011,4 +998,175 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("idUtilisateur") Integer idUtilisateur,
                      @Param("debutAnnee") java.time.LocalDate debutAnnee,
                      @Param("finAnnee") java.time.LocalDate finAnnee);
+
+       Optional<Activite> findByReferenceIgnoreCase(String reference);
+
+       @Query(value = """
+                     SELECT COUNT(*) FROM activite_origine
+                     WHERE id_activite = :idActivite AND id_origine = :idOrigine
+                     """, nativeQuery = true)
+       long existsLiaisonOrigine(@Param("idActivite") Integer idActivite,
+                     @Param("idOrigine") Integer idOrigine);
+
+       @Query(value = """
+                     SELECT COUNT(*) FROM sous_activite sa
+                     WHERE sa.id_activite = :idActivite
+                       AND NOT EXISTS (
+                           SELECT 1 FROM avancement_sous_activite av
+                           WHERE av.id_sous_activite = sa.id_sous_activite
+                             AND av.valeur_pourcentage = 100
+                             AND NOT EXISTS (
+                                 SELECT 1 FROM avancement_sous_activite av2
+                                 WHERE av2.id_sous_activite = av.id_sous_activite
+                                   AND (av2.date_changement, av2.id_historique_sous_activite)
+                                       > (av.date_changement, av.id_historique_sous_activite))
+                       )
+                     """, nativeQuery = true)
+       long compterSousActivitesNonTerminees(@Param("idActivite") Integer idActivite);
+
+       // ------------------------------------------------------------------
+       // Listes du nouveau workflow
+       // ------------------------------------------------------------------
+
+       @Query(value = """
+                     SELECT act.id_activite                       AS id,
+                            act.code                              AS code,
+                            act.reference                         AS reference,
+                            act.designation                       AS designation,
+                            act.date_debut_prevue                 AS dateDebutPrevue,
+                            act.date_fin_prevue                   AS dateFinPrevue,
+                            act.date_debut_reelle                 AS dateDebutReelle,
+                            act.date_fin_reelle                   AS dateFinReelle,
+                            crea.date_creation                    AS dateCreation,
+                            COALESCE(crea.date_creation, TIMESTAMP '-infinity') AS dateCreationTri,
+                            os.id_objectif_specifique             AS osId,
+                            os.code                               AS osCode,
+                            os.designation                        AS osDesignation,
+                            os.annee                              AS osAnnee,
+                            srv.id_service                        AS serviceId,
+                            srv.nom                               AS serviceLibelle,
+                            ta.id_type_activite                   AS typeActiviteId,
+                            ta.designation                        AS typeActiviteLibelle,
+                            st.id_site                            AS siteId,
+                            st.nom                                AS siteLibelle,
+                            pr.id_priorite                        AS prioriteId,
+                            pr.code                               AS prioriteCode,
+                            pr.libelle                            AS prioriteLibelle,
+                            sta.id_statut                         AS statutId,
+                            sta.code                              AS statutCode,
+                            sta.libelle                           AS statutLibelle,
+                            COALESCE(av.avancement, 0)            AS avancement
+                     """
+                     + SELECT_BASE + FILTRES
+                     + """
+                                   AND sta.code = 'NON_COMMENCEE'
+                                   AND EXISTS (
+                                          SELECT 1 FROM affectation_activite aa
+                                          JOIN role r ON r.id_role = aa.id_role
+                                          WHERE aa.id_activite = act.id_activite
+                                                 AND r.code = 'RESPONSABLE'
+                                                 AND aa.date_desaffectation IS NULL
+                                   )
+                                                 """, countQuery = "SELECT COUNT(*) " + SELECT_BASE_COUNT + FILTRES
+                                   + " AND sta.code = 'NON_COMMENCEE'"
+                                   + " AND EXISTS (SELECT 1 FROM affectation_activite aa JOIN role r ON r.id_role = aa.id_role WHERE aa.id_activite = act.id_activite AND r.code = 'RESPONSABLE' AND aa.date_desaffectation IS NULL)", nativeQuery = true)
+       Page<ActiviteListRow> findActivitesADemarrer(
+                     @Param("pta") Boolean pta,
+                     @Param("recherche") String recherche,
+                     @Param("objectifId") Integer objectifId,
+                     @Param("objectifRecherche") String objectifRecherche,
+                     @Param("servicePerimetre") Integer servicePerimetre,
+                     @Param("departementPerimetre") Integer departementPerimetre,
+                     @Param("serviceDemande") Integer serviceDemande,
+                     @Param("prioriteId") Integer prioriteId,
+                     @Param("typeActiviteId") Integer typeActiviteId,
+                     @Param("siteId") Integer siteId,
+                     @Param("statutCode") String statutCode,
+                     @Param("codesTerminaux") String codesTerminaux,
+                     @Param("annee") Integer annee,
+                     @Param("moisDebut") Integer moisDebut,
+                     @Param("moisFin") Integer moisFin,
+                     @Param("dateDebut") java.time.LocalDate dateDebut,
+                     @Param("dateFin") java.time.LocalDate dateFin,
+                     Pageable pageable);
+
+       @Modifying
+       @Query(value = """
+                     DELETE FROM fichier_sous_activite
+                     WHERE id_livrable_sous_activite IN (
+                         SELECT l.id_livrable_sous_activite FROM livrable_sous_activite l
+                         JOIN sous_activite sa ON sa.id_sous_activite = l.id_sous_activite
+                         WHERE sa.id_activite = :id
+                     )
+                     """, nativeQuery = true)
+       void supprimerFichiersEnfants(@Param("id") Integer id);
+
+       @Modifying
+       @Query(value = """
+                     DELETE FROM livrable_sous_activite
+                     WHERE id_sous_activite IN (
+                         SELECT id_sous_activite FROM sous_activite WHERE id_activite = :id
+                     )
+                     """, nativeQuery = true)
+       void supprimerLivrablesEnfants(@Param("id") Integer id);
+
+       @Modifying
+       @Query(value = """
+                     DELETE FROM affectation_sous_activite
+                     WHERE id_sous_activite IN (
+                         SELECT id_sous_activite FROM sous_activite WHERE id_activite = :id
+                     )
+                     """, nativeQuery = true)
+       void supprimerAffectationsEnfants(@Param("id") Integer id);
+
+       @Modifying
+       @Query(value = """
+                     DELETE FROM avancement_sous_activite
+                     WHERE id_sous_activite IN (
+                         SELECT id_sous_activite FROM sous_activite WHERE id_activite = :id
+                     )
+                     """, nativeQuery = true)
+       void supprimerAvancementsEnfants(@Param("id") Integer id);
+
+       @Modifying
+       @Query("DELETE FROM SousActivite sa WHERE sa.activite.idActivite = :id")
+       void supprimerSousActivites(@Param("id") Integer id);
+
+       @Modifying
+       @Query("DELETE FROM ResultatIntermediaire r WHERE r.activite.idActivite = :id")
+       void supprimerResultats(@Param("id") Integer id);
+
+       @Modifying
+       @Query("DELETE FROM HistoriqueActivite h WHERE h.activite.idActivite = :id")
+       void supprimerHistorique(@Param("id") Integer id);
+
+       @Modifying
+       @Query(value = "DELETE FROM validation_activite WHERE id_activite = :id", nativeQuery = true)
+       void supprimerValidations(@Param("id") Integer id);
+
+       @Modifying
+       @Query(value = "DELETE FROM activite_indicateur WHERE id_activite = :id", nativeQuery = true)
+       void supprimerLiaisonIndicateurs(@Param("id") Integer id);
+
+       @Modifying
+       @Query(value = "DELETE FROM activite_origine WHERE id_activite = :id", nativeQuery = true)
+       void supprimerLiaisonOrigines(@Param("id") Integer id);
+
+       @Modifying
+       @Query("DELETE FROM Activite a WHERE a.idActivite = :id")
+       void supprimerActiviteParId(@Param("id") Integer id);
+
+       default void supprimerCascade(Integer id) {
+              supprimerFichiersEnfants(id);
+              supprimerLivrablesEnfants(id);
+              supprimerAffectationsEnfants(id);
+              supprimerAvancementsEnfants(id);
+              supprimerSousActivites(id);
+              supprimerResultats(id);
+              supprimerHistorique(id);
+              supprimerValidations(id);
+              supprimerLiaisonIndicateurs(id);
+              supprimerLiaisonOrigines(id);
+              supprimerActiviteParId(id);
+       }
 }

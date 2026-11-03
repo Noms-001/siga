@@ -35,12 +35,19 @@ export async function chargerPageNotifications(
     page: number,
     size = 10,
     filtres: NotificationFiltres = { search: '', lecture: 'TOUTES', priorite: '' },
-): Promise<NotificationItem[] | null> {
-    const params = new URLSearchParams({ page: String(page), size: String(size), lecture: filtres.lecture })
+    urgentes = false,
+): Promise<NotificationPage | null> {
+    const params = new URLSearchParams({
+        page: String(page),
+        size: String(size),
+        lecture: filtres.lecture,
+    })
     if (filtres.search.trim()) params.set('search', filtres.search.trim())
     if (filtres.priorite) params.set('priorite', filtres.priorite)
-    const resultat = await get<NotificationItem[]>(`/notifications?${params.toString()}`)
-    return resultat.success ? resultat.data : null
+    if (urgentes) params.set('urgentes', 'true')
+
+    const rep = await get<NotificationPage>(`/notifications/page?${params.toString()}`)
+    return rep.success ? rep.data : null
 }
 
 export async function actualiserNotifications(): Promise<void> {
@@ -75,3 +82,28 @@ export async function marquerToutesNotificationsLues(): Promise<boolean> {
 }
 
 export function useNotifications() { return state }
+
+export interface NotificationContexte {
+    [libelle: string]: string
+}
+
+export interface NotificationDetail {
+    id: number
+    titre: string
+    message: string
+    dateCreation: string
+    dateLecture: string | null
+    priorite: { id?: number; code?: string; libelle?: string } | null
+    utilisateur: { id: number; nom: string; prenom: string } | null
+    resource: string | null
+    idReference: number | null
+    libelleReference: string | null
+    urlFront: string | null
+    entiteDisponible: boolean
+    contexte: NotificationContexte
+}
+
+export async function chargerDetailNotification(id: number): Promise<NotificationDetail | null> {
+    const rep = await get<NotificationDetail>(`/notifications/${id}`)
+    return rep.success ? rep.data : null
+}

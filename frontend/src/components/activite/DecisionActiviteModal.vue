@@ -1,68 +1,16 @@
 <script setup lang="ts">
-/**
- * Confirmation d'une décision sur une ou plusieurs activites, avec motif
- * optionnel.
- *
- * CE QUE CE MODAL FAIT, ET CE QU'IL NE FAIT PAS
- *
- * Il ne decide pas. L'issue est fixee par le bouton qui l'a ouvert (Valider,
- * Rejeter, Soumettre) : la modale la recoit en prop et n'a plus a la
- * demander. Elle recueille deux choses -- confirmation du geste, et motif
- * facultatif -- puis emet. La page appelle le backend.
- *
- * TROIS ISSUES, UN SEUL COMPOSANT
- *
- * Valider, Rejeter et Soumettre à l'étape précédente partagent tout sauf
- * leur sens. Les separer en trois modales aurait triple le formulaire, le
- * champ de motif et la gestion du plafond de caracteres. Les reunir fait
- * qu'une correction sur l'un -- un libelle, une consequence -- profite aux
- * trois.
- *
- * LE MOTIF EST OPTIONNEL POUR LES TROIS
- *
- * Un motif reste utile dans tous les cas : il documente l'historique. Mais
- * aucun ne l'exige -- un rejet peut se suffire du geste quand l'auteur
- * relira son activite, une validation peut passer sans commentaire, un
- * retour aussi. Le bouton n'est donc jamais desactive pour motif manquant.
- *
- * Le texte d'aide sous le champ indique le sens donne au motif selon
- * l'issue : il n'est pas decoratif, il dit a l'utilisateur ce qui sera lu
- * par qui.
- */
+
 import { computed, ref, watch } from 'vue'
 
 import { BaseButton, BaseInput, BaseModal } from '@/components/base'
 
-/**
- * Issue portee par la modale.
- *
- * Seules les issues DECISIONNELLES figurent ici. EN_ATTENTE_VALIDATION est
- * exclu -- ce n'est pas une decision, c'est l'etat avant elle. L'exclure de
- * la table evite qu'un appelant puisse demander une modale pour un non-acte.
- */
 type IssueDecision = 'VALIDE' | 'REJETE' | 'RETOUR_MODIFICATION'
 
 const props = defineProps<{
     modelValue: boolean
 
-    /**
-     * Issue a confirmer.
-     *
-     * Elle fixe le titre, la consequence affichee, la couleur du bouton et
-     * le verbe de l'action. La modale ne propose pas de la changer : le
-     * bouton qui l'a ouverte a deja tranche, et la reproposer serait
-     * redondant -- voire dangereux, un utilisateur qui a clique "Rejeter"
-     * ne s'attend pas a pouvoir valider par megarde.
-     */
     issue: IssueDecision
 
-    /**
-     * Nombre d'activites concernees.
-     *
-     * Le libelle suit ce nombre : "rejeter" et "rejeter ces trois activites"
-     * n'annoncent pas la meme consequence, et l'utilisateur doit savoir avant
-     * de confirmer sur quoi il porte.
-     */
     nombre: number
 
     loading?: boolean
@@ -75,13 +23,6 @@ const emit = defineEmits<{
 
 const commentaire = ref('')
 
-/**
- * Plafond du motif, aligne sur celui du backend.
- *
- * BaseInput ne sait pas poser un maxlength sur sa textarea, et un attribut
- * passe en trop atterrirait sur le div qui l'entoure, donc sur rien. La
- * limite est donc appliquee ici.
- */
 const LONGUEUR_MAX_COMMENTAIRE = 1000
 
 /** Caracteres restants, rappeles quand le motif approche du plafond. */
@@ -96,16 +37,6 @@ const helperMotif = computed(() =>
         : ''
 )
 
-/**
- * Textes et styles, par issue.
- *
- * Une seule table plutot qu'un libelle par branche dans le template : les
- * elements qui disent la meme chose sont tenus a un seul endroit, et une
- * correction -- un mot, une couleur -- profite aux trois issues d'un coup.
- *
- * `ton` est volontairement restreint aux variantes connues de BaseButton.
- * VALIDE n'est pas vert par hasard : c'est un succes, la couleur le dit.
- */
 const TEXTES: Record<IssueDecision, {
     titre: string
     verbe: string

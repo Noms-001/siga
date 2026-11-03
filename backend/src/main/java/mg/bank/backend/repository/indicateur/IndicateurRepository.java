@@ -59,16 +59,6 @@ public interface IndicateurRepository extends JpaRepository<Indicateur, Integer>
 
         boolean existsByCodeAndIdIndicateurNot(String code, Integer id);
 
-        /* -------------------- unicités conditionnelles -------------------- */
-
-        boolean existsByCodeHopex(String codeHopex);
-
-        boolean existsByCodeHopexAndIdIndicateurNot(String codeHopex, Integer id);
-
-        boolean existsByIndicateurHopex(String indicateurHopex);
-
-        boolean existsByIndicateurHopexAndIdIndicateurNot(String indicateurHopex, Integer id);
-
         long countByDesignationIgnoreCase(String designation);
 
         Optional<Indicateur> findByDesignationIgnoreCase(String designation);

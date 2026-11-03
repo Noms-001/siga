@@ -1,5 +1,5 @@
-import { get, type ApiResponse } from '@/services/api-client'
-import type { Indicateur, ValeurIndicateur } from '@/types/backoffice/indicateur'
+import { get, post, type ApiResponse } from '@/services/api-client'
+import type { CalendrierIndicateur, Indicateur, ValeurIndicateur, ValeurIndicateurRequest, DashboardIndicateur } from '@/types/backoffice/indicateur'
 
 const BASE = '/indicateurs'
 
@@ -53,4 +53,23 @@ export async function listerValeursIndicateur(
     )
     if (!res.success) return res
     return { success: true, data: res.data.content }
+}
+
+export function saisirValeurIndicateur(
+    id: number,
+    payload: ValeurIndicateurRequest
+): Promise<ApiResponse<ValeurIndicateur>> {
+    return post<ValeurIndicateur>(`${BASE}/${id}/valeurs`, payload)
+}
+
+export function getCalendrierIndicateur(
+    id: number,
+    annee?: number
+): Promise<ApiResponse<CalendrierIndicateur>> {
+    const q = annee ? `?annee=${annee}` : ''
+    return get<CalendrierIndicateur>(`${BASE}/${id}/calendrier${q}`)
+}
+
+export function getDashboardIndicateurs(): Promise<ApiResponse<DashboardIndicateur>> {
+    return get<DashboardIndicateur>(`${BASE}/dashboard`)
 }

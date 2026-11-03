@@ -66,25 +66,9 @@ public class IndicateurService {
                     HttpStatus.CONFLICT);
         }
 
-        String codeHopex = videSiBlanc(request.getCodeHopex());
-        String indicateurHopex = videSiBlanc(request.getIndicateurHopex());
-
-        if (codeHopex != null && indicateurRepository.existsByCodeHopex(codeHopex)) {
-            throw new ApiException(
-                    "Un indicateur avec ce code HOPEx existe déjà",
-                    HttpStatus.CONFLICT);
-        }
-        if (indicateurHopex != null && indicateurRepository.existsByIndicateurHopex(indicateurHopex)) {
-            throw new ApiException(
-                    "Un indicateur avec cet indicateur HOPEx existe déjà",
-                    HttpStatus.CONFLICT);
-        }
-
         Indicateur entity = Indicateur.builder()
                 .code(code)
                 .designation(request.getDesignation().trim())
-                .codeHopex(codeHopex)
-                .indicateurHopex(indicateurHopex)
                 .typeIndicateur(videSiBlanc(request.getTypeIndicateur()))
                 .uniteMesure(videSiBlanc(request.getUniteMesure()))
                 .frequenceVerification(videSiBlanc(request.getFrequenceVerification()))
@@ -119,26 +103,8 @@ public class IndicateurService {
                     HttpStatus.CONFLICT);
         }
 
-        String codeHopex = videSiBlanc(request.getCodeHopex());
-        String indicateurHopex = videSiBlanc(request.getIndicateurHopex());
-
-        if (codeHopex != null
-                && indicateurRepository.existsByCodeHopexAndIdIndicateurNot(codeHopex, id)) {
-            throw new ApiException(
-                    "Un indicateur avec ce code HOPEx existe déjà",
-                    HttpStatus.CONFLICT);
-        }
-        if (indicateurHopex != null
-                && indicateurRepository.existsByIndicateurHopexAndIdIndicateurNot(indicateurHopex, id)) {
-            throw new ApiException(
-                    "Un indicateur avec cet indicateur HOPEx existe déjà",
-                    HttpStatus.CONFLICT);
-        }
-
         entity.setCode(code);
         entity.setDesignation(request.getDesignation().trim());
-        entity.setCodeHopex(codeHopex);
-        entity.setIndicateurHopex(indicateurHopex);
         entity.setTypeIndicateur(videSiBlanc(request.getTypeIndicateur()));
         entity.setUniteMesure(videSiBlanc(request.getUniteMesure()));
         entity.setFrequenceVerification(videSiBlanc(request.getFrequenceVerification()));

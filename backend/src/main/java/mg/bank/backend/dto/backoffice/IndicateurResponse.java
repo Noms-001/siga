@@ -11,8 +11,6 @@ public class IndicateurResponse {
     private Integer id;
     private String code;
     private String designation;
-    private String codeHopex;
-    private String indicateurHopex;
     private String typeIndicateur;
     private String uniteMesure;
     private String frequenceVerification;

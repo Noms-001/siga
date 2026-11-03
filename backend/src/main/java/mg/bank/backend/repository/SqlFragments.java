@@ -42,8 +42,11 @@ public final class SqlFragments {
                 SELECT a.valeur_pourcentage, a.id_statut
                 FROM avancement_plan_action a
                 WHERE a.id_plan_action = pa.id_plan_action
-                ORDER BY a.date_changement DESC, a.id_avancement_plan_action DESC
-                LIMIT 1
+                  AND NOT EXISTS (
+                      SELECT 1 FROM avancement_plan_action a2
+                      WHERE a2.id_plan_action = pa.id_plan_action
+                        AND (a2.date_changement, a2.id_avancement_plan_action)
+                            > (a.date_changement, a.id_avancement_plan_action))
             ) av ON TRUE
             LEFT JOIN statut sta ON sta.id_statut = av.id_statut
             """;

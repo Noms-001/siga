@@ -1,0 +1,653 @@
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { BaseButton, BaseInput, BaseSelect } from '@/components/base'
+import { listerPlans, listerMesBrouillons } from '@/services/planaction'
+import { STATUTS_PLAN, TYPES_ORIGINE } from '@/types/planaction'
+import type { PlanActionFiltres, PlanActionListItem } from '@/types/planaction'
+
+const router = useRouter()
+
+/* -------------------- état -------------------- */
+
+const plans = ref<PlanActionListItem[]>([])
+const loading = ref(false)
+const errorMessage = ref('')
+
+const page = ref(0)
+const size = ref(20)
+const totalElements = ref(0)
+const totalPages = ref(0)
+
+const vue = ref<'tous' | 'brouillons'>('tous')
+
+/* -------------------- filtres -------------------- */
+
+const filtres = ref<PlanActionFiltres>({
+    statut: '',
+    search: '',
+    annee: undefined,
+    dateDebut: undefined,
+    dateFin: undefined,
+    typeOrigine: '',
+})
+
+const anneeOptions = computed(() => {
+    const current = new Date().getFullYear()
+    return [
+        { value: '', label: 'Toutes les années' },
+        { value: String(current), label: String(current) },
+        { value: String(current - 1), label: String(current - 1) },
+        { value: String(current + 1), label: String(current + 1) },
+    ]
+})
+
+/* -------------------- en-tête -------------------- */
+
+const dateDuJour = computed(() =>
+    new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    }).format(new Date()).toUpperCase()
+)
+
+/* -------------------- chargement -------------------- */
+
+async function charger(): Promise<void> {
+    loading.value = true
+    errorMessage.value = ''
+
+    const params = {
+        ...filtres.value,
+        page: page.value,
+        size: size.value,
+    }
+
+    // Nettoie les valeurs vides pour ne pas envoyer des chaînes vides
+    Object.keys(params).forEach(k => {
+        if (params[k as keyof typeof params] === '' || params[k as keyof typeof params] === null) {
+            delete params[k as keyof typeof params]
+        }
+    })
+
+    const res = vue.value === 'brouillons'
+        ? await listerMesBrouillons(page.value, size.value)
+        : await listerPlans(params)
+
+    loading.value = false
+    if (!res.success) {
+        errorMessage.value = res.error
+        return
+    }
+
+    plans.value = res.data.content
+    totalElements.value = res.data.totalElements
+    totalPages.value = res.data.totalPages
+}
+
+/* -------------------- actions -------------------- */
+
+function voirDetail(id: number): void {
+    router.push({ name: 'plan-action-detail', params: { id } })
+}
+
+function creer(): void {
+    router.push({ name: 'plan-action-create' })
+}
+
+function reinitialiser(): void {
+    filtres.value = { statut: '', search: '', annee: undefined, dateDebut: undefined, dateFin: undefined, typeOrigine: '', }
+    page.value = 0
+    charger()
+}
+
+function changerPage(nouvellePage: number): void {
+    if (nouvellePage < 0 || nouvellePage >= totalPages.value) return
+    page.value = nouvellePage
+    charger()
+}
+
+/* -------------------- helpers d'affichage -------------------- */
+
+function formaterDate(iso: string | null | undefined): string {
+    if (!iso) return '—'
+    const d = new Date(iso)
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('fr-FR')
+}
+
+function classeStatut(statutCode: string | null): string {
+    if (statutCode === 'NON_COMMENCEE') return 'badge-statut--non-commence'
+    if (statutCode === 'EN_COURS') return 'badge-statut--en-cours'
+    if (statutCode === 'EN_RETARD') return 'badge-statut--en-retard'
+    if (statutCode === 'TERMINEE') return 'badge-statut--termine'
+    if (statutCode === 'BROUILLON') return 'badge-statut--brouillon'
+    return ''
+}
+
+function estEnRetard(p: PlanActionListItem): boolean {
+    if (!p.dateFinPrevue) return false
+    if (p.statut?.code === 'TERMINEE' || p.statut?.code === 'ANNULEE') return false
+    return new Date(p.dateFinPrevue) < new Date()
+}
+
+const pagesVisibles = computed<(number | '...')[]>(() => {
+    const total = totalPages.value
+    const current = page.value
+    if (total <= 7) {
+        return Array.from({ length: total }, (_, i) => i)
+    }
+    const pages: (number | '...')[] = [0]
+    if (current > 3) pages.push('...')
+    for (let i = Math.max(1, current - 1); i <= Math.min(total - 2, current + 1); i++) {
+        pages.push(i)
+    }
+    if (current < total - 4) pages.push('...')
+    pages.push(total - 1)
+    return pages
+})
+
+const debutAffichage = computed(() => totalElements.value === 0 ? 0 : page.value * size.value + 1)
+const finAffichage = computed(() => Math.min((page.value + 1) * size.value, totalElements.value))
+
+/* -------------------- watchers -------------------- */
+
+watch(filtres, () => {
+    page.value = 0
+    charger()
+}, { deep: true })
+
+watch(vue, () => {
+    page.value = 0
+    charger()
+})
+
+onMounted(charger)
+</script>
+
+<template>
+    <div class="pa-page">
+        <!-- EN-TÊTE -->
+        <header class="welcome-row">
+            <div class="welcome-row__left">
+                <div class="eyebrow">
+                    <span class="live-dot"></span>
+                    {{ dateDuJour }}
+                </div>
+                <h1>Plans d'action</h1>
+                <span class="title-divider" aria-hidden="true"></span>
+                <p class="subheading">
+                    Suivi et pilotage des plans d'action du périmètre
+                </p>
+            </div>
+            <div class="welcome-row__right">
+                <BaseButton variant="secondary" icon="bi bi-graph-up"
+                    @click="router.push({ name: 'plans-action-suivi' })">
+                    Suivi global
+                </BaseButton>
+                <BaseButton variant="primary" icon="bi bi-plus-lg" @click="creer">
+                    Nouveau plan
+                </BaseButton>
+            </div>
+        </header>
+
+        <!-- ONGLETS -->
+        <div class="vue-tabs" role="tablist">
+            <button :class="['vue-tab', { 'vue-tab--active': vue === 'tous' }]" role="tab" @click="vue = 'tous'">
+                <i class="bi bi-list-check"></i>
+                Tous les plans
+            </button>
+            <button :class="['vue-tab', { 'vue-tab--active': vue === 'brouillons' }]" role="tab"
+                @click="vue = 'brouillons'">
+                <i class="bi bi-pencil-square"></i>
+                Mes brouillons
+            </button>
+        </div>
+
+        <!-- FILTRES -->
+        <section v-if="vue === 'tous'" class="filters">
+            <BaseInput v-model="filtres.search" placeholder="Rechercher par code ou désignation…" icon="bi bi-search"
+                class="filters__search" />
+            <BaseSelect v-model="filtres.statut" :options="STATUTS_PLAN" placeholder="Statut" class="filters__select" />
+            <BaseSelect v-model="filtres.typeOrigine as any" :options="TYPES_ORIGINE" class="filters__select" />
+            <BaseSelect v-model="filtres.annee as any" :options="anneeOptions" placeholder="Année"
+                class="filters__select" />
+            <BaseButton variant="secondary" icon="bi bi-arrow-clockwise" @click="reinitialiser">
+                Réinitialiser
+            </BaseButton>
+        </section>
+
+        <!-- ERREUR -->
+        <div v-if="errorMessage" class="alert alert-danger d-flex justify-content-between align-items-center"
+            role="alert">
+            <span>{{ errorMessage }}</span>
+            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
+        </div>
+
+        <!-- CHARGEMENT -->
+        <div v-else-if="loading" class="loading-state">
+            <div v-for="i in 5" :key="i" class="skeleton skeleton-row"></div>
+        </div>
+
+        <!-- VIDE -->
+        <section v-else-if="plans.length === 0" class="empty-state">
+            <i class="bi bi-clipboard-x"></i>
+            <h2>Aucun plan d'action</h2>
+            <p v-if="vue === 'brouillons'">
+                Vous n'avez aucun brouillon en cours.
+            </p>
+            <p v-else>
+                Aucun plan ne correspond aux filtres sélectionnés.
+            </p>
+            <BaseButton variant="primary" icon="bi bi-plus-lg" @click="creer">
+                Créer un plan
+            </BaseButton>
+        </section>
+
+        <!-- TABLEAU -->
+        <section v-else class="panel">
+            <table class="plans-table">
+                <thead>
+                    <tr>
+                        <th>Code</th>
+                        <th>Désignation</th>
+                        <th>Statut</th>
+                        <th>Avancement</th>
+                        <th>Responsable</th>
+                        <th>Échéance</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="plan in plans" :key="plan.id" class="plans-row" @click="voirDetail(plan.id)">
+                        <td class="plans-table__code">
+                            <code>{{ plan.code }}</code>
+                        </td>
+                        <td class="plans-table__designation">
+                            {{ plan.designation }}
+                        </td>
+                        <td>
+                            <span v-if="plan.statut" :class="['badge-statut', classeStatut(plan.statut.code)]">
+                                {{ plan.statut.libelle }}
+                            </span>
+                            <span v-else class="text-muted">—</span>
+                        </td>
+                        <td class="plans-table__avancement">
+                            <div class="progress">
+                                <div class="progress__bar" :style="{ width: plan.avancement + '%' }" />
+                            </div>
+                            <span class="progress__label">{{ plan.avancement.toFixed(0) }} %</span>
+                        </td>
+                        <td class="plans-table__responsable">
+                            {{ plan.responsable?.libelle ?? '—' }}
+                        </td>
+                        <td class="plans-table__date">
+                            <span :class="{ 'text-danger': estEnRetard(plan) }">
+                                {{ formaterDate(plan.dateFinPrevue) }}
+                            </span>
+                        </td>
+                        <td class="plans-table__actions">
+                            <i class="bi bi-chevron-right"></i>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- PAGINATION -->
+        <footer v-if="totalPages > 1" class="pagination">
+            <span class="pagination__info">
+                {{ totalElements }} plan{{ totalElements > 1 ? 's' : '' }} — page {{ page + 1 }} / {{ totalPages }}
+            </span>
+            <div class="pagination__controls">
+                <BaseButton variant="secondary" size="sm" :disabled="page === 0" @click="changerPage(page - 1)">
+                    <i class="bi bi-chevron-left"></i>
+                    Précédent
+                </BaseButton>
+                <BaseButton variant="secondary" size="sm" :disabled="page >= totalPages - 1"
+                    @click="changerPage(page + 1)">
+                    Suivant
+                    <i class="bi bi-chevron-right"></i>
+                </BaseButton>
+            </div>
+        </footer>
+    </div>
+</template>
+
+<style scoped>
+.pa-page {
+    min-height: calc(100vh - 68px);
+    padding: 34px 38px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    color: #15233c;
+    font-family: "DM Sans", "Segoe UI", sans-serif;
+    background:
+        radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .055) 0, transparent 38%),
+        radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .065) 0, transparent 36%),
+        #f5f7fa;
+}
+
+/* Onglets */
+.vue-tabs {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 1px solid #e6ebf3;
+    margin-bottom: 0.5rem;
+}
+
+.vue-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 1rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #6b7280;
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+}
+
+.vue-tab:hover {
+    color: #1a2a6c;
+}
+
+.vue-tab--active {
+    color: #1a2a6c;
+    border-bottom-color: #4a6cf7;
+}
+
+/* Filtres */
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(26, 42, 108, .04);
+}
+
+.filters__search {
+    flex: 1;
+    min-width: 260px;
+}
+
+.filters__select {
+    min-width: 180px;
+}
+
+/* Tableau */
+.panel {
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(26, 42, 108, .04), 0 8px 24px rgba(26, 42, 108, .06);
+}
+
+.plans-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+}
+
+.plans-table thead th {
+    padding: 0.75rem 1.25rem;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #8a95a8;
+    background: #f8fafc;
+    border-bottom: 1px solid #e6ebf3;
+    white-space: nowrap;
+}
+
+.plans-table tbody td {
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid #eef1f5;
+    color: #15233c;
+    vertical-align: middle;
+}
+
+.plans-row {
+    cursor: pointer;
+    transition: background .12s;
+}
+
+.plans-row:hover {
+    background: #f8fafc;
+}
+
+.plans-row:last-child td {
+    border-bottom: none;
+}
+
+.plans-table__code code {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1a2a6c;
+    background: #eef1f5;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+}
+
+.plans-table__designation {
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plans-table__avancement {
+    width: 160px;
+}
+
+.progress {
+    display: inline-block;
+    width: 90px;
+    height: 6px;
+    background: #eef1f5;
+    border-radius: 3px;
+    overflow: hidden;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+}
+
+.progress__bar {
+    height: 100%;
+    background: linear-gradient(90deg, #4a6cf7, #6b8dff);
+    border-radius: 3px;
+    transition: width .25s ease;
+}
+
+.progress__label {
+    font-size: 0.78rem;
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+}
+
+.plans-table__responsable {
+    color: #4a5568;
+}
+
+.plans-table__date {
+    font-variant-numeric: tabular-nums;
+}
+
+.plans-table__actions {
+    width: 30px;
+    color: #c3cad5;
+    text-align: right;
+}
+
+.plans-row:hover .plans-table__actions {
+    color: #4a6cf7;
+}
+
+/* Statuts */
+.badge-statut {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+}
+
+.badge-statut--non-commence {
+    background: #eef1f5;
+    color: #5b6b7d;
+    border: 1px solid #dfe5ec;
+}
+
+.badge-statut--en-cours {
+    background: #e4f0fb;
+    color: #135d95;
+    border: 1px solid #cde2f6;
+}
+
+.badge-statut--en-retard {
+    background: #fde9e9;
+    color: #b03030;
+    border: 1px solid #f4c7c7;
+}
+
+.badge-statut--termine {
+    background: #e6f4ea;
+    color: #1e7e34;
+    border: 1px solid #c8e5cf;
+}
+
+.badge-statut--brouillon {
+    background: #fdf3e2;
+    color: #9a6409;
+    border: 1px solid #f4e2c2;
+}
+
+.text-danger {
+    color: #b03030;
+    font-weight: 600;
+}
+
+.text-muted {
+    color: #8a95a8;
+}
+
+/* Vide */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    padding: 4rem 2rem;
+    background: #fff;
+    border: 1px dashed #dfe5ec;
+    border-radius: 14px;
+    text-align: center;
+}
+
+.empty-state i {
+    font-size: 2.5rem;
+    color: #c3cad5;
+}
+
+.empty-state h2 {
+    margin: 0;
+    font: 700 1rem Manrope, sans-serif;
+    color: #1a2a6c;
+}
+
+.empty-state p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.88rem;
+}
+
+/* Skeleton */
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.skeleton-row {
+    height: 58px;
+    background: linear-gradient(90deg, #eef1f5 25%, #f6f8fa 50%, #eef1f5 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 10px;
+}
+
+@keyframes shimmer {
+    from {
+        background-position: 200% 0;
+    }
+
+    to {
+        background-position: -200% 0;
+    }
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+}
+
+.pagination__info {
+    font-size: 0.82rem;
+    color: #6b7280;
+}
+
+.pagination__controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Responsive */
+@media (max-width: 991.98px) {
+    .pa-page {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+
+    .plans-table__designation {
+        max-width: 240px;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .pa-page {
+        padding: 24px 16px 20px;
+    }
+
+    .filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filters__search,
+    .filters__select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .plans-table thead th:nth-child(5),
+    .plans-table tbody td:nth-child(5),
+    .plans-table thead th:nth-child(6),
+    .plans-table tbody td:nth-child(6) {
+        display: none;
+    }
+}
+</style>

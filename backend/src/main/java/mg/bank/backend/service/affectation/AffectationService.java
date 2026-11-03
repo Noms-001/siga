@@ -1,8 +1,13 @@
 package mg.bank.backend.service.affectation;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Comparator;
+
+import mg.bank.backend.dto.affectation.AffectationBatchRequest;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -17,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.activite.ActiviteListItemDTO;
 import mg.bank.backend.dto.affectation.AffectationActiviteDTO;
 import mg.bank.backend.dto.affectation.AffectationActiviteRequest;
+import mg.bank.backend.dto.affectation.AffectationBatchRequest;
 import mg.bank.backend.dto.affectation.UtilisateurAffectableDTO;
 import mg.bank.backend.dto.common.ActiviteFiltreCriteria;
 import mg.bank.backend.dto.common.PageResponse;
@@ -54,7 +60,16 @@ public class AffectationService {
         private static final Set<String> ROLES_SINGULIERS = Set.of("RESPONSABLE", "SUPPLEANT");
 
         private static final String CODE_SUPPLEANT = "SUPPLEANT";
-        private static final String STATUT_NON_COMMENCEE = "NON_COMMENCEE";
+        /** Statuts sur lesquels une affectation (ou désaffectation) est autorisée. */
+        private static final Set<String> STATUTS_AFFECTABLES = Set.of(
+                        "NON_COMMENCEE",
+                        "EN_COURS",
+                        "SUSPENDUE");
+
+        /** Statuts exécutés : on ne peut pas retirer le dernier RESPONSABLE. */
+        private static final Set<String> STATUTS_PROTEGES = Set.of(
+                        "EN_COURS",
+                        "SUSPENDUE");
         private static final int TAILLE_PAGE_MAX = 100;
 
         private final ActiviteRepository activiteRepository;
@@ -157,7 +172,7 @@ public class AffectationService {
         @Transactional(readOnly = true)
         public List<UtilisateurAffectableDTO> utilisateursAffectables(Integer idActivite) {
                 Activite activite = chargerActiviteDansPerimetre(idActivite);
-                verifierStatutNonCommencee(idActivite);
+                verifierStatutAffectable(idActivite);
 
                 if (activite.getService() == null) {
                         throw new ApiException(
@@ -186,7 +201,7 @@ public class AffectationService {
                         Integer idActivite, AffectationActiviteRequest request) {
 
                 Activite activite = chargerActiviteDansPerimetre(idActivite);
-                verifierStatutNonCommencee(idActivite);
+                verifierStatutAffectable(idActivite);
 
                 Utilisateur utilisateur = verifierUtilisateurAffectable(
                                 request.getUtilisateurId(), activite);
@@ -242,7 +257,7 @@ public class AffectationService {
                         AffectationActiviteRequest request) {
 
                 SousActivite sa = chargerSousActiviteDansPerimetre(idActivite, idSousActivite);
-                verifierStatutNonCommencee(idActivite);
+                verifierStatutAffectable(idActivite);
 
                 Utilisateur utilisateur = verifierUtilisateurAffectable(
                                 request.getUtilisateurId(), sa.getActivite());
@@ -290,7 +305,7 @@ public class AffectationService {
         @Transactional
         public void desaffecterActivite(Integer idActivite, Integer idAffectation) {
                 chargerActiviteDansPerimetre(idActivite);
-                verifierStatutNonCommencee(idActivite);
+                verifierStatutAffectable(idActivite);
 
                 AffectationActivite entity = affectationActiviteRepository
                                 .findByIdAffectationActiviteAndActiviteIdActivite(idAffectation, idActivite)
@@ -303,6 +318,20 @@ public class AffectationService {
                                         HttpStatus.CONFLICT);
                 }
 
+                // Protection : ne pas retirer le dernier RESPONSABLE d'une activité
+                // en cours ou suspendue.
+                if ("RESPONSABLE".equals(entity.getRole().getCode())) {
+                        StatutCourantRow statut = statutCourant(idActivite);
+                        if (STATUTS_PROTEGES.contains(statut.getStatutCode())
+                                        && affectationActiviteRepository.countResponsableActif(idActivite) <= 1) {
+                                throw new ApiException(
+                                                "Impossible de retirer le dernier RESPONSABLE d'une activité "
+                                                                + statut.getStatutCode() + ". "
+                                                                + "Réaffectez d'abord un autre responsable.",
+                                                HttpStatus.CONFLICT);
+                        }
+                }
+
                 entity.setDateDesaffectation(LocalDateTime.now());
                 affectationActiviteRepository.save(entity);
         }
@@ -312,7 +341,7 @@ public class AffectationService {
                         Integer idActivite, Integer idSousActivite, Integer idAffectation) {
 
                 chargerSousActiviteDansPerimetre(idActivite, idSousActivite);
-                verifierStatutNonCommencee(idActivite);
+                verifierStatutAffectable(idActivite);
 
                 AffectationSousActivite entity = affectationSousActiviteRepository
                                 .findByIdAffectationSousActiviteAndSousActiviteIdSousActivite(
@@ -361,17 +390,14 @@ public class AffectationService {
                                                 "Sous-activité introuvable.", HttpStatus.NOT_FOUND));
         }
 
-        private void verifierStatutNonCommencee(Integer idActivite) {
-                PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
-                StatutCourantRow statut = activiteRepository.findStatutCourant(
-                                idActivite,
-                                perimetre.getFiltreService(),
-                                perimetre.getFiltreDepartement())
-                                .orElseThrow(() -> activiteService.refusOuAbsence(idActivite));
+        private void verifierStatutAffectable(Integer idActivite) {
+                StatutCourantRow statut = statutCourant(idActivite);
 
-                if (!STATUT_NON_COMMENCEE.equals(statut.getStatutCode())) {
+                if (!STATUTS_AFFECTABLES.contains(statut.getStatutCode())) {
                         throw new ApiException(
-                                        "Seule une activité au statut « Non commencée » peut être affectée.",
+                                        "Une activité au statut " + statut.getStatutCode()
+                                                        + " ne peut pas être affectée. "
+                                                        + "Statuts autorisés : NON_COMMENCEE, EN_COURS, SUSPENDUE.",
                                         HttpStatus.CONFLICT);
                 }
         }
@@ -413,6 +439,15 @@ public class AffectationService {
                                         HttpStatus.BAD_REQUEST);
                 }
                 return role;
+        }
+
+        private StatutCourantRow statutCourant(Integer idActivite) {
+                PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
+                return activiteRepository.findStatutCourant(
+                                idActivite,
+                                perimetre.getFiltreService(),
+                                perimetre.getFiltreDepartement())
+                                .orElseThrow(() -> activiteService.refusOuAbsence(idActivite));
         }
 
         // ------------------------------------------------------------------
@@ -457,6 +492,146 @@ public class AffectationService {
                                                 .build())
                                 .active(row.getDateDesaffectation() == null)
                                 .build();
+        }
+
+        @Transactional
+        public List<AffectationActiviteDTO> affecterActivitesBatch(
+                        Integer idActivite, List<AffectationBatchRequest.Item> items) {
+
+                Activite activite = chargerActiviteDansPerimetre(idActivite);
+                verifierStatutAffectable(idActivite);
+
+                // 1. Trier : RESPONSABLE d'abord, puis SUPPLEANT, puis PARTICIPANT
+                // (le SUPPLEANT exige un RESPONSABLE actif — l'ordre compte)
+                List<AffectationBatchRequest.Item> tries = new ArrayList<>(items);
+                tries.sort(Comparator.comparingInt(it -> {
+                        Role r = roleRepository.findById(it.getRoleId()).orElse(null);
+                        if (r == null)
+                                return 99;
+                        return switch (r.getCode()) {
+                                case "RESPONSABLE" -> 0;
+                                case "SUPPLEANT" -> 1;
+                                default -> 2;
+                        };
+                }));
+
+                // 2. Validation prealable (avant tout INSERT)
+                Set<String> rolesSinguliersVus = new HashSet<>();
+                for (AffectationBatchRequest.Item item : tries) {
+                        Utilisateur u = verifierUtilisateurAffectable(item.getUtilisateurId(), activite);
+                        Role r = verifierRole(item.getRoleId());
+
+                        if (ROLES_SINGULIERS.contains(r.getCode())) {
+                                if (!rolesSinguliersVus.add(r.getCode())) {
+                                        throw new ApiException(
+                                                        "Un seul « " + r.getLibelle() + " » est autorisé par activité.",
+                                                        HttpStatus.CONFLICT);
+                                }
+                                if (affectationActiviteRepository
+                                                .countActivesPourRole(idActivite, r.getIdRole()) > 0) {
+                                        throw new ApiException(
+                                                        "Un « " + r.getLibelle()
+                                                                        + " » est déjà affecté à cette activité.",
+                                                        HttpStatus.CONFLICT);
+                                }
+                        }
+                }
+
+                // 3. Application
+                List<AffectationActiviteDTO> resultat = new ArrayList<>();
+                for (AffectationBatchRequest.Item item : tries) {
+                        Role role = roleRepository.findById(item.getRoleId()).orElseThrow();
+                        Utilisateur u = utilisateurRepository.findById(item.getUtilisateurId()).orElseThrow();
+
+                        // Regle SUPPLEANT exige RESPONSABLE — verifie a chaque insertion
+                        if ("SUPPLEANT".equals(role.getCode())
+                                        && affectationActiviteRepository.countResponsableActif(idActivite) == 0) {
+                                throw new ApiException(
+                                                "Un suppléant ne peut être affecté que si un responsable est "
+                                                                + "déjà affecté sur cette activité.",
+                                                HttpStatus.CONFLICT);
+                        }
+
+                        AffectationActivite entity = affectationActiviteRepository.save(
+                                        AffectationActivite.builder()
+                                                        .dateAffectation(LocalDateTime.now())
+                                                        .role(role)
+                                                        .activite(activite)
+                                                        .utilisateur(u)
+                                                        .build());
+                        resultat.add(versAffectationDto(entity));
+                }
+
+                return resultat;
+        }
+
+        @Transactional
+        public List<AffectationActiviteDTO> affecterSousActivitesBatch(
+                        Integer idActivite, Integer idSousActivite,
+                        List<AffectationBatchRequest.Item> items) {
+
+                SousActivite sa = chargerSousActiviteDansPerimetre(idActivite, idSousActivite);
+                verifierStatutAffectable(idActivite);
+
+                List<AffectationBatchRequest.Item> tries = new ArrayList<>(items);
+                tries.sort(Comparator.comparingInt(it -> {
+                        Role r = roleRepository.findById(it.getRoleId()).orElse(null);
+                        if (r == null)
+                                return 99;
+                        return switch (r.getCode()) {
+                                case "RESPONSABLE" -> 0;
+                                case "SUPPLEANT" -> 1;
+                                default -> 2;
+                        };
+                }));
+
+                Set<String> rolesSinguliersVus = new HashSet<>();
+                for (AffectationBatchRequest.Item item : tries) {
+                        verifierUtilisateurAffectable(item.getUtilisateurId(), sa.getActivite());
+                        Role r = verifierRole(item.getRoleId());
+
+                        if (ROLES_SINGULIERS.contains(r.getCode())) {
+                                if (!rolesSinguliersVus.add(r.getCode())) {
+                                        throw new ApiException(
+                                                        "Un seul « " + r.getLibelle()
+                                                                        + " » est autorisé par sous-activité.",
+                                                        HttpStatus.CONFLICT);
+                                }
+                                if (affectationSousActiviteRepository
+                                                .countActivesPourRole(idSousActivite, r.getIdRole()) > 0) {
+                                        throw new ApiException(
+                                                        "Un « " + r.getLibelle()
+                                                                        + " » est déjà affecté à cette sous-activité.",
+                                                        HttpStatus.CONFLICT);
+                                }
+                        }
+                }
+
+                List<AffectationActiviteDTO> resultat = new ArrayList<>();
+                for (AffectationBatchRequest.Item item : tries) {
+                        Role role = roleRepository.findById(item.getRoleId()).orElseThrow();
+                        Utilisateur u = utilisateurRepository.findById(item.getUtilisateurId()).orElseThrow();
+
+                        if ("SUPPLEANT".equals(role.getCode())
+                                        && affectationSousActiviteRepository
+                                                        .countResponsableActif(idSousActivite) == 0) {
+                                throw new ApiException(
+                                                "Un suppléant ne peut être affecté que si un responsable est déjà "
+                                                                + "affecté sur cette sous-activité.",
+                                                HttpStatus.CONFLICT);
+                        }
+
+                        AffectationSousActivite entity = affectationSousActiviteRepository.save(
+                                        AffectationSousActivite.builder()
+                                                        .dateAffectation(LocalDateTime.now())
+                                                        .role(role)
+                                                        .sousActivite(sa)
+                                                        .utilisateur(u)
+                                                        .build());
+                        resultat.add(versAffectationSousActiviteDto(entity));
+                }
+
+                return resultat;
         }
 
         private String motif(String recherche) {

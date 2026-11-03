@@ -13,52 +13,90 @@ import mg.bank.backend.repository.projection.affectation.AffectationRow;
 
 @Repository
 public interface AffectationSousActiviteRepository
-        extends JpaRepository<AffectationSousActivite, Integer> {
+    extends JpaRepository<AffectationSousActivite, Integer> {
 
-    @Query(value = """
-            SELECT aa.id_affectation_sous_activite AS id,
-                   aa.date_affectation             AS dateAffectation,
-                   aa.date_desaffectation          AS dateDesaffectation,
-                   r.id_role                       AS roleId,
-                   r.code                          AS roleCode,
-                   r.designation                   AS roleLibelle,
-                   u.id_utilisateur                AS utilisateurId,
-                   u.nom                           AS utilisateurNom,
-                   u.prenom                        AS utilisateurPrenom
-            FROM affectation_sous_activite aa
-            JOIN role r        ON r.id_role = aa.id_role
-            JOIN utilisateur u ON u.id_utilisateur = aa.id_utilisateur
-            WHERE aa.id_sous_activite = :idSousActivite
-            ORDER BY aa.date_affectation DESC, aa.id_affectation_sous_activite DESC
-            """, nativeQuery = true)
-    List<AffectationRow> findHistorique(@Param("idSousActivite") Integer idSousActivite);
+  @Query(value = """
+      SELECT aa.id_affectation_sous_activite AS id,
+             aa.date_affectation             AS dateAffectation,
+             aa.date_desaffectation          AS dateDesaffectation,
+             r.id_role                       AS roleId,
+             r.code                          AS roleCode,
+             r.designation                   AS roleLibelle,
+             u.id_utilisateur                AS utilisateurId,
+             u.nom                           AS utilisateurNom,
+             u.prenom                        AS utilisateurPrenom
+      FROM affectation_sous_activite aa
+      JOIN role r        ON r.id_role = aa.id_role
+      JOIN utilisateur u ON u.id_utilisateur = aa.id_utilisateur
+      WHERE aa.id_sous_activite = :idSousActivite
+      ORDER BY aa.date_affectation DESC, aa.id_affectation_sous_activite DESC
+      """, nativeQuery = true)
+  List<AffectationRow> findHistorique(@Param("idSousActivite") Integer idSousActivite);
 
-    @Query(value = """
-            SELECT COUNT(*) FROM affectation_sous_activite
-            WHERE id_sous_activite = :idSousActivite
-              AND id_role = :idRole
-              AND date_desaffectation IS NULL
-            """, nativeQuery = true)
-    long countActivesPourRole(@Param("idSousActivite") Integer idSousActivite,
-                              @Param("idRole") Integer idRole);
+  @Query(value = """
+      SELECT COUNT(*) FROM affectation_sous_activite
+      WHERE id_sous_activite = :idSousActivite
+        AND id_role = :idRole
+        AND date_desaffectation IS NULL
+      """, nativeQuery = true)
+  long countActivesPourRole(@Param("idSousActivite") Integer idSousActivite,
+      @Param("idRole") Integer idRole);
 
-    @Query(value = """
-            SELECT COUNT(*) FROM affectation_sous_activite aa
-            JOIN role r ON r.id_role = aa.id_role
-            WHERE aa.id_sous_activite = :idSousActivite
-              AND r.code = 'RESPONSABLE'
-              AND aa.date_desaffectation IS NULL
-            """, nativeQuery = true)
-    long countResponsableActif(@Param("idSousActivite") Integer idSousActivite);
+  @Query(value = """
+      SELECT COUNT(*) FROM affectation_sous_activite aa
+      JOIN role r ON r.id_role = aa.id_role
+      WHERE aa.id_sous_activite = :idSousActivite
+        AND r.code = 'RESPONSABLE'
+        AND aa.date_desaffectation IS NULL
+      """, nativeQuery = true)
+  long countResponsableActif(@Param("idSousActivite") Integer idSousActivite);
 
-    @Query(value = """
-            SELECT COUNT(*) FROM affectation_sous_activite
-            WHERE id_affectation_sous_activite = :idAffectation
-              AND id_sous_activite = :idSousActivite
-            """, nativeQuery = true)
-    long countAppartenance(@Param("idSousActivite") Integer idSousActivite,
-                           @Param("idAffectation") Integer idAffectation);
+  @Query(value = """
+      SELECT COUNT(*) FROM affectation_sous_activite
+      WHERE id_affectation_sous_activite = :idAffectation
+        AND id_sous_activite = :idSousActivite
+      """, nativeQuery = true)
+  long countAppartenance(@Param("idSousActivite") Integer idSousActivite,
+      @Param("idAffectation") Integer idAffectation);
 
-    Optional<AffectationSousActivite> findByIdAffectationSousActiviteAndSousActiviteIdSousActivite(
-            Integer idAffectation, Integer idSousActivite);
+  Optional<AffectationSousActivite> findByIdAffectationSousActiviteAndSousActiviteIdSousActivite(
+      Integer idAffectation, Integer idSousActivite);
+
+  /**
+   * Nombre d'affectations actives sur l'une des sous-activités d'une
+   * activité.
+   *
+   * Sert à distinguer "activité non affectée" (aucune affectation, ni
+   * au niveau activité ni sur une sous-activité) d'une activité gérée
+   * uniquement au niveau sous-activité.
+   */
+  @Query(value = """
+      SELECT COUNT(*) FROM affectation_sous_activite aff
+      JOIN sous_activite sa ON sa.id_sous_activite = aff.id_sous_activite
+      WHERE sa.id_activite = :idActivite
+        AND aff.date_desaffectation IS NULL
+      """, nativeQuery = true)
+  long countActivesSurSousActivitesDeActivite(
+      @Param("idActivite") Integer idActivite);
+
+  @Query(value = """
+      SELECT COUNT(*) FROM affectation_sous_activite
+      WHERE id_sous_activite = :idSousActivite
+        AND id_utilisateur = :idUtilisateur
+        AND date_desaffectation IS NULL
+      """, nativeQuery = true)
+  long countActivesPourUtilisateur(
+      @Param("idSousActivite") Integer idSousActivite,
+      @Param("idUtilisateur") Integer idUtilisateur);
+
+  @Query(value = """
+      SELECT COUNT(*) FROM affectation_sous_activite aff
+      JOIN sous_activite sa ON sa.id_sous_activite = aff.id_sous_activite
+      JOIN role r ON r.id_role = aff.id_role
+      WHERE sa.id_activite = :idActivite
+        AND r.code = 'RESPONSABLE'
+        AND aff.date_desaffectation IS NULL
+      """, nativeQuery = true)
+  long countResponsablesActifsSurSousActivitesDeActivite(
+      @Param("idActivite") Integer idActivite);
 }

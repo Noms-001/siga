@@ -20,6 +20,8 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.dto.indicateur.AgregationIndicateurDTO;
 import mg.bank.backend.dto.indicateur.AtteinteIndicateurDTO;
+import mg.bank.backend.dto.indicateur.CalendrierIndicateurDTO;
+import mg.bank.backend.dto.indicateur.DashboardIndicateurDTO;
 import mg.bank.backend.dto.indicateur.IndicateurEnRetardDTO;
 import mg.bank.backend.dto.indicateur.SuiviIndicateurDTO;
 import mg.bank.backend.dto.indicateur.ValeurSuiviDTO;
@@ -88,5 +90,19 @@ public class SuiviIndicateurController {
                         @RequestParam(defaultValue = "true") boolean inclureJamaisSaisi) {
                 return ResponseEntity.ok(ApiResponse.success(
                                 suiviIndicateurService.listerEnRetard(inclureAJour, inclureJamaisSaisi)));
+        }
+
+        @GetMapping("/{id}/calendrier")
+        public ResponseEntity<ApiResponse<CalendrierIndicateurDTO>> calendrier(
+                        @PathVariable Integer id,
+                        @RequestParam(required = false) Integer annee) {
+                return ResponseEntity.ok(ApiResponse.success(
+                                suiviIndicateurService.calendrier(id, annee)));
+        }
+
+        @GetMapping("/dashboard")
+        public ResponseEntity<ApiResponse<DashboardIndicateurDTO>> dashboard() {
+                return ResponseEntity.ok(ApiResponse.success(
+                                suiviIndicateurService.dashboard()));
         }
 }
