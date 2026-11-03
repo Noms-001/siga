@@ -88,11 +88,34 @@ const enregistrement = ref(false)
 const erreur = ref<string | null>(null)
 const avertissement = ref<string | null>(null)
 
-/** Remise a zero a chaque ouverture, pour ne pas heriter d un essai anterieur. */
+/**
+ * Indique qu'une confirmation est en cours et qu'il faut rouvrir le modal
+ * si l'utilisateur annule ou si l'API échoue.
+ */
+const enAttenteDeConfirmation = ref(false)
+
+/**
+ * Indique que la réouverture du modal est due au retour d'une confirmation,
+ * pour ne pas écraser la sélection de l'utilisateur par le reset habituel.
+ */
+const reouvertureDepuisConfirmation = ref(false)
+
+/**
+ * Remise a zero a chaque ouverture « fraîche ».
+ *
+ * Si la réouverture vient du retour d'une confirmation, on PRÉSERVE la
+ * sélection : l'utilisateur annule ou rencontre une erreur, il ne doit pas
+ * devoir tout re-choisir.
+ */
 watch(
     () => props.modelValue,
     (ouvert) => {
         if (!ouvert) return
+
+        if (reouvertureDepuisConfirmation.value) {
+            reouvertureDepuisConfirmation.value = false
+            return
+        }
 
         fichiers.value = []
         selection.value = []
@@ -177,6 +200,25 @@ function fermer(): void {
 const confirmation = useConfirmation()
 
 /**
+ * Réouverture du modal après une annulation ou une erreur de l'API.
+ *
+ * Le modal doit être FERMÉ avant d'ouvrir la confirmation, sinon les deux
+ * fenêtres se superposent et la confirmation passe derrière (même z-index,
+ * ordre DOM défavorable). On rouvre donc ici, uniquement si l'utilisateur
+ * n'a PAS confirmé.
+ */
+watch(
+    () => confirmation.ouvert.value,
+    (ouvert, ancien) => {
+        if (ancien && !ouvert && enAttenteDeConfirmation.value) {
+            enAttenteDeConfirmation.value = false
+            reouvertureDepuisConfirmation.value = true
+            emit('update:modelValue', true)
+        }
+    }
+)
+
+/**
  * Deposer les fichiers choisis, apres confirmation.
  *
  * UNE CONFIRMATION DANS UNE MODALE, ce qui est a double tour. Elle s'y impose
@@ -184,6 +226,8 @@ const confirmation = useConfirmation()
  * qu'aucune annulation n'existe cote serveur une fois l'appel parti. Le nom du
  * livrable et le nombre de fichiers y sont repris : c'est ce qui permet de
  * verifier d'un coup d'oeil qu'on ne depose pas au mauvais endroit.
+ *
+ * ⚠️ On ferme d'abord le modal, sinon BaseConfirm passe DERRIÈRE lui.
  */
 function soumettre(): void {
     erreur.value = null
@@ -197,6 +241,13 @@ function soumettre(): void {
 
     const nom = props.designationLivrable || 'sans intitulé'
     const nombre = fichiers.value.length
+
+    // Marque la confirmation en cours AVANT de fermer, pour que le watch
+    // sur confirmation.ouvert.value sache qu'il doit rouvrir en cas d'annulation.
+    enAttenteDeConfirmation.value = true
+
+    // Ferme le modal : sans ça, la confirmation reste masquée.
+    emit('update:modelValue', false)
 
     confirmation.demander({
         titre: 'Ajouter au livrable',
@@ -223,11 +274,16 @@ async function deposer(): Promise<void> {
 
     if (!reponse.success) {
         erreur.value = reponse.error
+        // On laisse enAttenteDeConfirmation à true : le watch rouvrira le modal
+        // pour afficher l'erreur, avec la sélection intacte.
         return
     }
 
+    // Succès : plus rien à rouvrir.
+    enAttenteDeConfirmation.value = false
+
     emit('ajoute', reponse.data)
-    emit('update:modelValue', false)
+    // Pas d'emit update:modelValue false ici : on est déjà fermé depuis soumettre().
 }
 </script>
 
@@ -238,6 +294,9 @@ async function deposer(): Promise<void> {
         Rendue hors de BaseModal et non dans son corps : BaseModal ferme ce qui
         passe par son slot a la fermeture, et la confirmation doit survivre au
         retour pour que l'utilisateur puisse se tromper de bouton.
+
+        Le modal parent est fermé pendant que la confirmation est ouverte (voir
+        soumettre()), donc pas de superposition possible.
     -->
     <BaseConfirm
         v-model="confirmation.ouvert.value"

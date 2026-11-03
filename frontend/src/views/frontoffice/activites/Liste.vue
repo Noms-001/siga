@@ -1,29 +1,21 @@
 <script setup lang="ts">
-/**
- * Liste des activites DTS-TSS.
- *
- * Repartition des responsabilites :
- * - le backend filtre, trie, pagine et calcule (statut, avancement) ;
- * - cette page ne fait aucun slice() sur les donnees, aucun calcul
- *   d'avancement et aucun tri local.
- *
- * Le tableau n'utilise pas BaseTable : ce composant pagine et recherche
- * cote client, ce qui est explicitement exclu ici. Le tableau est donc
- * ecrit directement, avec BasePagination pour la pagination serveur.
- */
+
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import {
     BaseButton,
     BaseCard,
+    BaseConfirm,
     BaseInput,
+    BaseModal,
     BasePagination,
     BaseSelect,
 } from '@/components/base'
 import * as activiteService from '@/services/activite'
 import { ANNEE_DEFAUT } from '@/services/activite'
 import { useAutocomplete, type Suggestion } from '@/composables/useAutocomplete'
+import { useConfirmation } from '@/composables/useConfirmation'
 import {
     EN_RETARD,
     type ActiviteFiltres,
@@ -41,16 +33,10 @@ import { formatDateSeule } from '@/utils/date'
 // Constantes de presentation
 // ------------------------------------------------------------------
 
-/* Date du jour en français, majuscules — alimente l'eyebrow */
 const dateDuJour = computed(() =>
     new Intl.DateTimeFormat('fr-FR', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-    })
-        .format(new Date())
-        .toUpperCase()
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    }).format(new Date()).toUpperCase()
 )
 
 const TAILLE_PAGE = 10
@@ -65,7 +51,7 @@ const TRIMESTRES: Array<{ value: Trimestre; label: string }> = [
 
 const VUES: Array<{ value: VueActivite; label: string }> = [
     { value: 'PTA', label: 'Activités PTA' },
-    { value: 'NON_PTA', label: 'Activités NON PTA' },
+    { value: 'NON_PTA', label: 'Activités courantes' },
 ]
 
 const ANNEES = Array.from({ length: 6 }, (_, i) => ANNEE_DEFAUT - 1 + i)
@@ -75,17 +61,7 @@ const ANNEES = Array.from({ length: 6 }, (_, i) => ANNEE_DEFAUT - 1 + i)
 // ------------------------------------------------------------------
 
 const vue = ref<VueActivite>('PTA')
-
-/**
- * Statut applique. Volontairement sans champ dans la zone de filtres :
- * seul le clic sur une card peut le poser ou l'enlever.
- */
 const statutActif = ref<string | null>(null)
-
-/**
- * Etat du panneau de filtres : replie par defaut, l'utilisateur l'ouvre
- * d'un clic sur l'en-tete et le referme quand il a termine.
- */
 const filtresOuverts = ref(false)
 
 const filtres = reactive<ActiviteFiltres>({
@@ -104,22 +80,12 @@ const filtres = reactive<ActiviteFiltres>({
 
 const activites = ref<ActiviteListItem[]>([])
 const statistiques = ref<ActiviteStatistiques>({
-    total: 0,
-    nonCommencees: 0,
-    enCours: 0,
-    terminees: 0,
-    enRetard: 0,
-    annulees: 0,
-    reportees: 0,
-    suspendues: 0,
+    total: 0, nonCommencees: 0, enCours: 0, terminees: 0,
+    enRetard: 0, annulees: 0, reportees: 0, suspendues: 0,
 })
 
 const options = ref<ActiviteOptions>({
-    services: [],
-    priorites: [],
-    typesActivite: [],
-    sites: [],
-    statuts: [],
+    services: [], priorites: [], typesActivite: [], sites: [], statuts: [],
 })
 
 const page = ref(1)
@@ -131,26 +97,25 @@ const chargementStats = ref(false)
 const erreur = ref<string | null>(null)
 
 const router = useRouter()
+const confirmation = useConfirmation()
+
+// --- Priorité : édition inline ---
+const prioriteEnEdition = ref<ActiviteListItem | null>(null)
+const positionDropdown = ref({ top: 0, left: 0 })
+
+// --- Reprise : modale avec motif ---
+const modalReprise = ref(false)
+const activitePourReprise = ref<ActiviteListItem | null>(null)
+const motifReprise = ref('')
+const envoiReprise = ref(false)
 
 // ------------------------------------------------------------------
 // Computed
 // ------------------------------------------------------------------
 
-/**
- * Le filtre Service n'est propose que si le backend a envoye des services.
- * Il ne les envoie pas a un utilisateur rattache a un service : le filtre
- * n'est donc pas masque, il n'a simplement rien a offrir.
- */
 const filtreServiceDisponible = computed(() => options.value.services.length > 0)
-
 const estVuePta = computed(() => vue.value === 'PTA')
 
-/**
- * Compte les filtres reellement actifs (hors annee, qui a toujours une valeur
- * par defaut). Utilise par l'en-tete du panneau pour afficher
- * « X filtres actifs » et faire apparaitre le bouton « Tout effacer »,
- * y compris quand le panneau est replie.
- */
 const nombreFiltresActifs = computed(() => {
     let n = 0
     if (filtres.search) n++
@@ -167,7 +132,6 @@ const nombreFiltresActifs = computed(() => {
     return n
 })
 
-/** Libelles de priorite : badges derives du code, jamais du libelle. */
 const COULEURS_PRIORITE: Record<string, string> = {
     CRITIQUE: 'danger',
     HAUTE: 'warning',
@@ -185,13 +149,6 @@ const COULEURS_STATUT: Record<string, string> = {
     EN_RETARD: 'danger',
 }
 
-/**
- * Code de statut pose par chaque card.
- *
- * Une seule table pour l'affichage et pour le clic : si les deux avaient
- * leurs propres listes, une carte finirait par filtrer sur un code absent du
- * badge correspondant.
- */
 const CODES_CARTES: Record<CarteStatut, string> = {
     nonCommencees: 'NON_COMMENCEE',
     enCours: 'EN_COURS',
@@ -203,76 +160,16 @@ const CODES_CARTES: Record<CarteStatut, string> = {
 }
 
 const cartes = computed(() => [
-    {
-        cle: null as CarteStatut | null,
-        label: 'Total',
-        valeur: statistiques.value.total,
-        icone: 'bi-collection',
-        variante: 'primary',
-    },
-    {
-        cle: 'nonCommencees' as CarteStatut,
-        label: 'Non commencées',
-        valeur: statistiques.value.nonCommencees,
-        icone: 'bi-circle',
-        variante: 'secondary',
-    },
-    {
-        cle: 'enCours' as CarteStatut,
-        label: 'En cours',
-        valeur: statistiques.value.enCours,
-        icone: 'bi-hourglass-split',
-        variante: 'info',
-    },
-    {
-        cle: 'suspendues' as CarteStatut,
-        label: 'Suspendues',
-        valeur: statistiques.value.suspendues,
-        icone: 'bi-pause-circle',
-        variante: 'purple',
-    },
-    {
-        cle: 'terminees' as CarteStatut,
-        label: 'Terminées',
-        valeur: statistiques.value.terminees,
-        icone: 'bi-check-circle',
-        variante: 'success',
-    },
-    {
-        cle: 'annulees' as CarteStatut,
-        label: 'Annulées',
-        valeur: statistiques.value.annulees,
-        icone: 'bi-x-circle',
-        variante: 'secondary',
-    },
-    {
-        cle: 'reportees' as CarteStatut,
-        label: 'Reportées',
-        valeur: statistiques.value.reportees,
-        icone: 'bi-calendar-event',
-        variante: 'warning',
-    },
-    /*
-        En retard est place en dernier, et c est delibere : c est le seul
-        compteur qui ne soit pas exclusif. Il recompte une partie des cartes
-        qui le precedent, donc le mettre au milieu ferait croire qu il
-        s additionne a elles. Le groupement "en cours / suspendues / terminees
-        / annulees / reportees" correspond, lui, a des statuts courants
-        mutuellement exclusifs.
-    */
-    {
-        cle: 'enRetard' as CarteStatut,
-        label: 'En retard',
-        valeur: statistiques.value.enRetard,
-        icone: 'bi-exclamation-triangle',
-        variante: 'danger',
-    },
+    { cle: null as CarteStatut | null, label: 'Total', valeur: statistiques.value.total, icone: 'bi-collection', variante: 'primary' },
+    { cle: 'nonCommencees' as CarteStatut, label: 'Non commencées', valeur: statistiques.value.nonCommencees, icone: 'bi-circle', variante: 'secondary' },
+    { cle: 'enCours' as CarteStatut, label: 'En cours', valeur: statistiques.value.enCours, icone: 'bi-hourglass-split', variante: 'info' },
+    { cle: 'suspendues' as CarteStatut, label: 'Suspendues', valeur: statistiques.value.suspendues, icone: 'bi-pause-circle', variante: 'purple' },
+    { cle: 'terminees' as CarteStatut, label: 'Terminées', valeur: statistiques.value.terminees, icone: 'bi-check-circle', variante: 'success' },
+    { cle: 'annulees' as CarteStatut, label: 'Annulées', valeur: statistiques.value.annulees, icone: 'bi-x-circle', variante: 'secondary' },
+    { cle: 'reportees' as CarteStatut, label: 'Reportées', valeur: statistiques.value.reportees, icone: 'bi-calendar-event', variante: 'warning' },
+    { cle: 'enRetard' as CarteStatut, label: 'En retard', valeur: statistiques.value.enRetard, icone: 'bi-exclamation-triangle', variante: 'danger' },
 ])
 
-/**
- * Conversion vers le format attendu par BaseSelect.
- * Le code est conserve quand il existe : priorite et statut en ont un.
- */
 function versOptions(list: ActiviteOption[]): Array<Record<string, unknown>> {
     return list.map(o => ({
         id: o.id,
@@ -287,28 +184,12 @@ const optionsType = computed(() => versOptions(options.value.typesActivite))
 const optionsSite = computed(() => versOptions(options.value.sites))
 
 const anneesOptions = ANNEES.map(a => ({ id: a, libelle: String(a) }))
-
-const trimestresOptions = TRIMESTRES.map(t => ({
-    id: t.value,
-    libelle: t.label,
-}))
+const trimestresOptions = TRIMESTRES.map(t => ({ id: t.value, libelle: t.label }))
 
 // ------------------------------------------------------------------
 // Autocompletes
 // ------------------------------------------------------------------
 
-/**
- * Les deux champs texte partagent le meme composable.
- *
- * Filtrage a la frappe ET suggestions sont deux choses distinctes :
- * - la frappe alimente filtres.search / filtres.objectifSearch, qui
- *   rechargent la liste ;
- * - les suggestions ne font que proposer un choix parmi ce que le backend
- *   autorise. Choisir une suggestion fige la recherche, sans jamais
- *   inventer de critere que le backend ne comprendrait pas.
- */
-
-/** Liste de suggestions, au format attendu par BaseInput (role option). */
 function formatSuggestion(s: Suggestion): string {
     return s.libelleSecondaire
         ? `${s.code} — ${s.libelle} (${s.libelleSecondaire})`
@@ -321,9 +202,6 @@ const autocompleteActivite = useAutocomplete({
         return reponse.success ? reponse.data : []
     },
     onSelectionner: (s) => {
-        // Le filtre porte sur le CODE, pas sur le libelle affiche : le code est
-        // le seul identifiant stable, le libelle peut contenir des espaces,
-        // des accents et evoluer.
         filtres.search = s.code ?? ''
         appliquerFiltres()
     },
@@ -342,10 +220,7 @@ const autocompleteObjectif = useAutocomplete({
         return reponse.success ? reponse.data : []
     },
     onSelectionner: (s) => {
-        // Un objectif a un identifiant : on filtre dessus, ce qui est exact.
         filtres.objectifSpecifiqueId = s.id
-        // Le texte est vide pour ne pas resserrer le filtre avec un libelle
-        // que le backend ne rejouerait pas comme une eg stricte.
         filtres.objectifSearch = ''
         appliquerFiltres()
     },
@@ -366,42 +241,21 @@ const autocompleteObjectif = useAutocomplete({
 let minuteurFiltre: ReturnType<typeof setTimeout> | null = null
 let compteurRequete = 0
 
-/**
- * Deux requetes en parallele : la page et les compteurs.
- *
- * Le compteur d'identifiant evite qu'une reponse lente n'ecrase une reponse
- * plus recente (frappe rapide dans un filtre).
- */
 async function charger() {
+    prioriteEnEdition.value = null
     const jeton = ++compteurRequete
-
     chargement.value = true
     erreur.value = null
 
     let reponsePage: Awaited<ReturnType<typeof activiteService.listerActivites>>
     let reponseStats: Awaited<ReturnType<typeof activiteService.statistiquesActivites>>
 
-    /**
-     * get() convertit une reponse HTTP en echec metier, mais laisse remonter
-     * une panne reseau : fetch rejette sur un abort ou un serveur injoignable.
-     * Sans ce rattrapage, le rejet traversait Promise.all puis sortait de
-     * charger(), que les appelants appellent avec void : le navigateur
-     * signalait alors "Uncaught (in promise) TypeError: NetworkError".
-     */
     try {
         ;[reponsePage, reponseStats] = await Promise.all([
             activiteService.listerActivites(
-                { ...filtres },
-                vue.value,
-                statutActif.value,
-                page.value,
-                TAILLE_PAGE
+                { ...filtres }, vue.value, statutActif.value, page.value, TAILLE_PAGE,
             ),
-            activiteService.statistiquesActivites(
-                { ...filtres },
-                vue.value,
-                statutActif.value
-            ),
+            activiteService.statistiquesActivites({ ...filtres }, vue.value, statutActif.value),
         ])
     } catch {
         if (jeton !== compteurRequete) return
@@ -412,7 +266,6 @@ async function charger() {
     }
 
     if (jeton !== compteurRequete) return
-
     chargementStats.value = false
 
     if (!reponsePage.success) {
@@ -426,19 +279,8 @@ async function charger() {
     totalElements.value = reponsePage.data.totalElements
     totalPages.value = reponsePage.data.totalPages
 
-    /**
-     * Filtre devenu trop restrictif : le backend peut renvoyer une page vide
-     * alors qu on en demande une qui existe encore.
-     *
-     * Le garde `derniere === page.value` est ce qui empeche la boucle
-     * infinie. Clamper sur la derniere page ne suffit pas : si cette page est
-     * elle-meme vide, le clamp redonne le meme numero, la meme requete part,
-     * et la meme reponse vide revient, indefiniment. La seule garantie de
-     * terminaison est de constater que la page n a pas bouge.
-     */
     if (reponsePage.data.content.length === 0 && page.value > 1) {
         const derniere = Math.max(1, totalPages.value)
-
         if (derniere === page.value) {
             activites.value = []
         } else {
@@ -458,17 +300,12 @@ async function charger() {
 async function chargerOptions() {
     try {
         const reponse = await activiteService.chargerOptions()
-
-        if (reponse.success) {
-            options.value = reponse.data
-        }
+        if (reponse.success) options.value = reponse.data
     } catch {
-        // Les referentiels manquants ne doivent pas empecher l affichage de
-        // la liste : les filtres restent vides, la page reste utilisable.
+        // silencieux : la liste reste utilisable sans les référentiels.
     }
 }
 
-/** Appele API groupe pour une saisie : pas de requete a chaque frappe. */
 function surRechercheActivite() {
     filtres.search = autocompleteActivite.saisie.value
     autocompleteActivite.charger()
@@ -480,24 +317,18 @@ function surRechercheObjectif() {
 }
 
 // ------------------------------------------------------------------
-// Actions de l'interface
+// Actions
 // ------------------------------------------------------------------
 
-/** Bascule l'etat replie / deplie du panneau de filtres. */
 function basculerPanneauFiltres() {
     filtresOuverts.value = !filtresOuverts.value
 }
 
-/** Toute modification de filtre repart de la page 1. */
 function appliquerFiltres() {
-    // Annule un rechargement encore en attente : une selection de suggestion
-    // appelle cette fonction alors qu un minuteur de frappe peut rester actif,
-    // et on ne veut pas deux requetes pour le meme etat de filtres.
     if (minuteurFiltre) {
         clearTimeout(minuteurFiltre)
         minuteurFiltre = null
     }
-
     page.value = 1
     void charger()
 }
@@ -507,12 +338,17 @@ function changerPage(nouvelle: number) {
     void charger()
 }
 
-/** Ouverture du detail : la page existe depuis la creation de /activites/:id. */
 function voirDetail(id: number) {
     router.push({ name: 'activite-detail', params: { id } })
 }
 
-/** Reclic sur une card active : le filtre de statut est retire. */
+/**
+ * Bouton principal : ouvre le formulaire de création.
+ */
+function ouvrirCreation() {
+    router.push({ name: 'activites-nouvelle' })
+}
+
 function basculerStatut(cle: CarteStatut) {
     const code = CODES_CARTES[cle]
     statutActif.value = statutActif.value === code ? null : code
@@ -525,21 +361,12 @@ const estCarteActive = (cle: CarteStatut | null): boolean => {
     return statutActif.value === CODES_CARTES[cle]
 }
 
-/**
- * Libelle du statut actif dans le badge.
- *
- * Le libelle vient du referentiel du backend quand il est connu, et EN_RETARD
- * est traite a part car il n existe pas en table : c est un pseudo-statut
- * calcule, donc il n aura jamais de libelle dans options.statuts.
- */
 const libelleStatut = (code: string): string => {
     if (code === EN_RETARD) return 'En retard'
-
     const option = options.value.statuts.find(o => o.code === code)
     return option?.libelle ?? code
 }
 
-/** Retrait du filtre de statut, quel que soit le statut pose. */
 function retirerStatut() {
     statutActif.value = null
     page.value = 1
@@ -548,15 +375,11 @@ function retirerStatut() {
 
 function changerVue(nouvelle: VueActivite) {
     if (vue.value === nouvelle) return
-
     vue.value = nouvelle
-
-    // Un objectif specifique n'a pas de sens hors PTA.
     filtres.objectifSearch = ''
     filtres.objectifSpecifiqueId = null
     autocompleteObjectif.saisie.value = ''
     autocompleteObjectif.fermer()
-
     page.value = 1
     void charger()
 }
@@ -573,15 +396,119 @@ function reinitialiser() {
     filtres.trimestre = null
     filtres.dateDebut = ''
     filtres.dateFin = ''
-
     statutActif.value = null
     autocompleteActivite.saisie.value = ''
     autocompleteObjectif.saisie.value = ''
     autocompleteActivite.fermer()
     autocompleteObjectif.fermer()
-
     page.value = 1
     void charger()
+}
+
+// ------------------------------------------------------------------
+// Priorité : édition inline + confirmation
+// ------------------------------------------------------------------
+
+function ouvrirEditionPriorite(item: ActiviteListItem, event: MouseEvent) {
+    if (prioriteEnEdition.value?.id === item.id) {
+        prioriteEnEdition.value = null
+        return
+    }
+
+    prioriteEnEdition.value = item
+
+    const cible = event.currentTarget as HTMLElement
+    const rect = cible.getBoundingClientRect()
+    const largeur = 200
+    const nbItems = options.value.priorites.length + 1 // + "Aucune"
+    const hauteurEstimee = Math.min(nbItems * 34 + 12, 320)
+
+    let top = rect.bottom + 4
+    if (top + hauteurEstimee > window.innerHeight - 8) {
+        top = Math.max(8, rect.top - hauteurEstimee - 4)
+    }
+    const left = Math.min(rect.left, window.innerWidth - largeur - 8)
+
+    positionDropdown.value = { top, left }
+}
+
+function fermerEditionPriorite() {
+    prioriteEnEdition.value = null
+}
+
+function choisirPriorite(item: ActiviteListItem, nouvelle: ActiviteOption | null) {
+    prioriteEnEdition.value = null
+
+    const idActuelle = item.priorite?.id ?? null
+    const idNouvelle = nouvelle?.id ?? null
+    if (idActuelle === idNouvelle) return
+
+    const nomActuelle = item.priorite?.libelle ?? 'Aucune'
+    const nomNouvelle = nouvelle?.libelle ?? 'Aucune'
+
+    confirmation.demander({
+        titre: 'Changer la priorité',
+        message: `La priorité de l'activité « ${item.code} » passera de « ${nomActuelle} » à « ${nomNouvelle} ».`,
+        consequence: 'Le changement est immédiat et visible de tous les utilisateurs.',
+        libelleConfirmer: 'Changer',
+        ton: 'primary',
+        icone: 'bi bi-arrow-repeat',
+        action: () => confirmerChangementPriorite(item, idNouvelle),
+    })
+}
+
+async function confirmerChangementPriorite(item: ActiviteListItem, idPriorite: number | null) {
+    const reponse = await activiteService.changerPrioriteActivite(item.id, idPriorite)
+
+    if (!reponse.success) {
+        erreur.value = reponse.error
+        return
+    }
+
+    // Recharge : source de vérité unique, cohérence garantie avec les compteurs.
+    void charger()
+}
+
+// ------------------------------------------------------------------
+// Demande de reprise
+// ------------------------------------------------------------------
+
+function ouvrirDemandeReprise(item: ActiviteListItem) {
+    activitePourReprise.value = item
+    motifReprise.value = ''
+    modalReprise.value = true
+}
+
+function fermerModalReprise() {
+    if (envoiReprise.value) return
+    modalReprise.value = false
+    activitePourReprise.value = null
+    motifReprise.value = ''
+}
+
+async function confirmerDemandeReprise() {
+    if (!activitePourReprise.value) return
+    envoiReprise.value = true
+
+    const reponse = await activiteService.demanderReprise(
+        activitePourReprise.value.id,
+        motifReprise.value.trim() || null,
+    )
+
+    envoiReprise.value = false
+
+    if (!reponse.success) {
+        erreur.value = reponse.error
+        return
+    }
+
+    fermerModalReprise()
+    void charger()
+}
+
+/** La demande de reprise n'a de sens que sur une activité non commencée. */
+function peutDemanderReprise(item: ActiviteListItem): boolean {
+    return item.statut?.code === 'NON_COMMENCEE'
 }
 
 // ------------------------------------------------------------------
@@ -598,33 +525,38 @@ function varianteStatut(code: string | null | undefined): string {
     return COULEURS_STATUT[code.toUpperCase()] || 'secondary'
 }
 
-/** Arrondi pour l'affichage, la valeur brute vient du backend. */
 function avancementAffiche(item: ActiviteListItem): number {
     return Math.round(item.avancement ?? 0)
 }
 
+/** Liste complète : "Aucune" + toutes les priorités actives. */
+const prioritesDisponibles = computed<ActiviteOption[]>(() => options.value.priorites)
+
 // ------------------------------------------------------------------
-// Cycle de vie
+// Fermer le dropdown priorité au clic extérieur / scroll / resize
 // ------------------------------------------------------------------
 
+function onDocumentClick(e: MouseEvent) {
+    const cible = e.target as HTMLElement | null
+    if (!cible?.closest('.priorite-cell') && !cible?.closest('.priorite-dropdown')) {
+        prioriteEnEdition.value = null
+    }
+}
+
 onMounted(async () => {
+    document.addEventListener('click', onDocumentClick)
+    window.addEventListener('scroll', fermerEditionPriorite, true)
+    window.addEventListener('resize', fermerEditionPriorite)
     await Promise.all([chargerOptions(), charger()])
 })
 
 onBeforeUnmount(() => {
     if (minuteurFiltre) clearTimeout(minuteurFiltre)
+    document.removeEventListener('click', onDocumentClick)
+    window.removeEventListener('scroll', fermerEditionPriorite, true)
+    window.removeEventListener('resize', fermerEditionPriorite)
 })
 
-/**
- * Les deux champs texte filtrent la liste, avec le meme delai que
- * l'autocomplete.
- *
- * Sans ce delai, chaque frappe declencherait un rechargement de la page ET
- * des compteurs : trois requetes par caractere, et les reponses pourraient
- * arriver dans le desordre. appliquerFiltres annule ce minuteur quand elle est
- * appelee directement (selection d'une suggestion), donc une seule requete
- * dans ce cas la.
- */
 watch(
     () => [filtres.search, filtres.objectifSearch] as const,
     () => {
@@ -636,6 +568,10 @@ watch(
 
 <template>
     <div class="liste-activites">
+        <!-- Confirmation priorité -->
+        <BaseConfirm v-model="confirmation.ouvert.value" :demande="confirmation.demande.value"
+            :loading="confirmation.enCours.value" @confirme="confirmation.confirmer" @annule="confirmation.annuler" />
+
         <!-- ============ EN-TETE ============ -->
         <header class="welcome-row">
             <div class="welcome-row__left">
@@ -644,7 +580,7 @@ watch(
                     {{ dateDuJour }}
                 </div>
                 <h1>
-                    Activités 
+                    Activités
                     <span class="wave" aria-hidden="true">✳</span>
                 </h1>
                 <span class="title-divider" aria-hidden="true"></span>
@@ -654,7 +590,7 @@ watch(
             </div>
 
             <div class="welcome-row__right">
-                <BaseButton variant="primary" disabled title="Page de création non encore disponible">
+                <BaseButton variant="primary" @click="ouvrirCreation">
                     <i class="bi bi-plus-lg"></i>
                     Ajouter une activité
                 </BaseButton>
@@ -709,9 +645,8 @@ watch(
             </div>
         </div>
 
-        <!-- ============ FILTRES (repliables) ============ -->
+        <!-- ============ FILTRES ============ -->
         <BaseCard class="filtres mb-4" noPadding>
-            <!-- En-tete cliquable : ouvre / referme le panneau -->
             <header class="filtres__header">
                 <button type="button" class="filtres__toggle" :aria-expanded="filtresOuverts"
                     aria-controls="filtres-body" @click="basculerPanneauFiltres">
@@ -737,11 +672,9 @@ watch(
                 </button>
             </header>
 
-            <!-- Zone repliable -->
             <div id="filtres-body" class="filtres__collapse" :class="{ 'filtres__collapse--open': filtresOuverts }">
                 <div class="filtres__collapse-inner">
                     <div class="filtres__body">
-                        <!-- Section Recherche -->
                         <div class="filtres__section">
                             <span class="filtres__section-label">Recherche</span>
                             <div class="filtres__section-grid">
@@ -788,7 +721,6 @@ watch(
                             </div>
                         </div>
 
-                        <!-- Section Critères -->
                         <div class="filtres__section">
                             <span class="filtres__section-label">Critères</span>
                             <div class="filtres__section-grid">
@@ -822,7 +754,6 @@ watch(
                             </div>
                         </div>
 
-                        <!-- Section Période -->
                         <div class="filtres__section">
                             <span class="filtres__section-label">Période</span>
                             <div class="filtres__section-grid filtres__section-grid--4">
@@ -852,7 +783,6 @@ watch(
                         </div>
                     </div>
 
-                    <!-- Pied du panneau -->
                     <footer class="filtres__footer">
                         <span v-if="statutActif" class="filtres__badge">
                             <i class="bi bi-funnel"></i>
@@ -891,9 +821,7 @@ watch(
             <div v-else-if="!erreur && activites.length === 0" class="table-state">
                 <i class="bi bi-inbox empty-icon"></i>
                 <h3 class="empty-title">Aucune activité trouvée</h3>
-                <p class="empty-text">
-                    Aucune activité ne correspond aux critères sélectionnés.
-                </p>
+                <p class="empty-text">Aucune activité ne correspond aux critères sélectionnés.</p>
                 <BaseButton variant="secondary" @click="reinitialiser">Réinitialiser les filtres</BaseButton>
             </div>
 
@@ -944,10 +872,17 @@ watch(
                                 </span>
                             </td>
 
+                            <!-- Priorité : badge cliquable -->
                             <td class="col-priorite">
-                                <span class="badge-soft" :class="`badge-soft--${variantePriorite(item)}`">
-                                    {{ item.priorite?.libelle ?? '—' }}
-                                </span>
+                                <div class="priorite-cell">
+                                    <button type="button" class="badge-soft badge-soft--clickable"
+                                        :class="`badge-soft--${variantePriorite(item)}`"
+                                        :aria-expanded="prioriteEnEdition?.id === item.id" aria-haspopup="listbox"
+                                        @click.stop="ouvrirEditionPriorite(item, $event)">
+                                        {{ item.priorite?.libelle ?? '—' }}
+                                        <i class="bi bi-chevron-down priorite-chev"></i>
+                                    </button>
+                                </div>
                             </td>
 
                             <td class="col-statut">
@@ -968,9 +903,7 @@ watch(
 
                             <td class="col-avancement">
                                 <div class="avancement">
-                                    <span class="avancement__valeur">
-                                        {{ avancementAffiche(item) }}%
-                                    </span>
+                                    <span class="avancement__valeur">{{ avancementAffiche(item) }}%</span>
                                     <div class="avancement__bar" role="progressbar"
                                         :aria-valuenow="avancementAffiche(item)" aria-valuemin="0" aria-valuemax="100">
                                         <div class="avancement__fill" :style="{ width: avancementAffiche(item) + '%' }">
@@ -985,9 +918,10 @@ watch(
                                         @click="voirDetail(item.id)">
                                         <i class="bi bi-eye"></i>
                                     </button>
-                                    <button type="button" class="btn-icone" disabled
-                                        title="Page d'édition non encore disponible">
-                                        <i class="bi bi-pencil"></i>
+                                    <button v-if="peutDemanderReprise(item)" type="button"
+                                        class="btn-icone btn-icone--reprise" title="Demander une reprise"
+                                        @click="ouvrirDemandeReprise(item)">
+                                        <i class="bi bi-arrow-repeat"></i>
                                     </button>
                                 </div>
                             </td>
@@ -1001,6 +935,61 @@ watch(
                     :page-size="TAILLE_PAGE" @change="changerPage" />
             </div>
         </BaseCard>
+
+        <!-- ============ MODAL : DEMANDE DE REPRISE ============ -->
+        <BaseModal v-model="modalReprise" title="Demander une reprise" size="md" :closeOnOutside="false">
+            <div class="modal-reprise">
+                <p class="modal-reprise__intro">
+                    Vous demandez à devenir responsable de l'activité
+                    <strong>{{ activitePourReprise?.code }}</strong>.
+                </p>
+                <p class="modal-reprise__subject">
+                    {{ activitePourReprise?.designation }}
+                </p>
+                <BaseInput v-model="motifReprise" label="Motif (facultatif)" type="textarea" :rows="4"
+                    placeholder="Expliquez brièvement pourquoi vous souhaitez reprendre cette activité…" />
+                <p class="modal-reprise__hint">
+                    Le responsable actuel recevra une notification. La demande peut être acceptée ou refusée.
+                </p>
+            </div>
+
+            <template #footer>
+                <BaseButton variant="secondary" :disabled="envoiReprise" @click="fermerModalReprise">
+                    Annuler
+                </BaseButton>
+                <BaseButton variant="primary" :loading="envoiReprise" @click="confirmerDemandeReprise">
+                    <i class="bi bi-send"></i>
+                    Envoyer la demande
+                </BaseButton>
+            </template>
+        </BaseModal>
+
+        <!-- ============ DROPDOWN PRIORITÉ (téléporté dans body) ============ -->
+        <Teleport to="body">
+            <ul v-if="prioriteEnEdition" class="priorite-dropdown"
+                :style="{ top: `${positionDropdown.top}px`, left: `${positionDropdown.left}px` }" role="listbox"
+                aria-label="Changer la priorité" @click.stop>
+                <li>
+                    <button type="button" class="priorite-dropdown__item"
+                        :class="{ 'priorite-dropdown__item--current': !prioriteEnEdition.priorite }"
+                        @click="choisirPriorite(prioriteEnEdition, null)">
+                        <span class="priorite-dropdown__dot priorite-dropdown__dot--muted"></span>
+                        Aucune
+                    </button>
+                </li>
+                <li v-for="p in prioritesDisponibles" :key="p.id">
+                    <button type="button" class="priorite-dropdown__item"
+                        :class="{ 'priorite-dropdown__item--current': prioriteEnEdition.priorite?.id === p.id }"
+                        @click="choisirPriorite(prioriteEnEdition, p)">
+                        <span class="priorite-dropdown__dot"
+                            :class="`priorite-dropdown__dot--${COULEURS_PRIORITE[(p.code ?? '').toUpperCase()] ?? 'secondary'}`"></span>
+                        {{ p.libelle }}
+                        <i v-if="prioriteEnEdition.priorite?.id === p.id"
+                            class="bi bi-check-lg priorite-dropdown__check"></i>
+                    </button>
+                </li>
+            </ul>
+        </Teleport>
     </div>
 </template>
 
@@ -1025,7 +1014,6 @@ watch(
         #f5f7fa;
 }
 
-/* --- Bascule PTA / NON PTA --- */
 .vue-switch {
     display: inline-flex;
     gap: 6px;
@@ -1246,12 +1234,11 @@ watch(
     transform: translateY(-2px);
 }
 
-/* --- Panneau de filtres --- */
+/* --- Filtres --- */
 .filtres {
-    overflow: hidden;
+    overflow: visible;
 }
 
-/* En-tete : le conteneur flex separe le bouton-toggle du bouton "Tout effacer" */
 .filtres__header {
     display: flex;
     align-items: center;
@@ -1261,7 +1248,6 @@ watch(
     border-bottom: 1px solid #e6ebf3;
 }
 
-/* Le toggle occupe tout l'espace disponible pour être facile à cliquer */
 .filtres__toggle {
     display: flex;
     align-items: center;
@@ -1309,7 +1295,6 @@ watch(
     font-size: 0.95rem;
     font-weight: 700;
     color: #1a2a6c;
-    letter-spacing: -0.015em;
     font-family: Manrope, "DM Sans", sans-serif;
     line-height: 1.2;
 }
@@ -1368,7 +1353,6 @@ watch(
     background: #fff0f0;
 }
 
-/* --- Zone repliable (animation fluide avec grid-template-rows) --- */
 .filtres__collapse {
     display: grid;
     grid-template-rows: 0fr;
@@ -1509,7 +1493,6 @@ watch(
     background: rgba(59, 99, 217, .14);
 }
 
-/* --- Autocomplete --- */
 .autocomplete {
     position: absolute;
     top: 100%;
@@ -1610,7 +1593,7 @@ watch(
 }
 
 .col-priorite {
-    width: 7%;
+    width: 10%;
 }
 
 .col-statut {
@@ -1618,15 +1601,15 @@ watch(
 }
 
 .col-periode {
-    width: 12%;
-}
-
-.col-avancement {
     width: 11%;
 }
 
+.col-avancement {
+    width: 10%;
+}
+
 .col-actions {
-    width: 6%;
+    width: 7%;
     text-align: center;
 }
 
@@ -1751,8 +1734,123 @@ watch(
     color: #7a68d6;
 }
 
-.text-purple {
-    color: #7a68d6;
+/* --- Priorité : badge cliquable + dropdown (téléporté) --- */
+.priorite-cell {
+    position: relative;
+    display: inline-block;
+}
+
+.badge-soft--clickable {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: filter .15s ease, transform .1s ease;
+}
+
+.badge-soft--clickable:hover {
+    filter: brightness(0.96);
+    transform: translateY(-1px);
+}
+
+.badge-soft--clickable:focus-visible {
+    outline: 2px solid #4a6cf7;
+    outline-offset: 2px;
+}
+
+.priorite-chev {
+    font-size: 0.6rem;
+    opacity: 0.7;
+}
+
+.priorite-dropdown {
+    position: fixed;
+    z-index: 1080;
+    min-width: 200px;
+    max-height: 320px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0.3rem;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(26, 42, 108, .18);
+    animation: fadeIn .12s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.priorite-dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.45rem 0.6rem;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    text-align: left;
+    font-size: 0.8rem;
+    color: #40516b;
+    cursor: pointer;
+    transition: background .12s ease;
+}
+
+.priorite-dropdown__item:hover {
+    background: #f3f6fc;
+}
+
+.priorite-dropdown__item--current {
+    background: #edf1fd;
+    color: #1a2a6c;
+    font-weight: 600;
+}
+
+.priorite-dropdown__dot {
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #c8d6fb;
+}
+
+.priorite-dropdown__dot--danger {
+    background: #d84e5b;
+}
+
+.priorite-dropdown__dot--warning {
+    background: #f4b91f;
+}
+
+.priorite-dropdown__dot--primary {
+    background: #4a6cf7;
+}
+
+.priorite-dropdown__dot--secondary {
+    background: #a99aef;
+}
+
+.priorite-dropdown__dot--muted {
+    background: #d1d5db;
+}
+
+.priorite-dropdown__check {
+    margin-left: auto;
+    color: #1a6fb0;
+    font-size: 0.75rem;
 }
 
 .avancement {
@@ -1786,6 +1884,7 @@ watch(
 .actions {
     display: inline-flex;
     gap: 0.3rem;
+    justify-content: center;
 }
 
 .btn-icone {
@@ -1811,6 +1910,11 @@ watch(
 .btn-icone:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+
+.btn-icone--reprise:hover:not(:disabled) {
+    border-color: #d4af37;
+    color: #b8860b;
 }
 
 .table-state {
@@ -1839,6 +1943,42 @@ watch(
     font-size: 0.85rem;
     color: #6b7280;
     margin: 0 0 1.1rem;
+}
+
+/* --- Modal reprise --- */
+.modal-reprise {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.modal-reprise__intro {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #40516b;
+    line-height: 1.5;
+}
+
+.modal-reprise__intro strong {
+    color: #1a2a6c;
+}
+
+.modal-reprise__subject {
+    margin: 0;
+    padding: 0.7rem 0.9rem;
+    background: #f7f9fd;
+    border-left: 3px solid #d4af37;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    color: #1a2a6c;
+    font-weight: 600;
+}
+
+.modal-reprise__hint {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #8a95a8;
+    line-height: 1.5;
 }
 
 /* --- Responsive --- */
@@ -2021,8 +2161,10 @@ watch(
     .filtres__collapse,
     .filtres__chev,
     .stat-card,
-    .avancement__fill {
+    .avancement__fill,
+    .priorite-dropdown {
         transition: none !important;
+        animation: none !important;
     }
 }
 </style>

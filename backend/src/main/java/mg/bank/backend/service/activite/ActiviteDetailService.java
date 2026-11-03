@@ -32,6 +32,8 @@ import mg.bank.backend.dto.indicateur.ValeurIndicateurDTO;
 import mg.bank.backend.enums.StatutActiviteEnum;
 import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.repository.activite.ActiviteRepository;
+import mg.bank.backend.repository.affectation.AffectationActiviteRepository;
+import mg.bank.backend.repository.affectation.AffectationSousActiviteRepository;
 import mg.bank.backend.repository.projection.activite.ActiviteDetailRow;
 import mg.bank.backend.repository.projection.activite.AvancementDetailRow;
 import mg.bank.backend.repository.projection.activite.FichierDetailRow;
@@ -45,504 +47,537 @@ import mg.bank.backend.repository.projection.indicateur.IndicateurDetailRow;
 import mg.bank.backend.repository.projection.indicateur.ValeurIndicateurRow;
 import mg.bank.backend.service.utilisateur.CurrentUserService;
 
-
 @Service
 @RequiredArgsConstructor
 public class ActiviteDetailService {
 
-    private final ActiviteRepository activiteRepository;
+        private final ActiviteRepository activiteRepository;
 
-    private final ActiviteService activiteService;
+        private final ActiviteService activiteService;
 
-    private final CurrentUserService currentUserService;
+        private final CurrentUserService currentUserService;
 
-    /**
-     * Detail d une activite, avec ses sous-activites, livrables, fichiers,
-     * indicateurs, resultats et historique.
-     */
-    @Transactional(readOnly = true)
-    public ActiviteDetailDTO detail(Integer id) {
+        private final AffectationActiviteRepository affectationActiviteRepository;
+        private final AffectationSousActiviteRepository affectationSousActiviteRepository;
 
-        if (id == null || id < 1) {
-            throw new ApiException(
-                    "L identifiant de l activite doit etre un entier positif",
-                    HttpStatus.BAD_REQUEST);
+        /**
+         * Detail d une activite, avec ses sous-activites, livrables, fichiers,
+         * indicateurs, resultats et historique.
+         */
+        @Transactional(readOnly = true)
+        public ActiviteDetailDTO detail(Integer id) {
+
+                if (id == null || id < 1) {
+                        throw new ApiException(
+                                        "L identifiant de l activite doit etre un entier positif",
+                                        HttpStatus.BAD_REQUEST);
+                }
+
+                PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
+
+                ActiviteDetailRow row = activiteRepository.findActiviteDetail(
+                                id,
+                                perimetre.getFiltreService(),
+                                perimetre.getFiltreDepartement(),
+                                codesTerminaux())
+                                .orElseThrow(() -> refusOuAbsence(id));
+
+                return assembler(row);
         }
 
-        PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
-
-        ActiviteDetailRow row = activiteRepository.findActiviteDetail(
-                        id,
-                        perimetre.getFiltreService(),
-                        perimetre.getFiltreDepartement(),
-                        codesTerminaux())
-                .orElseThrow(() -> refusOuAbsence(id));
-
-        return assembler(row);
-    }
-
-    private ApiException refusOuAbsence(Integer id) {
-        return activiteService.refusOuAbsence(id);
-    }
-
-    @Transactional(readOnly = true)
-    public SousActiviteDetailDTO detailSousActivite(
-            Integer idActivite,
-            Integer idSousActivite) {
-
-        if (idActivite == null || idActivite < 1) {
-            throw new ApiException(
-                    "L identifiant de l activite doit etre un entier positif",
-                    HttpStatus.BAD_REQUEST);
+        private ApiException refusOuAbsence(Integer id) {
+                return activiteService.refusOuAbsence(id);
         }
 
-        if (idSousActivite == null || idSousActivite < 1) {
-            throw new ApiException(
-                    "L identifiant de la sous-activite doit etre un entier positif",
-                    HttpStatus.BAD_REQUEST);
+        @Transactional(readOnly = true)
+        public SousActiviteDetailDTO detailSousActivite(
+                        Integer idActivite,
+                        Integer idSousActivite) {
+
+                if (idActivite == null || idActivite < 1) {
+                        throw new ApiException(
+                                        "L identifiant de l activite doit etre un entier positif",
+                                        HttpStatus.BAD_REQUEST);
+                }
+
+                if (idSousActivite == null || idSousActivite < 1) {
+                        throw new ApiException(
+                                        "L identifiant de la sous-activite doit etre un entier positif",
+                                        HttpStatus.BAD_REQUEST);
+                }
+
+                PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
+
+                SousActiviteDetailRow row = activiteRepository.findSousActivite(
+                                idActivite,
+                                idSousActivite,
+                                perimetre.getFiltreService(),
+                                perimetre.getFiltreDepartement())
+                                .orElseThrow(() -> refusOuAbsenceSousActivite(
+                                                idActivite, idSousActivite));
+
+                return assemblerSousActivite(idActivite, row);
         }
 
-        PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
+        public ApiException refusOuAbsenceSousActivite(
+                        Integer idActivite,
+                        Integer idSousActivite) {
 
-        SousActiviteDetailRow row = activiteRepository.findSousActivite(
-                        idActivite,
-                        idSousActivite,
-                        perimetre.getFiltreService(),
-                        perimetre.getFiltreDepartement())
-                .orElseThrow(() -> refusOuAbsenceSousActivite(
-                        idActivite, idSousActivite));
+                if (activiteRepository.compterSousActivite(idSousActivite) == 0) {
+                        return new ApiException(
+                                        "Sous-activite introuvable", HttpStatus.NOT_FOUND);
+                }
 
-        return assemblerSousActivite(row);
-    }
+                if (activiteRepository.compterSousActiviteDeActivite(
+                                idActivite, idSousActivite) == 0) {
+                        return new ApiException(
+                                        "Sous-activite introuvable", HttpStatus.NOT_FOUND);
+                }
 
-    public ApiException refusOuAbsenceSousActivite(
-            Integer idActivite,
-            Integer idSousActivite) {
-
-        if (activiteRepository.compterSousActivite(idSousActivite) == 0) {
-            return new ApiException(
-                    "Sous-activite introuvable", HttpStatus.NOT_FOUND);
+                return new ApiException(
+                                "Vous n etes pas autorise a consulter cette sous-activite",
+                                HttpStatus.FORBIDDEN);
         }
 
-        if (activiteRepository.compterSousActiviteDeActivite(
-                idActivite, idSousActivite) == 0) {
-            return new ApiException(
-                    "Sous-activite introuvable", HttpStatus.NOT_FOUND);
+        public List<FichierDetailDTO> fichiers(Integer idLivrable) {
+
+                return activiteRepository.findFichiersLivrable(idLivrable).stream()
+                                .map(this::fichier)
+                                .toList();
         }
 
-        return new ApiException(
-                "Vous n etes pas autorise a consulter cette sous-activite",
-                HttpStatus.FORBIDDEN);
-    }
+        private SousActiviteDetailDTO assemblerSousActivite(Integer idActivite, SousActiviteDetailRow row) {
 
-    public List<FichierDetailDTO> fichiers(Integer idLivrable) {
+                Integer id = row.getId();
 
-        return activiteRepository.findFichiersLivrable(idLivrable).stream()
-                .map(this::fichier)
-                .toList();
-    }
-
-    private SousActiviteDetailDTO assemblerSousActivite(SousActiviteDetailRow row) {
-
-        Integer id = row.getId();
-
-        return sousActivite(
-                row,
-                activiteRepository.findAvancementsSousActivite(id),
-                activiteRepository.findAffectationsSousActivite(id),
-                activiteRepository.findLivrablesSousActivite(id),
-                parCle(activiteRepository.findFichiersSousActivite(id),
-                        FichierDetailRow::getIdLivrable));
-    }
-
-    @Transactional(readOnly = true)
-    public FichierTelechargeable telechargerFichier(
-            Integer idActivite,
-            Integer idSousActivite,
-            Integer idFichier) {
-
-        if (idFichier == null || idFichier < 1) {
-            throw new ApiException(
-                    "L identifiant du fichier doit etre un entier positif",
-                    HttpStatus.BAD_REQUEST);
+                return sousActivite(
+                                idActivite,
+                                row,
+                                activiteRepository.findAvancementsSousActivite(id),
+                                activiteRepository.findAffectationsSousActivite(id),
+                                activiteRepository.findLivrablesSousActivite(id),
+                                parCle(activiteRepository.findFichiersSousActivite(id),
+                                                FichierDetailRow::getIdLivrable));
         }
 
-        if (idSousActivite == null || idSousActivite < 1) {
-            throw new ApiException(
-                    "L identifiant de la sous-activite doit etre un entier positif",
-                    HttpStatus.BAD_REQUEST);
+        @Transactional(readOnly = true)
+        public FichierTelechargeable telechargerFichier(
+                        Integer idActivite,
+                        Integer idSousActivite,
+                        Integer idFichier) {
+
+                if (idFichier == null || idFichier < 1) {
+                        throw new ApiException(
+                                        "L identifiant du fichier doit etre un entier positif",
+                                        HttpStatus.BAD_REQUEST);
+                }
+
+                if (idSousActivite == null || idSousActivite < 1) {
+                        throw new ApiException(
+                                        "L identifiant de la sous-activite doit etre un entier positif",
+                                        HttpStatus.BAD_REQUEST);
+                }
+
+                if (idActivite == null || idActivite < 1) {
+                        throw new ApiException(
+                                        "L identifiant de l activite doit etre un entier positif",
+                                        HttpStatus.BAD_REQUEST);
+                }
+
+                PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
+
+                FichierTelechargementRow ligne = activiteRepository
+                                .findFichierTelechargement(
+                                                idActivite, idSousActivite, idFichier,
+                                                perimetre.getFiltreService(),
+                                                perimetre.getFiltreDepartement())
+                                .orElseThrow(() -> refusOuAbsenceFichier(
+                                                idActivite, idSousActivite, idFichier));
+
+                Path chemin = Path.of(ligne.getCheminFichier()).normalize();
+
+                if (!Files.isRegularFile(chemin)) {
+                        throw new ApiException(
+                                        "Le fichier n est plus disponible sur le serveur",
+                                        HttpStatus.NOT_FOUND);
+                }
+
+                try {
+                        return new FichierTelechargeable(
+                                        ligne.getNomOriginal(),
+                                        ligne.getTypeMime(),
+                                        Files.readAllBytes(chemin));
+                } catch (IOException e) {
+                        throw new ApiException(
+                                        "Lecture du fichier impossible",
+                                        HttpStatus.INTERNAL_SERVER_ERROR);
+                }
         }
 
-        if (idActivite == null || idActivite < 1) {
-            throw new ApiException(
-                    "L identifiant de l activite doit etre un entier positif",
-                    HttpStatus.BAD_REQUEST);
+        private ApiException refusOuAbsenceFichier(
+                        Integer idActivite,
+                        Integer idSousActivite,
+                        Integer idFichier) {
+
+                if (activiteRepository.compterFichier(idFichier) == 0) {
+                        return new ApiException("Fichier introuvable", HttpStatus.NOT_FOUND);
+                }
+
+                if (activiteRepository.compterFichierDeSousActivite(
+                                idSousActivite, idFichier) == 0) {
+                        return new ApiException("Fichier introuvable", HttpStatus.NOT_FOUND);
+                }
+
+                if (activiteRepository.compterSousActiviteDeActivite(
+                                idActivite, idSousActivite) == 0) {
+                        return new ApiException("Fichier introuvable", HttpStatus.NOT_FOUND);
+                }
+
+                return new ApiException(
+                                "Vous n etes pas autorise a consulter ce fichier",
+                                HttpStatus.FORBIDDEN);
         }
 
-        PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
-
-        FichierTelechargementRow ligne = activiteRepository
-                .findFichierTelechargement(
-                        idActivite, idSousActivite, idFichier,
-                        perimetre.getFiltreService(),
-                        perimetre.getFiltreDepartement())
-                .orElseThrow(() -> refusOuAbsenceFichier(
-                        idActivite, idSousActivite, idFichier));
-
-        Path chemin = Path.of(ligne.getCheminFichier()).normalize();
-
-        if (!Files.isRegularFile(chemin)) {
-            throw new ApiException(
-                    "Le fichier n est plus disponible sur le serveur",
-                    HttpStatus.NOT_FOUND);
+        private String codesTerminaux() {
+                return StatutActiviteEnum.codesTerminauxSql();
         }
 
-        try {
-            return new FichierTelechargeable(
-                    ligne.getNomOriginal(),
-                    ligne.getTypeMime(),
-                    Files.readAllBytes(chemin));
-        } catch (IOException e) {
-            throw new ApiException(
-                    "Lecture du fichier impossible",
-                    HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
+        // ------------------------------------------------------------------
+        // Assemblage
+        // ------------------------------------------------------------------
 
-    private ApiException refusOuAbsenceFichier(
-            Integer idActivite,
-            Integer idSousActivite,
-            Integer idFichier) {
+        private ActiviteDetailDTO assembler(ActiviteDetailRow row) {
 
-        if (activiteRepository.compterFichier(idFichier) == 0) {
-            return new ApiException("Fichier introuvable", HttpStatus.NOT_FOUND);
-        }
+                Integer id = row.getId();
 
-        if (activiteRepository.compterFichierDeSousActivite(
-                idSousActivite, idFichier) == 0) {
-            return new ApiException("Fichier introuvable", HttpStatus.NOT_FOUND);
-        }
+                List<SousActiviteDetailRow> sousActivites = activiteRepository.findSousActivites(id);
 
-        if (activiteRepository.compterSousActiviteDeActivite(
-                idActivite, idSousActivite) == 0) {
-            return new ApiException("Fichier introuvable", HttpStatus.NOT_FOUND);
-        }
+                // Regroupement par identifiant de parent. Chaque groupe est lu dans
+                // l ordre impose par sa requete, et cet ordre porte du sens : la
+                // premiere ligne est toujours la plus recente.
+                Map<Integer, List<AvancementDetailRow>> avancements = parCle(activiteRepository.findAvancements(id),
+                                AvancementDetailRow::getIdSousActivite);
 
-        return new ApiException(
-                "Vous n etes pas autorise a consulter ce fichier",
-                HttpStatus.FORBIDDEN);
-    }
+                Map<Integer, List<AffectationDetailRow>> affectations = parCle(activiteRepository.findAffectations(id),
+                                AffectationDetailRow::getIdSousActivite);
 
-    private String codesTerminaux() {
-        return StatutActiviteEnum.codesTerminauxSql();
-    }
+                Map<Integer, List<LivrableDetailRow>> livrables = parCle(activiteRepository.findLivrables(id),
+                                LivrableDetailRow::getIdSousActivite);
 
-    // ------------------------------------------------------------------
-    // Assemblage
-    // ------------------------------------------------------------------
+                Map<Integer, List<FichierDetailRow>> fichiers = parCle(activiteRepository.findFichiers(id),
+                                FichierDetailRow::getIdLivrable);
 
-    private ActiviteDetailDTO assembler(ActiviteDetailRow row) {
+                Map<Integer, List<ValeurIndicateurRow>> valeurs = parCle(activiteRepository.findValeursIndicateurs(id),
+                                ValeurIndicateurRow::getIdIndicateur);
 
-        Integer id = row.getId();
-
-        List<SousActiviteDetailRow> sousActivites =
-                activiteRepository.findSousActivites(id);
-
-        // Regroupement par identifiant de parent. Chaque groupe est lu dans
-        // l ordre impose par sa requete, et cet ordre porte du sens : la
-        // premiere ligne est toujours la plus recente.
-        Map<Integer, List<AvancementDetailRow>> avancements =
-                parCle(activiteRepository.findAvancements(id),
-                        AvancementDetailRow::getIdSousActivite);
-
-        Map<Integer, List<AffectationDetailRow>> affectations =
-                parCle(activiteRepository.findAffectations(id),
-                        AffectationDetailRow::getIdSousActivite);
-
-        Map<Integer, List<LivrableDetailRow>> livrables =
-                parCle(activiteRepository.findLivrables(id),
-                        LivrableDetailRow::getIdSousActivite);
-
-        Map<Integer, List<FichierDetailRow>> fichiers =
-                parCle(activiteRepository.findFichiers(id),
-                        FichierDetailRow::getIdLivrable);
-
-        Map<Integer, List<ValeurIndicateurRow>> valeurs =
-                parCle(activiteRepository.findValeursIndicateurs(id),
-                        ValeurIndicateurRow::getIdIndicateur);
-
-        return ActiviteDetailDTO.builder()
-                .id(id)
-                .code(row.getCode())
-                .reference(row.getReference())
-                .designation(row.getDesignation())
-                .dateDebutPrevue(row.getDateDebutPrevue())
-                .dateFinPrevue(row.getDateFinPrevue())
-                .dateDebutReelle(row.getDateDebutReelle())
-                .dateFinReelle(row.getDateFinReelle())
-                .dateCreation(row.getDateCreation())
-                .pta(row.getOsId() != null)
-                .objectifSpecifique(reference(
-                        row.getOsId(), row.getOsCode(),
-                        row.getOsDesignation(), row.getOsAnnee()))
-                .service(reference(
-                        row.getServiceId(), null, row.getServiceLibelle(), null))
-                .typeActivite(reference(
-                        row.getTypeActiviteId(), null,
-                        row.getTypeActiviteLibelle(), null))
-                .site(reference(row.getSiteId(), null, row.getSiteLibelle(), null))
-                .priorite(reference(
-                        row.getPrioriteId(), row.getPrioriteCode(),
-                        row.getPrioriteLibelle(), null))
-                .statut(reference(
-                        row.getStatutId(), row.getStatutCode(),
-                        row.getStatutLibelle(), null))
-                .avancement(row.getAvancement() == null ? 0d : row.getAvancement())
-                .enRetard(Boolean.TRUE.equals(row.getEnRetard()))
-                .sousActivites(sousActivites.stream()
-                        .map(sa -> sousActivite(sa,
-                                avancements.getOrDefault(sa.getId(), List.of()),
-                                affectations.getOrDefault(sa.getId(), List.of()),
-                                livrables.getOrDefault(sa.getId(), List.of()),
-                                fichiers))
-                        .toList())
-                .indicateurs(activiteRepository.findIndicateurs(id).stream()
-                        .map(i -> indicateur(i, valeurs.getOrDefault(i.getId(), List.of())))
-                        .toList())
-                .resultatsIntermediaires(activiteRepository
-                        .findResultatsIntermediaires(id).stream()
-                        .map(this::resultatIntermediaire)
-                        .toList())
-                .historique(historique(activiteRepository.findHistorique(id)))
-                .build();
-    }
-
-    private <T> Map<Integer, List<T>> parCle(
-            List<T> lignes,
-            Function<T, Integer> cle) {
-
-        if (lignes == null) {
-            return Map.of();
+                return ActiviteDetailDTO.builder()
+                                .id(id)
+                                .code(row.getCode())
+                                .reference(row.getReference())
+                                .designation(row.getDesignation())
+                                .dateDebutPrevue(row.getDateDebutPrevue())
+                                .dateFinPrevue(row.getDateFinPrevue())
+                                .dateDebutReelle(row.getDateDebutReelle())
+                                .dateFinReelle(row.getDateFinReelle())
+                                .dateCreation(row.getDateCreation())
+                                .pta(row.getOsId() != null)
+                                .objectifSpecifique(reference(
+                                                row.getOsId(), row.getOsCode(),
+                                                row.getOsDesignation(), row.getOsAnnee()))
+                                .service(reference(
+                                                row.getServiceId(), null, row.getServiceLibelle(), null))
+                                .typeActivite(reference(
+                                                row.getTypeActiviteId(), null,
+                                                row.getTypeActiviteLibelle(), null))
+                                .site(reference(row.getSiteId(), null, row.getSiteLibelle(), null))
+                                .priorite(reference(
+                                                row.getPrioriteId(), row.getPrioriteCode(),
+                                                row.getPrioriteLibelle(), null))
+                                .statut(reference(
+                                                row.getStatutId(), row.getStatutCode(),
+                                                row.getStatutLibelle(), null))
+                                .avancement(row.getAvancement() == null ? 0d : row.getAvancement())
+                                .enRetard(Boolean.TRUE.equals(row.getEnRetard()))
+                                .sousActivites(sousActivites.stream()
+                                                .map(sa -> sousActivite(id, sa,
+                                                                avancements.getOrDefault(sa.getId(), List.of()),
+                                                                affectations.getOrDefault(sa.getId(), List.of()),
+                                                                livrables.getOrDefault(sa.getId(), List.of()),
+                                                                fichiers))
+                                                .toList())
+                                .indicateurs(activiteRepository.findIndicateurs(id).stream()
+                                                .map(i -> indicateur(i, valeurs.getOrDefault(i.getId(), List.of())))
+                                                .toList())
+                                .resultatsIntermediaires(activiteRepository
+                                                .findResultatsIntermediaires(id).stream()
+                                                .map(this::resultatIntermediaire)
+                                                .toList())
+                                .historique(historique(activiteRepository.findHistorique(id)))
+                                .build();
         }
 
-        return lignes.stream().collect(Collectors.groupingBy(
-                cle, LinkedHashMap::new, Collectors.toList()));
-    }
+        private <T> Map<Integer, List<T>> parCle(
+                        List<T> lignes,
+                        Function<T, Integer> cle) {
 
-    private SousActiviteDetailDTO sousActivite(
-            SousActiviteDetailRow row,
-            List<AvancementDetailRow> avancements,
-            List<AffectationDetailRow> affectations,
-            List<LivrableDetailRow> livrables,
-            Map<Integer, List<FichierDetailRow>> fichiers) {
+                if (lignes == null) {
+                        return Map.of();
+                }
 
-        // La requete trie chaque groupe du plus recent au plus ancien : la
-        // premiere ligne est le releve courant, les suivantes le suivent.
-        List<AvancementDetailDTO> suivi = new ArrayList<>(avancements.size());
-
-        for (int i = 0; i < avancements.size(); i++) {
-            AvancementDetailRow avancement = avancements.get(i);
-            suivi.add(AvancementDetailDTO.builder()
-                    .id(avancement.getId())
-                    .valeurPourcentage(avancement.getValeurPourcentage())
-                    .commentaire(avancement.getCommentaire())
-                    .dateChangement(avancement.getDateChangement())
-                    .statut(reference(
-                            avancement.getStatutId(),
-                            avancement.getStatutCode(),
-                            avancement.getStatutLibelle(),
-                            null))
-                    .utilisateur(utilisateur(
-                            avancement.getUtilisateurId(),
-                            avancement.getUtilisateurNom(),
-                            avancement.getUtilisateurPrenom()))
-                    .etatActuel(i == 0)
-                    .build());
+                return lignes.stream().collect(Collectors.groupingBy(
+                                cle, LinkedHashMap::new, Collectors.toList()));
         }
 
-        return SousActiviteDetailDTO.builder()
-                .id(row.getId())
-                .code(row.getCode())
-                .designation(row.getDesignation())
-                .dateDebutPrevue(row.getDateDebutPrevue())
-                .dateFinPrevue(row.getDateFinPrevue())
-                .dateDebutReelle(row.getDateDebutReelle())
-                .dateFinReelle(row.getDateFinReelle())
-                // Nullable quand l'activite n'a pas d'historique : l'absence
-                // est transmise telle quelle, pour que le formulaire refuse
-                // l'ecriture plutot que de la laisser passer.
-                .statutActivite(row.getStatutActivite())
-                .avancementCourant(suivi.isEmpty() ? null : suivi.getFirst())
-                .historiqueAvancement(suivi)
-                .affectations(affectations.stream()
-                        .map(this::affectation)
-                        .toList())
-                .livrables(livrables.stream()
-                        .map(l -> livrable(l, fichiers.getOrDefault(l.getId(), List.of())))
-                        .toList())
-                .build();
-    }
+        private SousActiviteDetailDTO sousActivite(
+                        Integer idActivite,
+                        SousActiviteDetailRow row,
+                        List<AvancementDetailRow> avancements,
+                        List<AffectationDetailRow> affectations,
+                        List<LivrableDetailRow> livrables,
+                        Map<Integer, List<FichierDetailRow>> fichiers) {
 
-    private LivrableDetailDTO livrable(
-            LivrableDetailRow row,
-            List<FichierDetailRow> fichiers) {
+                // La requete trie chaque groupe du plus recent au plus ancien : la
+                // premiere ligne est le releve courant, les suivantes le suivent.
+                List<AvancementDetailDTO> suivi = new ArrayList<>(avancements.size());
 
-        return LivrableDetailDTO.builder()
-                .id(row.getId())
-                .designation(row.getDesignation())
-                .description(row.getDescription())
-                .fichiers(fichiers.stream()
-                        .map(this::fichier)
-                        .toList())
-                .build();
-    }
+                boolean peutSaisir = calculerPeutSaisirAvancement(
+                                idActivite, row.getId(), currentUserService.getId());
 
-    private FichierDetailDTO fichier(FichierDetailRow row) {
-        return FichierDetailDTO.builder()
-                .id(row.getId())
-                .nomFichier(row.getNomFichier())
-                .nomOriginal(row.getNomOriginal())
-                .extension(row.getExtension())
-                .typeMime(row.getTypeMime())
-                .taille(row.getTaille())
-                .version(row.getVersion())
-                .dateDepot(row.getDateDepot())
-                .utilisateur(utilisateur(
-                        row.getUtilisateurId(),
-                        row.getUtilisateurNom(),
-                        row.getUtilisateurPrenom()))
-                .build();
-    }
+                for (int i = 0; i < avancements.size(); i++) {
+                        AvancementDetailRow avancement = avancements.get(i);
+                        suivi.add(AvancementDetailDTO.builder()
+                                        .id(avancement.getId())
+                                        .valeurPourcentage(avancement.getValeurPourcentage())
+                                        .commentaire(avancement.getCommentaire())
+                                        .dateChangement(avancement.getDateChangement())
+                                        .statut(reference(
+                                                        avancement.getStatutId(),
+                                                        avancement.getStatutCode(),
+                                                        avancement.getStatutLibelle(),
+                                                        null))
+                                        .utilisateur(utilisateur(
+                                                        avancement.getUtilisateurId(),
+                                                        avancement.getUtilisateurNom(),
+                                                        avancement.getUtilisateurPrenom()))
+                                        .etatActuel(i == 0)
+                                        .build());
+                }
 
-    private AffectationDetailDTO affectation(AffectationDetailRow row) {
-        return AffectationDetailDTO.builder()
-                .id(row.getId())
-                .dateAffectation(row.getDateAffectation())
-                .dateDesaffectation(row.getDateDesaffectation())
-                .role(reference(
-                        row.getRoleId(), row.getRoleCode(), row.getRoleLibelle(), null))
-                .utilisateur(utilisateur(
-                        row.getUtilisateurId(),
-                        row.getUtilisateurNom(),
-                        row.getUtilisateurPrenom()))
-                .build();
-    }
-
-    private IndicateurDetailDTO indicateur(
-            IndicateurDetailRow row,
-            List<ValeurIndicateurRow> valeurs) {
-
-        List<ValeurIndicateurDTO> mesures = new ArrayList<>(valeurs.size());
-
-        for (int i = 0; i < valeurs.size(); i++) {
-            ValeurIndicateurRow valeur = valeurs.get(i);
-            mesures.add(ValeurIndicateurDTO.builder()
-                    .id(valeur.getId())
-                    .valeur(valeur.getValeur())
-                    .periodeDebut(valeur.getPeriodeDebut())
-                    .periodeFin(valeur.getPeriodeFin())
-                    .commentaire(valeur.getCommentaire())
-                    .dateSaisie(valeur.getDateSaisie())
-                    .utilisateur(utilisateur(
-                            valeur.getUtilisateurId(),
-                            valeur.getUtilisateurNom(),
-                            valeur.getUtilisateurPrenom()))
-                    .valeurCourante(i == 0)
-                    .build());
+                return SousActiviteDetailDTO.builder()
+                                .id(row.getId())
+                                .code(row.getCode())
+                                .designation(row.getDesignation())
+                                .dateDebutPrevue(row.getDateDebutPrevue())
+                                .dateFinPrevue(row.getDateFinPrevue())
+                                .dateDebutReelle(row.getDateDebutReelle())
+                                .dateFinReelle(row.getDateFinReelle())
+                                .statutActivite(row.getStatutActivite())
+                                .avancementCourant(suivi.isEmpty() ? null : suivi.getFirst())
+                                .historiqueAvancement(suivi)
+                                .affectations(affectations.stream()
+                                                .map(this::affectation)
+                                                .toList())
+                                .livrables(livrables.stream()
+                                                .map(l -> livrable(l, fichiers.getOrDefault(l.getId(), List.of())))
+                                                .toList())
+                                .peutSaisirAvancement(peutSaisir) // ← AJOUTÉ
+                                .build();
         }
 
-        return IndicateurDetailDTO.builder()
-                .id(row.getId())
-                .code(row.getCode())
-                .codeHopex(row.getCodeHopex())
-                .indicateurHopex(row.getIndicateurHopex())
-                .designation(row.getDesignation())
-                .typeIndicateur(row.getTypeIndicateur())
-                .uniteMesure(row.getUniteMesure())
-                .frequenceVerification(row.getFrequenceVerification())
-                .frequenceAggregation(row.getFrequenceAggregation())
-                .definition(row.getDefinition())
-                .methodeDetermination(row.getMethodeDetermination())
-                .objectif(row.getObjectif())
-                .valeurCible(row.getValeurCible())
-                .seuilMin(row.getSeuilMin())
-                .seuilMax(row.getSeuilMax())
-                .actif(row.getActif())
-                .valeurCourante(mesures.isEmpty() ? null : mesures.getFirst())
-                .valeurs(mesures)
-                .build();
-    }
+        /**
+         * Un utilisateur peut saisir l'avancement si l'activité est affectée
+         * (au moins une affectation active) ET s'il est lui-même affecté
+         * (à l'activité, ou à cette sous-activité).
+         *
+         * Symétrique de SousActiviteService.verifierAvancementAutorise, mais
+         * retourne un booléen au lieu de lever une exception : ici c'est un
+         * conseil pour l'affichage, pas une autorisation.
+         */
+        private boolean calculerPeutSaisirAvancement(
+                        Integer idActivite,
+                        Integer idSousActivite,
+                        Integer idUtilisateur) {
 
-    private ResultatIntermediaireDTO resultatIntermediaire(ResultatIntermediaireRow row) {
-        return ResultatIntermediaireDTO.builder()
-                .id(row.getId())
-                .designation(row.getDesignation())
-                .build();
-    }
+                long affectationsActivite = affectationActiviteRepository
+                                .countActives(idActivite);
+                long affectationsSousActivites = affectationSousActiviteRepository
+                                .countActivesSurSousActivitesDeActivite(idActivite);
 
-    /**
-     * Historique du plus recent au plus ancien, la premiere ligne portant le
-     * statut courant.
-     *
-     * C est le meme statut que celui lu par la requete mere, obtenu par le
-     * meme critere de selection. Les deux pourraient diverger si les requetes
-     * changeaient separement : la coherence tient a ce qu elles trient toutes
-     * deux par (date_changement decroissant, identifiant decroissant), donc a
-     * ce que l ordre de lecture designe la meme ligne.
-     */
-    private List<HistoriqueActiviteDTO> historique(List<HistoriqueActiviteRow> lignes) {
+                if (affectationsActivite == 0 && affectationsSousActivites == 0) {
+                        return false;
+                }
 
-        if (lignes == null) {
-            return List.of();
+                long affectationsUtilisateurActivite = affectationActiviteRepository
+                                .countActivesPourUtilisateur(idActivite, idUtilisateur);
+
+                if (affectationsUtilisateurActivite > 0) {
+                        return true;
+                }
+
+                long affectationsUtilisateurSousActivite = affectationSousActiviteRepository
+                                .countActivesPourUtilisateur(idSousActivite, idUtilisateur);
+
+                return affectationsUtilisateurSousActivite > 0;
         }
 
-        List<HistoriqueActiviteDTO> entrees = new ArrayList<>(lignes.size());
+        private LivrableDetailDTO livrable(
+                        LivrableDetailRow row,
+                        List<FichierDetailRow> fichiers) {
 
-        for (int i = 0; i < lignes.size(); i++) {
-            HistoriqueActiviteRow row = lignes.get(i);
-            entrees.add(HistoriqueActiviteDTO.builder()
-                    .id(row.getId())
-                    .statut(reference(
-                            row.getStatutId(),
-                            row.getStatutCode(),
-                            row.getStatutLibelle(),
-                            null))
-                    .dateChangement(row.getDateChangement())
-                    .commentaire(row.getCommentaire())
-                    .utilisateur(utilisateur(
-                            row.getUtilisateurId(),
-                            row.getUtilisateurNom(),
-                            row.getUtilisateurPrenom()))
-                    .etatActuel(i == 0)
-                    .build());
+                return LivrableDetailDTO.builder()
+                                .id(row.getId())
+                                .designation(row.getDesignation())
+                                .description(row.getDescription())
+                                .fichiers(fichiers.stream()
+                                                .map(this::fichier)
+                                                .toList())
+                                .build();
         }
 
-        return entrees;
-    }
-
-    // ------------------------------------------------------------------
-    // Aides
-    // ------------------------------------------------------------------
-    private ReferenceDTO reference(
-            Integer id,
-            String code,
-            String libelle,
-            Integer annee) {
-
-        if (id == null) {
-            return null;
+        private FichierDetailDTO fichier(FichierDetailRow row) {
+                return FichierDetailDTO.builder()
+                                .id(row.getId())
+                                .nomFichier(row.getNomFichier())
+                                .nomOriginal(row.getNomOriginal())
+                                .extension(row.getExtension())
+                                .typeMime(row.getTypeMime())
+                                .taille(row.getTaille())
+                                .version(row.getVersion())
+                                .dateDepot(row.getDateDepot())
+                                .utilisateur(utilisateur(
+                                                row.getUtilisateurId(),
+                                                row.getUtilisateurNom(),
+                                                row.getUtilisateurPrenom()))
+                                .build();
         }
 
-        return ReferenceDTO.builder()
-                .id(id)
-                .code(code)
-                .libelle(libelle)
-                .annee(annee)
-                .build();
-    }
+        private AffectationDetailDTO affectation(AffectationDetailRow row) {
+                return AffectationDetailDTO.builder()
+                                .id(row.getId())
+                                .dateAffectation(row.getDateAffectation())
+                                .dateDesaffectation(row.getDateDesaffectation())
+                                .role(reference(
+                                                row.getRoleId(), row.getRoleCode(), row.getRoleLibelle(), null))
+                                .utilisateur(utilisateur(
+                                                row.getUtilisateurId(),
+                                                row.getUtilisateurNom(),
+                                                row.getUtilisateurPrenom()))
+                                .build();
+        }
 
-    private UtilisateurResumeDTO utilisateur(Integer id, String nom, String prenom) {
-        return UtilisateurResumeDTO.videSi(id, nom, prenom);
-    }
+        private IndicateurDetailDTO indicateur(
+                        IndicateurDetailRow row,
+                        List<ValeurIndicateurRow> valeurs) {
+
+                List<ValeurIndicateurDTO> mesures = new ArrayList<>(valeurs.size());
+
+                for (int i = 0; i < valeurs.size(); i++) {
+                        ValeurIndicateurRow valeur = valeurs.get(i);
+                        mesures.add(ValeurIndicateurDTO.builder()
+                                        .id(valeur.getId())
+                                        .valeur(valeur.getValeur())
+                                        .periodeDebut(valeur.getPeriodeDebut())
+                                        .periodeFin(valeur.getPeriodeFin())
+                                        .commentaire(valeur.getCommentaire())
+                                        .dateSaisie(valeur.getDateSaisie())
+                                        .utilisateur(utilisateur(
+                                                        valeur.getUtilisateurId(),
+                                                        valeur.getUtilisateurNom(),
+                                                        valeur.getUtilisateurPrenom()))
+                                        .valeurCourante(i == 0)
+                                        .build());
+                }
+
+                return IndicateurDetailDTO.builder()
+                                .id(row.getId())
+                                .code(row.getCode())
+                                .designation(row.getDesignation())
+                                .typeIndicateur(row.getTypeIndicateur())
+                                .uniteMesure(row.getUniteMesure())
+                                .frequenceVerification(row.getFrequenceVerification())
+                                .frequenceAggregation(row.getFrequenceAggregation())
+                                .definition(row.getDefinition())
+                                .methodeDetermination(row.getMethodeDetermination())
+                                .objectif(row.getObjectif())
+                                .valeurCible(row.getValeurCible())
+                                .seuilMin(row.getSeuilMin())
+                                .seuilMax(row.getSeuilMax())
+                                .actif(row.getActif())
+                                .valeurCourante(mesures.isEmpty() ? null : mesures.getFirst())
+                                .valeurs(mesures)
+                                .build();
+        }
+
+        private ResultatIntermediaireDTO resultatIntermediaire(ResultatIntermediaireRow row) {
+                return ResultatIntermediaireDTO.builder()
+                                .id(row.getId())
+                                .designation(row.getDesignation())
+                                .build();
+        }
+
+        /**
+         * Historique du plus recent au plus ancien, la premiere ligne portant le
+         * statut courant.
+         *
+         * C est le meme statut que celui lu par la requete mere, obtenu par le
+         * meme critere de selection. Les deux pourraient diverger si les requetes
+         * changeaient separement : la coherence tient a ce qu elles trient toutes
+         * deux par (date_changement decroissant, identifiant decroissant), donc a
+         * ce que l ordre de lecture designe la meme ligne.
+         */
+        private List<HistoriqueActiviteDTO> historique(List<HistoriqueActiviteRow> lignes) {
+
+                if (lignes == null) {
+                        return List.of();
+                }
+
+                List<HistoriqueActiviteDTO> entrees = new ArrayList<>(lignes.size());
+
+                for (int i = 0; i < lignes.size(); i++) {
+                        HistoriqueActiviteRow row = lignes.get(i);
+                        entrees.add(HistoriqueActiviteDTO.builder()
+                                        .id(row.getId())
+                                        .statut(reference(
+                                                        row.getStatutId(),
+                                                        row.getStatutCode(),
+                                                        row.getStatutLibelle(),
+                                                        null))
+                                        .dateChangement(row.getDateChangement())
+                                        .commentaire(row.getCommentaire())
+                                        .utilisateur(utilisateur(
+                                                        row.getUtilisateurId(),
+                                                        row.getUtilisateurNom(),
+                                                        row.getUtilisateurPrenom()))
+                                        .etatActuel(i == 0)
+                                        .build());
+                }
+
+                return entrees;
+        }
+
+        // ------------------------------------------------------------------
+        // Aides
+        // ------------------------------------------------------------------
+        private ReferenceDTO reference(
+                        Integer id,
+                        String code,
+                        String libelle,
+                        Integer annee) {
+
+                if (id == null) {
+                        return null;
+                }
+
+                return ReferenceDTO.builder()
+                                .id(id)
+                                .code(code)
+                                .libelle(libelle)
+                                .annee(annee)
+                                .build();
+        }
+
+        private UtilisateurResumeDTO utilisateur(Integer id, String nom, String prenom) {
+                return UtilisateurResumeDTO.videSi(id, nom, prenom);
+        }
 
 }

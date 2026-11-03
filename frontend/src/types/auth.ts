@@ -21,6 +21,7 @@ export interface ProfileResponse {
     dateCreation: string
     dateDerniereConnexion: string | null
     dateDesactivation: string | null
+    permissions?: string[]
 }
 
 /**

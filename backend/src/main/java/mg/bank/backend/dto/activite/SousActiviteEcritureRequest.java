@@ -38,9 +38,8 @@ public class SousActiviteEcritureRequest {
     private Integer idSousActivite;
 
     /**
-     * Facultatif : si absent, le backend genere un code unique a partir de
-     * l identifiant de l activite, dans le format deja utilise par
-     * data.sql (SA-<idActivite>-<n>).
+    * Facultatif : si absent, le backend génère un code à partir des
+    * références de l'activité parente.
      */
     @Size(max = 20, message = "Le code ne doit pas dépasser 20 caractères")
     private String code;

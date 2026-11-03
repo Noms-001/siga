@@ -35,7 +35,7 @@
                         <router-link to="/login" class="accueil-card-link">
                             <BaseButton variant="primary" size="lg" custom-class="accueil-btn w-100">
                                 <i class="bi bi-box-arrow-in-right"></i>
-                                Accéder à l'espace utilisateur
+                                Accéder à l'espace professionnel
                             </BaseButton>
                         </router-link>
                     </div>
@@ -55,7 +55,7 @@
                         <router-link to="/backoffice/login" class="accueil-card-link">
                             <BaseButton variant="secondary" size="lg" custom-class="accueil-btn w-100">
                                 <i class="bi bi-shield-lock"></i>
-                                Accéder au backoffice
+                                Accéder à l'espace d'administration
                             </BaseButton>
                         </router-link>
                     </div>

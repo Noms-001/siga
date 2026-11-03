@@ -28,12 +28,6 @@ public interface PostePermissionRepository extends JpaRepository<PostePermission
             """)
     List<PostePermission> findByPermissionIdWithPoste(@Param("idPermission") Integer idPermission);
 
-    /**
-     * Permissions associées à un poste, avec leur portée.
-     *
-     * JOIN FETCH sur permission : sans lui, la liste des permissions d'un
-     * poste déclencherait une requête par ligne affichée.
-     */
     @Query("""
             select pp
             from PostePermission pp
@@ -43,15 +37,30 @@ public interface PostePermissionRepository extends JpaRepository<PostePermission
             """)
     List<PostePermission> findByPosteIdWithPermission(@Param("idPoste") Integer idPoste);
 
-    /**
-     * Récupère l'association depuis la clé composite.
-     *
-     * Méthode par défaut : la clé composite est un objet, et Spring Data
-     * sait naviguer dedans via `findById`. Une méthode dérivée explicite
-     * (findByIdPosteAndIdPermission) fonctionnerait aussi mais serait plus
-     * verbeuse à lire.
-     */
+
     default Optional<PostePermission> findAssociation(Integer idPoste, Integer idPermission) {
         return findById(new PostePermissionId(idPoste, idPermission));
     }
+
+    @Query("""
+            select case when count(pp) > 0 then true else false end
+            from PostePermission pp
+            where pp.poste.idPoste = :idPoste
+              and lower(pp.permission.ressource) = lower(:resource)
+              and lower(pp.permission.action) = lower(:action)
+              and pp.permission.actif = true
+            """)
+    boolean existsActivePermission(
+            @Param("idPoste") Integer idPoste,
+            @Param("resource") String resource,
+            @Param("action") String action);
+
+    @Query("""
+            select lower(pp.permission.ressource) || ':' || lower(pp.permission.action)
+            from PostePermission pp
+            where pp.poste.idPoste = :idPoste
+              and pp.permission.actif = true
+            order by lower(pp.permission.ressource), lower(pp.permission.action)
+            """)
+    List<String> findActivePermissionKeys(@Param("idPoste") Integer idPoste);
 }

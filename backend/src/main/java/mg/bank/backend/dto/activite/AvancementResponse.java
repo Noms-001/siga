@@ -25,4 +25,9 @@ public class AvancementResponse {
 
     /** Avancement recalculé de l'activité parente. */
     private Double avancementActivite;
+
+    private String statutActiviteCode;
+
+    /** Libellé du statut de l'ACTIVITÉ parente après la mise à jour. */
+    private String statutActiviteLibelle;
 }

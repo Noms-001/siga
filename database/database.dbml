@@ -168,8 +168,6 @@ Table indicateur {
   type_indicateur varchar
   details text
   libelle varchar
-  code_hopex varchar
-  indicateur_hopex varchar
   objectifs text
   methode_determination text
   frequence_verification varchar

@@ -76,7 +76,7 @@ public class DemandeReprisePlanService {
                         "Plan d'action introuvable.", HttpStatus.NOT_FOUND));
 
         // Statut NON_COMMENCEE requis.
-        verifierStatutNonCommencee(idPlanAction);
+        verifierStatutAffectable(idPlanAction);
 
         // Responsable actif requis.
         AffectationPlanActionRow respActuel = trouverResponsableActif(idPlanAction);
@@ -183,7 +183,7 @@ public class DemandeReprisePlanService {
         verifierDroitDeDecision(demande, decideur);
 
         // Revalider l'etat.
-        verifierStatutNonCommencee(demande.getPlanAction().getIdPlanAction());
+        verifierStatutAffectable(demande.getPlanAction().getIdPlanAction());
 
         if (!Boolean.TRUE.equals(demande.getDemandeur().getActif())) {
             throw new ApiException(
@@ -308,7 +308,7 @@ public class DemandeReprisePlanService {
                         HttpStatus.NOT_FOUND));
     }
 
-    private void verifierStatutNonCommencee(Integer idPlanAction) {
+    private void verifierStatutAffectable(Integer idPlanAction) {
         AvancementPlanActionRow dernier = avancementRepository
                 .findDernier(idPlanAction)
                 .orElseThrow(() -> new ApiException(

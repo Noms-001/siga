@@ -27,6 +27,8 @@ export interface AvancementResponse {
     statutCode: string
     statutLibelle: string
     avancementActivite: number
+    statutActiviteCode: string | null      // ⬅️ AJOUTÉ
+    statutActiviteLibelle: string | null 
 }
 
 export interface ResponsableSuivi {

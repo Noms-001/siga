@@ -22,6 +22,7 @@ import mg.bank.backend.dto.utilisateur.ProfileResponse;
 import mg.bank.backend.model.utilisateur.Utilisateur;
 import mg.bank.backend.service.utilisateur.AuthService;
 import mg.bank.backend.service.utilisateur.JwtService;
+import mg.bank.backend.service.utilisateur.PermissionService;
 import mg.bank.backend.service.utilisateur.TokenAuthService;
 import mg.bank.backend.service.utilisateur.UtilisateurService;
 
@@ -34,6 +35,7 @@ public class AuthController {
     private final UtilisateurService utilisateurService;
     private final TokenAuthService tokenAuthService;
     private final JwtService jwtService;
+    private final PermissionService permissionService;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(
@@ -88,7 +90,10 @@ public class AuthController {
 
         return ResponseEntity.ok(
                 ApiResponse.success(
-                        ProfileResponse.from(utilisateur)));
+                        ProfileResponse.from(
+                                utilisateur,
+                                permissionService.permissionsFor(
+                                        utilisateur.getPoste().getIdPoste()))));
     }
 
     @GetMapping("/activation/verify")

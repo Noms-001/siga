@@ -27,21 +27,6 @@ import mg.bank.backend.repository.projection.dashboard.DashboardPlanActionRow;
 import mg.bank.backend.repository.projection.dashboard.DashboardPtaRow;
 import mg.bank.backend.repository.projection.dashboard.DashboardValidationRow;
 
-/**
- * Agrégats du dashboard.
- *
- * Ce service ne prend AUCUNE décision métier : il prépare les paramètres
- * (codes terminaux, année, limite), appelle le repository, et convertit
- * les projections en DTO. Toute la logique de calcul est dans les
- * requêtes SQL — c'est le sens même d'un dashboard : des agrégats, pas
- * des boucles Java.
- *
- * Pas encore de filtre par poste ou par périmètre : la version actuelle
- * renvoie les statistiques globales pour l'année demandée. L'ajout du
- * périmètre se fera en une seule modification de ce service (un paramètre
- * à faire descendre dans chaque méthode), sans toucher au controller ni
- * aux DTO.
- */
 @Service
 @RequiredArgsConstructor
 public class DashboardService {
@@ -155,13 +140,6 @@ public class DashboardService {
         List<DashboardEcheanceRow> toutes = dashboardRepository.echeances(
                 annee, codesTerminaux(), fenetre);
 
-        /*
-         * Séparation en mémoire : deux listes à partir d'une requête.
-         * Un split sur le signe de `jours` — négatif = retard, positif =
-         * proche. Le zéro (échéance aujourd'hui) est compté en retard,
-         * c'est la convention la plus stricte : "arrive aujourd'hui sans
-         * avoir commencé" est déjà un problème.
-         */
         List<DashboardEcheanceDTO> enRetard = toutes.stream()
                 .filter(r -> r.getJours() != null && r.getJours() > 0) // ← strictement
                 .map(this::versEcheance)

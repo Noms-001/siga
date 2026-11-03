@@ -83,7 +83,7 @@ public class DemandeRepriseService {
                 }
 
                 // Statut NON_COMMENCEE requis.
-                verifierStatutNonCommencee(idActivite);
+                verifierStatutAffectable(idActivite);
 
                 // Responsable actif requis.
                 AffectationRow respActuel = trouverResponsableActif(idActivite);
@@ -177,7 +177,7 @@ public class DemandeRepriseService {
                 verifierDroitDeDecision(demande, decideur);
 
                 // Revalider que la situation n'a pas change.
-                verifierStatutNonCommencee(demande.getActivite().getIdActivite());
+                verifierStatutAffectable(demande.getActivite().getIdActivite());
 
                 if (!Boolean.TRUE.equals(demande.getDemandeur().getActif())) {
                         throw new ApiException(
@@ -303,7 +303,7 @@ public class DemandeRepriseService {
                                                 HttpStatus.NOT_FOUND));
         }
 
-        private void verifierStatutNonCommencee(Integer idActivite) {
+        private void verifierStatutAffectable(Integer idActivite) {
                 StatutCourantRow statut = activiteRepository.findStatutCourant(
                                 idActivite, null, null)
                                 .orElseThrow(() -> new ApiException(

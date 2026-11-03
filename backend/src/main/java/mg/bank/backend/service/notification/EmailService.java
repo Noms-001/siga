@@ -14,77 +14,87 @@ import mg.bank.backend.model.utilisateur.Utilisateur;
 @RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+        private final JavaMailSender mailSender;
 
-    @Value("${app.frontend.url}")
-    private String frontendUrl;
+        @Value("${app.frontend.url}")
+        private String frontendUrl;
 
-    public void sendEmail(
-            String to,
-            String subject,
-            String text
-    ) {
-        SimpleMailMessage message = new SimpleMailMessage();
+        public void sendEmail(
+                        String to,
+                        String subject,
+                        String text) {
+                SimpleMailMessage message = new SimpleMailMessage();
 
-        message.setTo(to);
-        message.setSubject(subject);
-        message.setText(text);
+                message.setTo(to);
+                message.setSubject(subject);
+                message.setText(text);
 
-        mailSender.send(message);
-    }
+                mailSender.send(message);
+        }
 
-    public void sendActivationEmail(
-            Utilisateur utilisateur,
-            TokenAuth tokenAuth
-    ) {
-        String activationLink =
-                frontendUrl + "/activation?token=" + tokenAuth.getToken();
+        public void sendActivationEmail(
+                        Utilisateur utilisateur,
+                        TokenAuth tokenAuth) {
+                String activationLink = frontendUrl + "/activation?token=" + tokenAuth.getToken();
 
-        sendEmail(
-                utilisateur.getEmail(),
-                "Activation de votre compte",
-                "Bonjour " + utilisateur.getPrenom() + ",\n\n"
-                + "Votre compte vient d'être créé.\n\n"
-                + "Pour activer votre compte, cliquez sur le lien suivant :\n\n"
-                + activationLink + "\n\n"
-                + "Ce lien est temporaire et expirera automatiquement.\n\n"
-                + "Cordialement,\n"
-                + "Service Administration"
-        );
-    }
+                sendEmail(
+                                utilisateur.getEmail(),
+                                "Activation de votre compte",
+                                "Bonjour " + utilisateur.getPrenom() + ",\n\n"
+                                                + "Votre compte vient d'être créé.\n\n"
+                                                + "Pour activer votre compte, cliquez sur le lien suivant :\n\n"
+                                                + activationLink + "\n\n"
+                                                + "Ce lien est temporaire et expirera automatiquement.\n\n"
+                                                + "Cordialement,\n"
+                                                + "Service Administration");
+        }
 
-    public void sendResetPasswordEmail(
-            Utilisateur utilisateur,
-            TokenAuth tokenAuth
-    ) {
-        String resetLink =
-                frontendUrl + "/reset-password?token=" + tokenAuth.getToken();
+        public void sendResetPasswordEmail(
+                        Utilisateur utilisateur,
+                        TokenAuth tokenAuth) {
+                String resetLink = frontendUrl + "/reset-password?token=" + tokenAuth.getToken();
 
-        sendEmail(
-                utilisateur.getEmail(),
-                "Réinitialisation de votre mot de passe",
-                "Bonjour " + utilisateur.getPrenom() + ",\n\n"
-                + "Une demande de réinitialisation de votre mot de passe a été effectuée.\n\n"
-                + "Pour réinitialiser votre mot de passe, cliquez sur le lien suivant :\n\n"
-                + resetLink + "\n\n"
-                + "Ce lien est temporaire et expirera automatiquement.\n\n"
-                + "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail.\n\n"
-                + "Cordialement,\n"
-                + "Service Administration"
-        );
-    }
+                sendEmail(
+                                utilisateur.getEmail(),
+                                "Réinitialisation de votre mot de passe",
+                                "Bonjour " + utilisateur.getPrenom() + ",\n\n"
+                                                + "Une demande de réinitialisation de votre mot de passe a été effectuée.\n\n"
+                                                + "Pour réinitialiser votre mot de passe, cliquez sur le lien suivant :\n\n"
+                                                + resetLink + "\n\n"
+                                                + "Ce lien est temporaire et expirera automatiquement.\n\n"
+                                                + "Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail.\n\n"
+                                                + "Cordialement,\n"
+                                                + "Service Administration");
+        }
 
-    public void sendValidationActiviteEmail(Utilisateur destinataire, Activite activite) {
-        String validationLink = frontendUrl + "/validation";
-        sendEmail(
-                destinataire.getEmail(),
-                "Activité en attente de validation",
-                "Bonjour " + destinataire.getPrenom() + ",\n\n"
-                        + "Une activité attend votre validation : « " + activite.getDesignation() + " ».\n\n"
-                        + "Ouvrez la page de validation en cliquant sur le lien suivant :\n\n"
-                        + validationLink + "\n\n"
-                        + "Si vous n'êtes pas connecté, vous serez invité à vous connecter avant d'accéder à la page.\n\n"
-                        + "Cordialement,\n"
-                        + "Service Administration");
-    }
+        public void sendValidationActiviteEmail(Utilisateur destinataire, Activite activite) {
+                String validationLink = frontendUrl + "/validation";
+                sendEmail(
+                                destinataire.getEmail(),
+                                "Activité en attente de validation",
+                                "Bonjour " + destinataire.getPrenom() + ",\n\n"
+                                                + "Une activité attend votre validation : « "
+                                                + activite.getDesignation() + " ».\n\n"
+                                                + "Ouvrez la page de validation en cliquant sur le lien suivant :\n\n"
+                                                + validationLink + "\n\n"
+                                                + "Si vous n'êtes pas connecté, vous serez invité à vous connecter avant d'accéder à la page.\n\n"
+                                                + "Cordialement,\n"
+                                                + "Service Administration");
+        }
+
+        public void sendNotificationUrgente(
+                        Utilisateur destinataire,
+                        String titre,
+                        String message,
+                        String lien) {
+                sendEmail(
+                                destinataire.getEmail(),
+                                "[GESTIA] " + titre,
+                                "Bonjour " + destinataire.getPrenom() + ",\n\n"
+                                                + message + "\n\n"
+                                                + "Consulter vos notifications urgentes :\n\n"
+                                                + lien + "\n\n"
+                                                + "Cordialement,\n"
+                                                + "Service GESTIA");
+        }
 }

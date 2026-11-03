@@ -7,10 +7,10 @@
                     <span class="live-dot"></span>
                     {{ dateDuJour }}
                 </div>
-                <h1>Notifications</h1>
+                <h1>{{ titrePage }}</h1>
                 <span class="title-divider" aria-hidden="true"></span>
                 <p class="subheading">
-                    Suivi des notifications du dispositif
+                    {{ sousTitrePage }}
                     <template v-if="state.unreadCount > 0">
                         — <strong>{{ state.unreadCount }}</strong> non lue{{ state.unreadCount > 1 ? 's' : '' }}
                     </template>
@@ -18,13 +18,8 @@
             </div>
 
             <div class="welcome-row__right">
-                <BaseButton
-                    v-if="state.unreadCount > 0"
-                    variant="primary"
-                    :loading="markingAll"
-                    :disabled="markingAll"
-                    @click="toutLire"
-                >
+                <BaseButton v-if="state.unreadCount > 0" variant="primary" :loading="markingAll" :disabled="markingAll"
+                    @click="toutLire">
                     <i class="bi bi-check2-all"></i>
                     Tout marquer comme lu
                 </BaseButton>
@@ -64,66 +59,42 @@
                         {{ filtresActifs ? 'Filtres actifs' : 'Affiner la liste des notifications' }}
                     </span>
                 </div>
-                <BaseButton
-                    v-if="filtresActifs"
-                    variant="secondary"
-                    size="sm"
-                    icon="bi bi-x-lg"
-                    :disabled="refreshing"
-                    @click="reinitialiserFiltres"
-                >
+                <BaseButton v-if="filtresActifs" variant="secondary" size="sm" icon="bi bi-x-lg" :disabled="refreshing"
+                    @click="reinitialiserFiltres">
                     Réinitialiser
                 </BaseButton>
             </header>
 
-            <div class="filters-card__body">
-                <!-- Recherche (avec label visible) -->
+            <div class="filters-card__body" :class="{ 'filters-card__body--urgentes': urgentesSeulement }">
                 <div class="filters__field">
                     <label for="search-input" class="filters__label">Rechercher</label>
                     <div class="filters__search">
                         <i class="bi bi-search" aria-hidden="true"></i>
-                        <input
-                            id="search-input"
-                            v-model="search"
-                            type="search"
-                            placeholder="Titre, message ou activité…"
-                            @input="onSearchInput"
-                            @keydown.enter="appliquerFiltres"
-                        />
-                        <button
-                            v-if="search"
-                            type="button"
-                            class="filters__clear"
-                            aria-label="Effacer la recherche"
-                            @click="effacerRecherche"
-                        >
+                        <input id="search-input" v-model="search" type="search"
+                            placeholder="Titre, message ou activité…" @input="onSearchInput"
+                            @keydown.enter="appliquerFiltres" />
+                        <button v-if="search" type="button" class="filters__clear" aria-label="Effacer la recherche"
+                            @click="effacerRecherche">
                             <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
                 </div>
 
                 <div class="filters__select">
-                    <label for="search-input" class="filters__label">État</label>
-                    <BaseSelect
-                        v-model="lecture"
-                        size="sm"
-                        :options="lectureOptions"
-                    />
+                    <label class="filters__label">État</label>
+                    <BaseSelect v-model="lecture" size="sm" :options="lectureOptions" />
                 </div>
 
-                <div class="filters__select">
-                    <label for="search-input" class="filters__label">Priorité</label>
-                    <BaseSelect
-                        v-model="priorite"
-                        size="sm"
-                        :options="prioriteOptions"
-                    />
+                <div v-if="!urgentesSeulement" class="filters__select">
+                    <label class="filters__label">Priorité</label>
+                    <BaseSelect v-model="priorite" size="sm" :options="prioriteOptions" />
                 </div>
             </div>
         </section>
 
         <!-- ============ ERREUR ============ -->
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center" role="alert">
+        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
+            role="alert">
             <span>{{ errorMessage }}</span>
             <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
         </div>
@@ -154,34 +125,30 @@
                     ? 'Aucune notification ne correspond aux critères sélectionnés.'
                     : 'Vous n\'avez aucune notification pour le moment.' }}
             </p>
-            <BaseButton
-                v-if="filtresActifs"
-                variant="secondary"
-                size="sm"
-                @click="reinitialiserFiltres"
-            >
+            <BaseButton v-if="filtresActifs" variant="secondary" size="sm" @click="reinitialiserFiltres">
                 Réinitialiser les filtres
             </BaseButton>
         </div>
 
         <!-- ============ LISTE ============ -->
         <div v-else class="notif-list" :class="{ 'notif-list--refreshing': refreshing }">
-            <article
-                v-for="item in notifications"
-                :key="item.id"
-                class="notif-item"
-                :class="[
-                    { 'notif-item--unread': !item.dateLecture },
-                    classePrioriteItem(item.prioriteCode),
-                ]"
-            >
+            <div v-if="urgentesSeulement" class="urgentes-banner">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span>
+                    Seules les notifications <strong>CRITIQUE</strong> et <strong>HAUTE</strong>
+                    sont affichées ici.
+                </span>
+            </div>
+            <article v-for="item in notifications" :key="item.id" class="notif-item" :class="[
+                { 'notif-item--unread': !item.dateLecture },
+                classePrioriteItem(item.prioriteCode),
+            ]" role="button" tabindex="0" :aria-label="`Ouvrir le détail de la notification ${item.titre}`"
+                @click="ouvrirDetail(item)" @keydown.enter.prevent="ouvrirDetail(item)"
+                @keydown.space.prevent="ouvrirDetail(item)">
                 <div class="notif-item__body">
                     <div class="notif-item__head">
-                        <span
-                            v-if="item.prioriteLibelle"
-                            class="badge-priority"
-                            :class="classePriorite(item.prioriteCode)"
-                        >
+                        <span v-if="item.prioriteLibelle" class="badge-priority"
+                            :class="classePriorite(item.prioriteCode)">
                             {{ item.prioriteLibelle }}
                         </span>
                         <h3 class="notif-item__title">{{ item.titre }}</h3>
@@ -195,30 +162,18 @@
                             {{ formatDateRelative(item.dateCreation) }}
                         </span>
 
-                        <RouterLink
-                            v-if="item.idActivite"
-                            :to="`/activites/${item.idActivite}`"
-                            class="notif-item__link"
-                        >
+                        <RouterLink v-if="item.idActivite" :to="`/activites/${item.idActivite}`"
+                            class="notif-item__link" @click.stop>
                             <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
                             {{ item.activite || 'Voir l\'activité' }}
                         </RouterLink>
                     </div>
                 </div>
 
-                <div class="notif-item__actions">
-                    <button
-                        v-if="!item.dateLecture"
-                        type="button"
-                        class="btn-read"
-                        :disabled="readingIds.has(item.id)"
-                        @click="lire(item.id)"
-                    >
-                        <i
-                            v-if="readingIds.has(item.id)"
-                            class="bi bi-arrow-repeat spin"
-                            aria-hidden="true"
-                        ></i>
+                <div class="notif-item__actions" @click.stop>
+                    <button v-if="!item.dateLecture" type="button" class="btn-read" :disabled="readingIds.has(item.id)"
+                        @click.stop="lire(item.id)">
+                        <i v-if="readingIds.has(item.id)" class="bi bi-arrow-repeat spin" aria-hidden="true"></i>
                         <i v-else class="bi bi-check2" aria-hidden="true"></i>
                         <span>{{ readingIds.has(item.id) ? 'Marquage…' : 'Marquer comme lue' }}</span>
                     </button>
@@ -233,12 +188,8 @@
 
         <!-- ============ PAGINATION ============ -->
         <nav v-if="totalPages > 1" class="pagination" aria-label="Pagination des notifications">
-            <BaseButton
-                variant="secondary"
-                size="sm"
-                :disabled="page === 0 || refreshing"
-                @click="changerPage(page - 1)"
-            >
+            <BaseButton variant="secondary" size="sm" :disabled="page === 0 || refreshing"
+                @click="changerPage(page - 1)">
                 <i class="bi bi-chevron-left"></i>
                 Précédent
             </BaseButton>
@@ -246,36 +197,31 @@
             <div class="pagination__pages">
                 <template v-for="(p, index) in pagesVisibles" :key="index">
                     <span v-if="p === -1" class="pagination__ellipsis">…</span>
-                    <button
-                        v-else
-                        type="button"
-                        class="pagination__page"
+                    <button v-else type="button" class="pagination__page"
                         :class="{ 'pagination__page--active': p === page }"
-                        :aria-current="p === page ? 'page' : undefined"
-                        :disabled="refreshing"
-                        @click="changerPage(p)"
-                    >
+                        :aria-current="p === page ? 'page' : undefined" :disabled="refreshing" @click="changerPage(p)">
                         {{ p + 1 }}
                     </button>
                 </template>
             </div>
 
-            <BaseButton
-                variant="secondary"
-                size="sm"
-                :disabled="page + 1 >= totalPages || refreshing"
-                @click="changerPage(page + 1)"
-            >
+            <BaseButton variant="secondary" size="sm" :disabled="page + 1 >= totalPages || refreshing"
+                @click="changerPage(page + 1)">
                 Suivant
                 <i class="bi bi-chevron-right"></i>
             </BaseButton>
         </nav>
+
+        <!-- ============ MODALE DE DÉTAIL ============ -->
+        <NotificationDetailModal v-model="detailModalOpen" :notification-id="detailNotificationId"
+            @refresh="surDetailRefresh" />
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { BaseButton, BaseSelect } from '@/components/base'
+import NotificationDetailModal from '@/components/NotificationDetailModal.vue'
 import {
     chargerPageNotifications,
     actualiserNotifications,
@@ -307,8 +253,28 @@ const search = ref('')
 const lecture = ref<NotificationFiltres['lecture']>('TOUTES')
 const priorite = ref('')
 
+/* -------------------- props -------------------- */
+const props = defineProps<{
+    urgentesSeulement?: boolean
+}>()
+
 /* Debounce search */
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+/* Modale de détail */
+const detailModalOpen = ref(false)
+const detailNotificationId = ref<number | null>(null)
+
+/* -------------------- titres dynamiques -------------------- */
+const titrePage = computed(() =>
+    props.urgentesSeulement ? 'Notifications urgentes' : 'Notifications'
+)
+
+const sousTitrePage = computed(() =>
+    props.urgentesSeulement
+        ? 'Alertes critiques et hautes uniquement'
+        : 'Suivi des notifications du dispositif'
+)
 
 /* -------------------- en-tête -------------------- */
 const dateDuJour = computed(() =>
@@ -364,7 +330,12 @@ async function charger(): Promise<void> {
     }
     errorMessage.value = ''
 
-    const resultat = await chargerPageNotifications(page.value, pageSize, filtresCourants())
+    const resultat = await chargerPageNotifications(
+        page.value,
+        pageSize,
+        filtresCourants(),
+        props.urgentesSeulement === true,
+    )
 
     if (!resultat) {
         errorMessage.value = 'Connexion au serveur impossible. Réessayez dans un instant.'
@@ -373,16 +344,15 @@ async function charger(): Promise<void> {
         return
     }
 
-    totalPages.value = resultat ? resultat.length : 0
+    totalPages.value = resultat.totalPages
 
-    // Correction si page hors bornes après filtrage
     if (totalPages.value > 0 && page.value >= totalPages.value) {
         page.value = totalPages.value - 1
         return charger()
     }
     if (totalPages.value === 0) page.value = 0
 
-    notifications.value = resultat
+    notifications.value = resultat.content
     initialLoading.value = false
     refreshing.value = false
 }
@@ -402,7 +372,9 @@ async function appliquerFiltres(): Promise<void> {
 async function reinitialiserFiltres(): Promise<void> {
     search.value = ''
     lecture.value = 'TOUTES'
-    priorite.value = ''
+    if (!props.urgentesSeulement) {
+        priorite.value = ''
+    }
     await appliquerFiltres()
 }
 
@@ -425,7 +397,6 @@ async function lire(id: number): Promise<void> {
     ids.add(id)
     readingIds.value = ids
 
-    // Optimistic update
     const target = notifications.value.find(n => n.id === id)
     const wasUnread = target && !target.dateLecture
     const previous = target?.dateLecture ?? null
@@ -434,11 +405,9 @@ async function lire(id: number): Promise<void> {
     const ok = await marquerNotificationLue(id)
 
     if (!ok && wasUnread && target) {
-        // Rollback
         target.dateLecture = previous
     } else if (ok) {
         await actualiserNotifications()
-        // Si filtre non-lues, retirer de la liste sans attendre un refetch complet
         if (lecture.value === 'NON_LUES') {
             notifications.value = notifications.value.filter(n => n.id !== id)
         }
@@ -460,7 +429,6 @@ async function toutLire(): Promise<void> {
     const ok = await marquerToutesNotificationsLues()
 
     if (!ok) {
-        // Rollback
         for (const { id, prev } of snapshot) {
             const n = notifications.value.find(x => x.id === id)
             if (n) n.dateLecture = prev
@@ -470,6 +438,16 @@ async function toutLire(): Promise<void> {
     }
 
     markingAll.value = false
+}
+
+/* -------------------- modale de détail -------------------- */
+function ouvrirDetail(item: NotificationItem): void {
+    detailNotificationId.value = item.id
+    detailModalOpen.value = true
+}
+
+async function surDetailRefresh(): Promise<void> {
+    await Promise.all([charger(), actualiserNotifications()])
 }
 
 /* -------------------- helpers d'affichage -------------------- */
@@ -509,7 +487,6 @@ function classePriorite(code: string | null | undefined): string {
     return 'priority--normale'
 }
 
-/** Classe posée sur la carte pour piloter les barres latérales colorées. */
 function classePrioriteItem(code: string | null | undefined): string {
     const c = (code ?? '').toUpperCase()
     if (c === 'CRITIQUE') return 'notif-item--prio-critique'
@@ -543,6 +520,8 @@ const pagesVisibles = computed<number[]>(() => {
     }
     return pages
 })
+
+
 
 /* -------------------- lifecycle -------------------- */
 onMounted(async () => {
@@ -624,11 +603,22 @@ onBeforeUnmount(() => {
     width: 4px;
     background: #c8d6fb;
 }
-.stat-tile--unread::before { background: #d64545; }
-.stat-tile--visible::before { background: #4a6cf7; }
-.stat-tile--pages::before { background: #8a95a8; }
 
-.stat-tile--empty::before { background: #4ad8a7; }
+.stat-tile--unread::before {
+    background: #d64545;
+}
+
+.stat-tile--visible::before {
+    background: #4a6cf7;
+}
+
+.stat-tile--pages::before {
+    background: #8a95a8;
+}
+
+.stat-tile--empty::before {
+    background: #4ad8a7;
+}
 
 .stat-tile__count {
     font-family: Manrope, "DM Sans", sans-serif;
@@ -638,10 +628,22 @@ onBeforeUnmount(() => {
     color: #1a2a6c;
     font-variant-numeric: tabular-nums;
 }
-.stat-tile--unread .stat-tile__count { color: #a61b16; }
-.stat-tile--unread.stat-tile--empty .stat-tile__count { color: #1e7e34; }
-.stat-tile--visible .stat-tile__count { color: #135d95; }
-.stat-tile--pages .stat-tile__count { color: #5b6b7d; }
+
+.stat-tile--unread .stat-tile__count {
+    color: #a61b16;
+}
+
+.stat-tile--unread.stat-tile--empty .stat-tile__count {
+    color: #1e7e34;
+}
+
+.stat-tile--visible .stat-tile__count {
+    color: #135d95;
+}
+
+.stat-tile--pages .stat-tile__count {
+    color: #5b6b7d;
+}
 
 .stat-tile__label {
     font-size: 0.66rem;
@@ -722,8 +724,12 @@ onBeforeUnmount(() => {
     padding: 1rem 1.25rem;
 }
 
+.filters-card__body--urgentes {
+    grid-template-columns: minmax(240px, 1fr) minmax(160px, 200px);
+}
+
 /* ============================================================
-   CHAMP RECHERCHE (avec label visible)
+   CHAMP RECHERCHE
    ============================================================ */
 .filters__field {
     min-width: 0;
@@ -754,6 +760,7 @@ onBeforeUnmount(() => {
     border-radius: 10px;
     transition: border-color .15s, box-shadow .15s;
 }
+
 .filters__search:focus-within {
     border-color: #4a6cf7;
     box-shadow: 0 0 0 3px rgba(74, 108, 247, .14);
@@ -775,7 +782,10 @@ onBeforeUnmount(() => {
     padding: 0.55rem 0;
     font-family: inherit;
 }
-.filters__search input::placeholder { color: #9aa4b8; }
+
+.filters__search input::placeholder {
+    color: #9aa4b8;
+}
 
 .filters__clear {
     display: grid;
@@ -790,9 +800,15 @@ onBeforeUnmount(() => {
     cursor: pointer;
     transition: background .15s, color .15s;
 }
-.filters__clear:hover { background: #dfe5ec; color: #1a2a6c; }
 
-.filters__select { min-width: 0; }
+.filters__clear:hover {
+    background: #dfe5ec;
+    color: #1a2a6c;
+}
+
+.filters__select {
+    min-width: 0;
+}
 
 /* ============================================================
    ÉTAT VIDE
@@ -866,15 +882,39 @@ onBeforeUnmount(() => {
     border-radius: 6px;
 }
 
-.skeleton--badge { width: 60px; height: 18px; border-radius: 20px; }
-.skeleton--title { height: 16px; flex: 1; max-width: 40%; }
-.skeleton--line { height: 12px; }
-.skeleton--medium { width: 60%; }
-.skeleton--meta { width: 40%; height: 12px; }
+.skeleton--badge {
+    width: 60px;
+    height: 18px;
+    border-radius: 20px;
+}
+
+.skeleton--title {
+    height: 16px;
+    flex: 1;
+    max-width: 40%;
+}
+
+.skeleton--line {
+    height: 12px;
+}
+
+.skeleton--medium {
+    width: 60%;
+}
+
+.skeleton--meta {
+    width: 40%;
+    height: 12px;
+}
 
 @keyframes shimmer {
-    from { background-position: 200% 0; }
-    to { background-position: -200% 0; }
+    from {
+        background-position: 200% 0;
+    }
+
+    to {
+        background-position: -200% 0;
+    }
 }
 
 /* ============================================================
@@ -906,11 +946,14 @@ onBeforeUnmount(() => {
         0 4px 12px rgba(26, 42, 108, .04);
     transition: border-color .15s, box-shadow .15s, background .15s;
     overflow: hidden;
+    cursor: pointer;
 }
 
-/* ============================================================
-   BARRES LATÉRALES — symétriques, pilotées par la priorité
-   ============================================================ */
+.notif-item:focus-visible {
+    outline: 2px solid #4a6cf7;
+    outline-offset: 2px;
+}
+
 .notif-item::before,
 .notif-item::after {
     content: "";
@@ -923,39 +966,38 @@ onBeforeUnmount(() => {
     opacity: 0.4;
     z-index: 1;
 }
-.notif-item::before { left: 0; }
-.notif-item::after  { right: 0; }
 
-/* --- Priorité CRITIQUE : barres rouges épaisses + glow --- */
+.notif-item::before {
+    left: 0;
+}
+
+.notif-item::after {
+    right: 0;
+}
+
 .notif-item--prio-critique::before,
 .notif-item--prio-critique::after {
     width: 5px;
     background: #d64545;
 }
 
-/* --- Priorité HAUTE : barres orange épaisses --- */
 .notif-item--prio-haute::before,
 .notif-item--prio-haute::after {
     width: 5px;
     background: #f4b91f;
 }
 
-/* --- Priorité NORMALE : barres bleues --- */
 .notif-item--prio-normale::before,
 .notif-item--prio-normale::after {
     background: #4a6cf7;
 }
 
-/* --- Priorité FAIBLE : barres vertes fines --- */
 .notif-item--prio-faible::before,
 .notif-item--prio-faible::after {
     width: 3px;
     background: #4ad8a7;
 }
 
-/* ============================================================
-   ÉTAT NON LUE : barres pleinement visibles + fond teinté
-   ============================================================ */
 .notif-item--unread {
     background: linear-gradient(90deg, #f8fafc 0%, #fff 40%);
     border-color: #d3dce8;
@@ -966,7 +1008,6 @@ onBeforeUnmount(() => {
     opacity: 1;
 }
 
-/* Renfort visuel : glow coloré uniquement pour HAUTE / CRITIQUE non lues */
 .notif-item--unread.notif-item--prio-critique {
     border-color: #f6cfcc;
     box-shadow:
@@ -981,9 +1022,6 @@ onBeforeUnmount(() => {
         0 4px 16px rgba(244, 185, 31, .12);
 }
 
-/* ============================================================
-   ÉTAT LUE : barres atténuées, sauf CRITIQUE (info critique)
-   ============================================================ */
 .notif-item:not(.notif-item--unread)::before,
 .notif-item:not(.notif-item--unread)::after {
     opacity: 0.4;
@@ -999,7 +1037,6 @@ onBeforeUnmount(() => {
     opacity: 0.55;
 }
 
-/* Hover global */
 .notif-item:hover {
     border-color: #d3dce8;
     box-shadow:
@@ -1007,7 +1044,6 @@ onBeforeUnmount(() => {
         0 8px 20px rgba(26, 42, 108, .07);
 }
 
-/* --- Corps de la notification --- */
 .notif-item__body {
     flex: 1;
     min-width: 0;
@@ -1039,7 +1075,6 @@ onBeforeUnmount(() => {
     color: #1a2a6c;
 }
 
-/* Titres : priorité visuelle renforcée pour CRITIQUE / HAUTE */
 .notif-item--prio-critique .notif-item__title,
 .notif-item--prio-critique.notif-item--unread .notif-item__title {
     color: #a61b16;
@@ -1077,7 +1112,10 @@ onBeforeUnmount(() => {
     font-size: 0.75rem;
     color: #8a95a8;
 }
-.notif-item__time i { font-size: 0.8rem; }
+
+.notif-item__time i {
+    font-size: 0.8rem;
+}
 
 .notif-item__link {
     display: inline-flex;
@@ -1092,18 +1130,42 @@ onBeforeUnmount(() => {
     text-decoration: none;
     transition: background .15s, color .15s;
 }
+
 .notif-item__link:hover {
     background: #dceefb;
     color: #0d4a75;
 }
-.notif-item__link i { font-size: 0.72rem; }
 
-/* --- Actions --- */
+.notif-item__link i {
+    font-size: 0.72rem;
+}
+
 .notif-item__actions {
     flex: none;
     display: flex;
     align-items: flex-start;
     padding-top: 0.15rem;
+}
+
+.urgentes-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.7rem 1rem;
+    background: #fff6dd;
+    border: 1px solid #f4e2c2;
+    border-radius: 10px;
+    color: #8a5a10;
+    font-size: 0.85rem;
+}
+
+.urgentes-banner i {
+    color: #b8860b;
+    font-size: 1rem;
+}
+
+.urgentes-banner strong {
+    color: #6b4409;
 }
 
 .btn-read {
@@ -1147,14 +1209,20 @@ onBeforeUnmount(() => {
     letter-spacing: 0.02em;
     white-space: nowrap;
 }
-.badge-read i { font-size: 0.75rem; color: #4ad8a7; }
+
+.badge-read i {
+    font-size: 0.75rem;
+    color: #4ad8a7;
+}
 
 .spin {
     animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* ============================================================
@@ -1242,7 +1310,10 @@ onBeforeUnmount(() => {
     cursor: default;
 }
 
-.pagination__page:disabled { cursor: not-allowed; opacity: 0.55; }
+.pagination__page:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
 
 .pagination__ellipsis {
     color: #8a95a8;
@@ -1255,54 +1326,109 @@ onBeforeUnmount(() => {
    RESPONSIVE
    ============================================================ */
 @media (max-width: 1199.98px) {
-    .notif-page { padding-left: 24px; padding-right: 24px; }
+    .notif-page {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
 }
 
 @media (max-width: 991.98px) {
-    .summary__stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .summary__stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .filters-card__body {
         grid-template-columns: 1fr 1fr;
     }
+
     .filters__field {
         grid-column: 1 / -1;
     }
 }
 
 @media (max-width: 767.98px) {
-    .notif-page { padding: 24px 16px 20px; }
+    .notif-page {
+        padding: 24px 16px 20px;
+    }
+
     .notif-item {
         flex-direction: column;
         padding: 1rem 1.15rem;
         gap: 0.75rem;
     }
+
     .notif-item__actions {
         padding-top: 0;
         align-self: flex-end;
     }
-    .notif-item__footer { gap: 0.6rem; }
-    .filters-card__body { grid-template-columns: 1fr; }
-    .filters__field { grid-column: auto; }
-    .pagination__pages { display: none; }
+
+    .notif-item__footer {
+        gap: 0.6rem;
+    }
+
+    .filters-card__body {
+        grid-template-columns: 1fr;
+    }
+
+    .filters__field {
+        grid-column: auto;
+    }
+
+    .pagination__pages {
+        display: none;
+    }
 }
 
 @media (max-width: 575.98px) {
-    .notif-page { padding: 20px 12px 16px; }
-    .summary { padding: 1rem; }
+    .notif-page {
+        padding: 20px 12px 16px;
+    }
+
+    .summary {
+        padding: 1rem;
+    }
+
     .summary__stats {
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 0.5rem;
     }
-    .stat-tile { padding: 0.8rem 0.75rem; }
-    .stat-tile__count { font-size: 1.35rem; }
-    .stat-tile__label { font-size: 0.6rem; }
-    .stat-tile__hint { font-size: 0.65rem; }
-    .filters-card__head { padding: 0.75rem 1rem; }
-    .filters-card__body { padding: 0.9rem 1rem; }
+
+    .stat-tile {
+        padding: 0.8rem 0.75rem;
+    }
+
+    .stat-tile__count {
+        font-size: 1.35rem;
+    }
+
+    .stat-tile__label {
+        font-size: 0.6rem;
+    }
+
+    .stat-tile__hint {
+        font-size: 0.65rem;
+    }
+
+    .filters-card__head {
+        padding: 0.75rem 1rem;
+    }
+
+    .filters-card__body {
+        padding: 0.9rem 1rem;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .skeleton { animation: none !important; }
-    .spin { animation: none !important; }
-    .notif-item { transition: none !important; }
+    .skeleton {
+        animation: none !important;
+    }
+
+    .spin {
+        animation: none !important;
+    }
+
+    .notif-item {
+        transition: none !important;
+    }
 }
 </style>

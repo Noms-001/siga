@@ -29,10 +29,6 @@ public class IndicateurDetailDTO {
 
     private String code;
 
-    private String codeHopex;
-
-    private String indicateurHopex;
-
     private String designation;
 
     private String typeIndicateur;

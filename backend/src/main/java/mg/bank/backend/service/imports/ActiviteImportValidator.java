@@ -1,11 +1,12 @@
 package mg.bank.backend.service.imports;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +31,6 @@ import mg.bank.backend.model.referentiel.ObjectifSpecifique;
 import mg.bank.backend.model.referentiel.Service;
 import mg.bank.backend.model.validation.Procedure;
 import mg.bank.backend.repository.activite.ActiviteRepository;
-import mg.bank.backend.repository.activite.SousActiviteRepository;
 import mg.bank.backend.repository.indicateur.IndicateurRepository;
 import mg.bank.backend.repository.origine.OrigineRepository;
 import mg.bank.backend.repository.referentiel.ObjectifSpecifiqueRepository;
@@ -39,39 +39,26 @@ import mg.bank.backend.repository.referentiel.ServiceRepository;
 import mg.bank.backend.repository.referentiel.SiteRepository;
 import mg.bank.backend.repository.referentiel.TypeActiviteRepository;
 import mg.bank.backend.repository.validation.ProcedureRepository;
-
 import mg.bank.backend.service.activite.ActiviteService;
 
 @org.springframework.stereotype.Service
 @RequiredArgsConstructor
 public class ActiviteImportValidator {
 
-    // ------------------------------------------------------------------
-    // Constantes
-    // ------------------------------------------------------------------
-
     private static final String VERSION_ATTENDUE = "1.0";
 
     private static final int ANNEE_MIN = 1900;
     private static final int ANNEE_MAX = 2100;
 
-    private static final int LONGUEUR_MAX_CODE = 20;
-    private static final int LONGUEUR_MAX_REFERENCE = 20;
     private static final int LONGUEUR_MAX_DESIGNATION_ACTIVITE = 255;
     private static final int LONGUEUR_MAX_DESIGNATION_SOUS = 255;
     private static final int LONGUEUR_MAX_DESIGNATION_LIVRABLE = 250;
     private static final int LONGUEUR_MAX_DESIGNATION_RESULTAT = 255;
-    private static final int LONGUEUR_MAX_DESIGNATION_INDICATEUR = 250;
     private static final int LONGUEUR_MAX_DESIGNATION_ORIGINE = 255;
 
-    // ------------------------------------------------------------------
-    // Dependances
-    // ------------------------------------------------------------------
-
     private final ActiviteService activiteService;
-
     private final ActiviteRepository activiteRepository;
-    private final SousActiviteRepository sousActiviteRepository;
+
     private final ServiceRepository serviceRepository;
     private final ProcedureRepository procedureRepository;
     private final PrioriteRepository prioriteRepository;
@@ -80,10 +67,6 @@ public class ActiviteImportValidator {
     private final ObjectifSpecifiqueRepository objectifSpecifiqueRepository;
     private final IndicateurRepository indicateurRepository;
     private final OrigineRepository origineRepository;
-
-    // ------------------------------------------------------------------
-    // Point d'entree
-    // ------------------------------------------------------------------
 
     @Transactional(readOnly = true)
     public RapportValidationDTO valider(ActiviteImportRequest request) {
@@ -103,10 +86,8 @@ public class ActiviteImportValidator {
         if (request != null && request.getActivites() != null) {
             nombreActivites = request.getActivites().size();
 
-            Set<String> codesActivitesVus = new HashSet<>();
-            Set<String> codesSousActivitesVus = new HashSet<>();
-
             Map<String, Integer> designationsVues = new HashMap<>();
+            Set<String> codesVus = new HashSet<>();
 
             for (int i = 0; i < request.getActivites().size(); i++) {
                 validerActivite(
@@ -114,10 +95,9 @@ public class ActiviteImportValidator {
                         i + 1,
                         request.getTypeImport(),
                         request.getAnnee(),
-                        request.getActivitesDejaValidees(),
-                        codesActivitesVus,
-                        codesSousActivitesVus,
+                        request.getService(),
                         designationsVues,
+                        codesVus,
                         erreurs,
                         avertissements);
             }
@@ -129,8 +109,6 @@ public class ActiviteImportValidator {
                 && request != null
                 && request.getActivites() != null
                 && !request.getActivites().isEmpty()
-                // Si les activites sont non validees, procedure obligatoire :
-                // l'apercu n'est propose que si elle est resolue.
                 && (Boolean.TRUE.equals(request.getActivitesDejaValidees())
                         || procedureRacine != null)) {
             apercu = construireApercu(request);
@@ -139,9 +117,9 @@ public class ActiviteImportValidator {
         return buildRapport(erreurs, avertissements, nombreActivites, apercu);
     }
 
-    // ------------------------------------------------------------------
-    // Entete
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------ */
+    /* Entete                                                              */
+    /* ------------------------------------------------------------------ */
 
     private void validerEntete(ActiviteImportRequest request, List<ErreurImportDTO> erreurs) {
         if (request == null) {
@@ -149,7 +127,6 @@ public class ActiviteImportValidator {
             return;
         }
 
-        // version
         if (estVide(request.getVersion())) {
             erreurs.add(erreur(null, "version",
                     "La version du format d'import est obligatoire."));
@@ -159,13 +136,11 @@ public class ActiviteImportValidator {
                             + " ». Version attendue : « " + VERSION_ATTENDUE + " »."));
         }
 
-        // service (identifiant, resolu juste apres)
         if (request.getService() == null) {
             erreurs.add(erreur(null, "service",
                     "Le service est obligatoire pour l'import."));
         }
 
-        // annee
         if (request.getAnnee() == null) {
             erreurs.add(erreur(null, "annee",
                     "L'année de l'import est obligatoire."));
@@ -175,27 +150,22 @@ public class ActiviteImportValidator {
                             + " et " + ANNEE_MAX + "."));
         }
 
-        // procedure : obligatoire si activitesDejaValidees = false
         if (Boolean.FALSE.equals(request.getActivitesDejaValidees())
                 && request.getProcedure() == null) {
             erreurs.add(erreur(null, "procedure",
                     "La procédure est obligatoire pour des activités non encore validées."));
         }
 
-        // typeImport : enum ; Jackson rejette deja les valeurs inconnues
-        // avant d'arriver ici. Seule l'absence est a signaler.
         if (request.getTypeImport() == null) {
             erreurs.add(erreur(null, "typeImport",
                     "Le type d'import est obligatoire (PTA ou NON_PTA)."));
         }
 
-        // activitesDejaValidees
         if (request.getActivitesDejaValidees() == null) {
             erreurs.add(erreur(null, "activitesDejaValidees",
                     "Le paramètre « activitesDejaValidees » est obligatoire."));
         }
 
-        // activites
         if (request.getActivites() == null) {
             erreurs.add(erreur(null, "activites",
                     "Le tableau « activites » est obligatoire."));
@@ -205,13 +175,13 @@ public class ActiviteImportValidator {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Service et procedure racine
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------ */
+    /* Service et procedure racine                                         */
+    /* ------------------------------------------------------------------ */
 
     private Service resoudreServiceRacine(ActiviteImportRequest request, List<ErreurImportDTO> erreurs) {
         if (request.getService() == null) {
-            return null; // deja signale dans validerEntete
+            return null;
         }
 
         Service service = serviceRepository.findById(request.getService()).orElse(null);
@@ -236,21 +206,12 @@ public class ActiviteImportValidator {
         return service;
     }
 
-    /**
-     * Resolution de la procedure racine.
-     *
-     * <p>
-     * Uniquement si {@code activitesDejaValidees = false}. Si
-     * {@code activitesDejaValidees = true}, la procedure est ignoree : le
-     * statut initial est NON_COMMENCE et aucune procedure n'est associee.
-     * </p>
-     */
     private Procedure resoudreProcedureRacine(ActiviteImportRequest request, List<ErreurImportDTO> erreurs) {
         if (Boolean.TRUE.equals(request.getActivitesDejaValidees())) {
-            return null; // ignoree volontairement
+            return null;
         }
         if (request.getProcedure() == null) {
-            return null; // deja signale dans validerEntete
+            return null;
         }
 
         Procedure procedure = procedureRepository.findById(request.getProcedure()).orElse(null);
@@ -263,9 +224,7 @@ public class ActiviteImportValidator {
     }
 
     private boolean autorise(Service service, PerimetreUtilisateur perimetre) {
-        if (perimetre == null) {
-            return false;
-        }
+        if (perimetre == null) return false;
         if (perimetre.estRattacheService()) {
             return service.getIdService() != null
                     && service.getIdService().equals(perimetre.getIdService());
@@ -279,19 +238,18 @@ public class ActiviteImportValidator {
         return true;
     }
 
-    // ------------------------------------------------------------------
-    // Activite
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------ */
+    /* Activite                                                            */
+    /* ------------------------------------------------------------------ */
 
     private void validerActivite(
             ActiviteImportDTO a,
             int index,
             TypeImport typeImport,
             Integer annee,
-            Boolean activitesDejaValidees,
-            Set<String> codesActivitesVus,
-            Set<String> codesSousActivitesVus,
+            Integer idService,
             Map<String, Integer> designationsVues,
+            Set<String> codesVus,
             List<ErreurImportDTO> erreurs,
             List<AvertissementImportDTO> avertissements) {
 
@@ -325,77 +283,11 @@ public class ActiviteImportValidator {
             }
         }
 
-        // --- Date de debut prevue ---
-        if (a.getDateDebut() == null) {
-            erreurs.add(erreur(id, "dateDebut",
-                    "La date de début prévue est obligatoire."));
-        }
-
-        // --- Coherence des dates prevues ---
-        if (a.getDateDebut() != null && a.getDateFin() != null
-                && a.getDateFin().isBefore(a.getDateDebut())) {
-            erreurs.add(erreur(id, "dateFin",
-                    "La date de fin doit être supérieure ou égale à la date de début."));
-        }
-
-        if (annee != null && a.getDateDebut() != null
-                && a.getDateDebut().getYear() != annee) {
-            erreurs.add(erreur(id, "dateDebut",
-                    "La date de début prévue (" + a.getDateDebut()
-                            + ") doit appartenir à l'année de l'import (" + annee + ")."));
-        }
-
-        // --- Coherence des dates reelles ---
-        if (a.getDateDebutReelle() != null && a.getDateFinReelle() != null
-                && a.getDateFinReelle().isBefore(a.getDateDebutReelle())) {
-            erreurs.add(erreur(id, "dateFinReelle",
-                    "La date de fin réelle doit être supérieure ou égale à la date de début réelle."));
-        }
-
-        // --- Code (facultatif, genere s'il est absent) ---
-        boolean estPta = TypeImport.PTA == typeImport;
-
-        // Aucune regle de generation n'existe pour PTA : on refuse ici,
-        // a l'etape /valider, plutot que de laisser /confirmer echouer en 400.
-        if (estPta && estVide(a.getCode())) {
-            erreurs.add(erreur(id, "code",
-                    "Le code est obligatoire pour une activité PTA "
-                            + "(aucune règle de génération n'est définie)."));
-        }
-
-        String code = normaliser(a.getCode());
-        if (code != null) {
-            if (code.length() > LONGUEUR_MAX_CODE) {
-                erreurs.add(erreur(id, "code",
-                        "Le code de l'activité dépasse " + LONGUEUR_MAX_CODE + " caractères."));
-            }
-            String cle = code.toLowerCase(Locale.ROOT);
-            if (!codesActivitesVus.add(cle)) {
-                erreurs.add(erreur(id, "code",
-                        "Le code « " + code + " » est présent plusieurs fois dans le lot."));
-            }
-            if (activiteRepository.existsByCodeIgnoreCase(code)) {
-                erreurs.add(erreur(id, "code",
-                        "Le code « " + code + " » existe déjà en base."));
-            }
-        }
-
-        // --- Reference (PTA : obligatoire ; NON_PTA : facultative) ---
-        if (estPta && estVide(a.getReference())) {
-            erreurs.add(erreur(id, "reference",
-                    "La référence de l'activité est obligatoire pour un import PTA."));
-        } else if (!estVide(a.getReference())
-                && a.getReference().trim().length() > LONGUEUR_MAX_REFERENCE) {
-            erreurs.add(erreur(id, "reference",
-                    "La référence de l'activité dépasse "
-                            + LONGUEUR_MAX_REFERENCE + " caractères."));
-        }
-
         // --- Objectif specifique ---
+        boolean estPta = TypeImport.PTA == typeImport;
         if (estPta) {
             verifierObjectifSpecifiquePta(
                     id,
-                    a.getReference(),
                     annee,
                     a.getObjectifSpecifique(),
                     erreurs,
@@ -407,21 +299,22 @@ public class ActiviteImportValidator {
             }
         }
 
-        // --- Priorite (obligatoire) ---
-        if (estVide(a.getPriorite())) {
-            erreurs.add(erreur(id, "priorite",
-                    "La priorité est obligatoire."));
-        } else if (!prioriteRepository.existsByCodeIgnoreCase(a.getPriorite().trim())) {
+        validerCodeFourni(a, typeImport, annee, idService, id, codesVus, erreurs);
+
+        // --- Priorite (facultative : NORMALE par defaut si absente) ---
+        if (!estVide(a.getPriorite())
+                && !prioriteRepository.existsByCodeIgnoreCase(a.getPriorite().trim())) {
             erreurs.add(erreur(id, "priorite",
                     "La priorité « " + a.getPriorite() + " » est introuvable."));
         }
 
-        // --- Type d'activite (facultatif) ---
+        // --- Type d'activite (facultatif; cree automatiquement si absent) ---
         if (!estVide(a.getTypeActivite())) {
             long n = typeActiviteRepository.countByDesignationIgnoreCase(a.getTypeActivite().trim());
             if (n == 0) {
-                erreurs.add(erreur(id, "typeActivite",
-                        "Le type d'activité « " + a.getTypeActivite() + " » est introuvable."));
+                avertissements.add(avertissement(id, "typeActivite",
+                        "Le type d'activité « " + a.getTypeActivite()
+                                + " » n'existe pas encore : il sera créé automatiquement à l'import."));
             } else if (n > 1) {
                 erreurs.add(erreur(id, "typeActivite",
                         "Plusieurs types d'activité portent la désignation « "
@@ -442,9 +335,8 @@ public class ActiviteImportValidator {
             }
         }
 
-        // --- Sous-activites ---
-        validerSousActivites(id, a.getSousActivites(), activitesDejaValidees,
-                codesSousActivitesVus, erreurs);
+        // --- Sous-activites (contenu) ---
+        validerSousActivites(id, a.getSousActivites(), erreurs);
 
         // --- Resultats intermediaires ---
         validerResultatsIntermediaires(id, a.getResultatsIntermediaires(), erreurs);
@@ -456,31 +348,86 @@ public class ActiviteImportValidator {
         validerOrigines(id, a.getOrigines(), erreurs, avertissements);
     }
 
+    /**
+     * Identifiant lisible d'une activite dans le rapport d'erreurs.
+     *
+     * Le code et la reference n'existant plus dans le DTO, l'identifiant
+     * est la designation saisie, ou "activité #N" si la designation est
+     * elle-meme vide.
+     */
     private String identifiantActivite(ActiviteImportDTO a, int index) {
-        if (a == null) {
+        if (a == null || estVide(a.getDesignation())) {
             return "activité #" + index;
         }
-        if (!estVide(a.getReference())) {
-            return a.getReference().trim();
-        }
-        if (!estVide(a.getCode())) {
-            return a.getCode().trim();
-        }
-        return "activité #" + index;
+        return a.getDesignation().trim();
     }
 
-    // ------------------------------------------------------------------
-    // Objectif specifique
-    // ------------------------------------------------------------------
+    private void validerCodeFourni(
+            ActiviteImportDTO activite,
+            TypeImport typeImport,
+            Integer annee,
+            Integer idService,
+            String idActivite,
+            Set<String> codesVus,
+            List<ErreurImportDTO> erreurs) {
+        if (estVide(activite.getCode())) {
+            return;
+        }
+        String code = activite.getCode().trim();
+        String cleCode = code.toLowerCase(Locale.ROOT);
+        boolean dejaUtilise = idService != null
+            && activiteRepository.existsByCodeIgnoreCaseAndService_IdService(code, idService);
+        if (dejaUtilise || !codesVus.add(cleCode)) {
+            erreurs.add(erreur(idActivite, "code", "Ce code d'activité est déjà utilisé."));
+            return;
+        }
+        if (code.length() > 20) {
+            erreurs.add(erreur(idActivite, "code", "Le code ne doit pas dépasser 20 caractères."));
+            return;
+        }
+        if (typeImport == TypeImport.NON_PTA) {
+            if (!code.matches("^A-" + annee + "-\\d+$")) {
+                erreurs.add(erreur(idActivite, "code",
+                        "Le code NON_PTA doit respecter le format A-année-numéro, sans objectif spécifique."));
+            }
+            return;
+        }
+        if (typeImport != TypeImport.PTA || activite.getObjectifSpecifique() == null
+                || estVide(activite.getObjectifSpecifique().getCode())) {
+            return;
+        }
+        String codeObjectif = activite.getObjectifSpecifique().getCode().trim();
+        java.util.regex.Matcher numeroObjectif = java.util.regex.Pattern
+                .compile("(\\d+)(?!.*\\d)").matcher(codeObjectif);
+        if (!numeroObjectif.find()) {
+            return;
+        }
+        int numero;
+        try {
+            numero = Integer.parseInt(numeroObjectif.group(1));
+        } catch (NumberFormatException exception) {
+            erreurs.add(erreur(idActivite, "code",
+                    "Le numéro de l'objectif spécifique est trop grand pour être codifié."));
+            return;
+        }
+        String segmentObjectif = String.format(Locale.ROOT, "%02d", numero);
+        if (!code.matches("^A-" + annee + "-" + segmentObjectif + "-\\d{2,}$")) {
+            erreurs.add(erreur(idActivite, "code",
+                    "Le code PTA doit respecter le format A-année-numéroObjectif-séquence et correspondre à l'objectif."));
+        }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Objectif specifique                                                 */
+    /* ------------------------------------------------------------------ */
+
     private void verifierObjectifSpecifiquePta(
             String idActivite,
-            String reference,
             Integer annee,
             ObjectifSpecifiqueImportReferenceDTO os,
             List<ErreurImportDTO> erreurs,
             List<AvertissementImportDTO> avertissements) {
 
-        // 1. Presence minimale
         if (os == null || estVide(os.getCode())) {
             erreurs.add(erreur(idActivite, "objectifSpecifique",
                     "L'objectif spécifique est obligatoire pour un import PTA."));
@@ -494,26 +441,11 @@ public class ActiviteImportValidator {
                             + "l'objectif n'existe pas encore)."));
         }
 
-        // 2. Coherence reference / objectifCode
-        if (!estVide(reference)) {
-            String prefixeAttendu = os.getCode().trim() + "_";
-            if (!reference.trim().startsWith(prefixeAttendu)) {
-                erreurs.add(erreur(idActivite, "reference",
-                        "La référence « " + reference
-                                + " » doit commencer par « " + prefixeAttendu
-                                + " » pour être rattachée à l'objectif « "
-                                + os.getCode() + " »."));
-            }
-        }
-
-        // 3. Objectif existant ?
         ObjectifSpecifique existant = objectifSpecifiqueRepository
                 .findByCodeIgnoreCase(os.getCode().trim())
                 .orElse(null);
 
         if (existant == null) {
-            // Objectif absent : il sera cree a l'import. Avertissement
-            // non bloquant, sous reserve que la designation soit fournie.
             if (!estVide(os.getDesignation())) {
                 avertissements.add(avertissement(idActivite,
                         "objectifSpecifique",
@@ -525,7 +457,6 @@ public class ActiviteImportValidator {
             return;
         }
 
-        // 4. Objectif existant : la designation fournie doit correspondre.
         if (!estVide(os.getDesignation())
                 && !os.getDesignation().trim().equalsIgnoreCase(existant.getDesignation())) {
             erreurs.add(erreur(idActivite, "objectifSpecifique.designation",
@@ -534,7 +465,6 @@ public class ActiviteImportValidator {
                             + existant.getDesignation() + " »)."));
         }
 
-        // 5. Objectif existant : l'annee doit correspondre a celle du lot.
         if (annee != null && !annee.equals(existant.getAnnee())) {
             erreurs.add(erreur(idActivite, "objectifSpecifique",
                     "L'objectif spécifique « " + os.getCode()
@@ -543,15 +473,13 @@ public class ActiviteImportValidator {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Sous-activites et livrables
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------ */
+    /* Sous-activites et livrables                                         */
+    /* ------------------------------------------------------------------ */
 
     private void validerSousActivites(
             String idActivite,
             List<SousActiviteImportDTO> sousActivites,
-            Boolean activitesDejaValidees,
-            Set<String> codesVus,
             List<ErreurImportDTO> erreurs) {
 
         if (sousActivites == null) {
@@ -591,41 +519,6 @@ public class ActiviteImportValidator {
                         "La date de fin prévue de la " + prefixe
                                 + " doit être supérieure ou égale à la date de début prévue."));
             }
-            if (sa.getDateDebutReelle() != null && sa.getDateFinReelle() != null
-                    && sa.getDateFinReelle().isBefore(sa.getDateDebutReelle())) {
-                erreurs.add(erreur(idActivite, "sousActivites[" + j + "].dateFinReelle",
-                        "La date de fin réelle de la " + prefixe
-                                + " doit être supérieure ou égale à la date de début réelle."));
-            }
-
-            if (Boolean.FALSE.equals(activitesDejaValidees)
-                    && (sa.getDateDebutReelle() != null || sa.getDateFinReelle() != null)) {
-                erreurs.add(erreur(idActivite,
-                        "sousActivites[" + j + "].dateDebutReelle",
-                        "Les dates réelles de la " + prefixe
-                                + " ne peuvent être fournies que pour des activités "
-                                + "déjà validées."));
-            }
-
-            String code = normaliser(sa.getCode());
-            if (code != null) {
-                if (code.length() > LONGUEUR_MAX_CODE) {
-                    erreurs.add(erreur(idActivite, "sousActivites[" + j + "].code",
-                            "Le code de la " + prefixe + " dépasse "
-                                    + LONGUEUR_MAX_CODE + " caractères."));
-                }
-                String cle = code.toLowerCase(Locale.ROOT);
-                if (!codesVus.add(cle)) {
-                    erreurs.add(erreur(idActivite, "sousActivites[" + j + "].code",
-                            "Le code « " + code + " » de la " + prefixe
-                                    + " est présent plusieurs fois dans le lot."));
-                }
-                if (sousActiviteRepository.existsByCodeIgnoreCase(code)) {
-                    erreurs.add(erreur(idActivite, "sousActivites[" + j + "].code",
-                            "Le code « " + code + " » de la " + prefixe
-                                    + " existe déjà en base."));
-                }
-            }
 
             if (sa.getLivrables() != null) {
                 for (int k = 0; k < sa.getLivrables().size(); k++) {
@@ -661,9 +554,9 @@ public class ActiviteImportValidator {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Resultats intermediaires
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------ */
+    /* Resultats intermediaires                                            */
+    /* ------------------------------------------------------------------ */
 
     private void validerResultatsIntermediaires(
             String idActivite,
@@ -692,9 +585,9 @@ public class ActiviteImportValidator {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Indicateurs et origines
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------ */
+    /* Indicateurs et origines                                             */
+    /* ------------------------------------------------------------------ */
 
     private void validerIndicateurs(
             String idActivite,
@@ -717,12 +610,6 @@ public class ActiviteImportValidator {
             if (estVide(ind.getDesignation())) {
                 erreurs.add(erreur(idActivite, "indicateurs[" + i + "].designation",
                         "La désignation de l'indicateur #" + (i + 1) + " est obligatoire."));
-                continue;
-            }
-            if (ind.getDesignation().length() > LONGUEUR_MAX_DESIGNATION_INDICATEUR) {
-                erreurs.add(erreur(idActivite, "indicateurs[" + i + "].designation",
-                        "La désignation de l'indicateur #" + (i + 1) + " dépasse "
-                                + LONGUEUR_MAX_DESIGNATION_INDICATEUR + " caractères."));
                 continue;
             }
             String cle = ind.getDesignation().trim().toLowerCase(Locale.ROOT);
@@ -794,9 +681,9 @@ public class ActiviteImportValidator {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Apercu
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------ */
+    /* Apercu                                                              */
+    /* ------------------------------------------------------------------ */
 
     private List<ApercuActiviteDTO> construireApercu(ActiviteImportRequest request) {
         String statutInitial = Boolean.TRUE.equals(request.getActivitesDejaValidees())
@@ -807,19 +694,34 @@ public class ActiviteImportValidator {
         for (ActiviteImportDTO a : request.getActivites()) {
             int nbSous = a.getSousActivites() == null ? 0 : a.getSousActivites().size();
             int nbLivrables = 0;
+            LocalDate dateDebut = null;
+            LocalDate dateFin = null;
+
             if (a.getSousActivites() != null) {
                 for (SousActiviteImportDTO sa : a.getSousActivites()) {
-                    if (sa != null && sa.getLivrables() != null) {
+                    if (sa == null) continue;
+                    if (sa.getLivrables() != null) {
                         nbLivrables += sa.getLivrables().size();
+                    }
+                    if (sa.getDateDebut() != null
+                            && (dateDebut == null || sa.getDateDebut().isBefore(dateDebut))) {
+                        dateDebut = sa.getDateDebut();
+                    }
+                    if (sa.getDateFin() != null
+                            && (dateFin == null || sa.getDateFin().isAfter(dateFin))) {
+                        dateFin = sa.getDateFin();
                     }
                 }
             }
+
+                // Le code fourni est affiché sans le recalculer ; un code absent
+                // sera attribué par le service métier lors de l'import.
             apercu.add(ApercuActiviteDTO.builder()
                     .code(a.getCode())
-                    .reference(a.getReference())
+                    .reference(null)
                     .designation(a.getDesignation())
-                    .dateDebut(a.getDateDebut())
-                    .dateFin(a.getDateFin())
+                    .dateDebut(dateDebut)
+                    .dateFin(dateFin)
                     .nombreSousActivites(nbSous)
                     .nombreLivrables(nbLivrables)
                     .statutInitial(statutInitial)
@@ -828,9 +730,9 @@ public class ActiviteImportValidator {
         return apercu;
     }
 
-    // ------------------------------------------------------------------
-    // Rapport
-    // ------------------------------------------------------------------
+    /* ------------------------------------------------------------------ */
+    /* Rapport + helpers                                                   */
+    /* ------------------------------------------------------------------ */
 
     private RapportValidationDTO buildRapport(
             List<ErreurImportDTO> erreurs,
@@ -864,10 +766,6 @@ public class ActiviteImportValidator {
                 .build();
     }
 
-    // ------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------
-
     private ErreurImportDTO erreur(String activite, String champ, String message) {
         return ErreurImportDTO.builder()
                 .activite(activite)
@@ -886,9 +784,5 @@ public class ActiviteImportValidator {
 
     private boolean estVide(String s) {
         return s == null || s.isBlank();
-    }
-
-    private String normaliser(String s) {
-        return estVide(s) ? null : s.trim();
     }
 }

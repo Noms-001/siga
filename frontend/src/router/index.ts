@@ -4,11 +4,17 @@ import { useAuthStore } from '@/stores/auth'
 import { frontofficeRoutes } from './frontoffice'
 import { backofficeRoutes } from './backoffice'
 import { getPageTitle } from '@/utils/navigation'
+import { permissionForRoute } from '@/utils/authorization'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
 
     routes: [
+                {
+                    path: '/acces-refuse',
+                    name: 'access-denied',
+                    component: () => import('@/views/AccessDenied.vue'),
+                },
         {
           path: '/',
           name: 'acceuil',
@@ -29,6 +35,8 @@ router.beforeEach(async (to) => {
     if (!authStore.initialized) {
         await authStore.restoreSession()
     }
+
+    if (to.name === 'access-denied') return true
 
     // ==============================
     // BACKOFFICE
@@ -76,6 +84,17 @@ router.beforeEach(async (to) => {
             return {
                 name: 'dashboard',
             }
+        }
+    }
+
+    const requiredPermission = permissionForRoute(to.path)
+    if (requiredPermission && !authStore.hasPermission(
+        requiredPermission.resource,
+        requiredPermission.action,
+    )) {
+        return {
+            name: 'access-denied',
+            query: { requested: to.fullPath },
         }
     }
 

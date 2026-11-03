@@ -34,6 +34,12 @@ export const useAuthStore = defineStore('auth', () => {
         return user.value !== null
     })
 
+    const hasPermission = (resource: string, action: string): boolean => {
+        return user.value?.permissions?.includes(
+            `${resource.toLowerCase()}:${action.toLowerCase()}`
+        ) ?? false
+    }
+
     /**
      * Connexion
      */
@@ -241,6 +247,7 @@ export const useAuthStore = defineStore('auth', () => {
     return {
         user,
         isBackoffice,
+        hasPermission,
         isAuthenticated,
         initialized,
         restoreSession,

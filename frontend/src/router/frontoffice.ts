@@ -64,47 +64,42 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 name: 'notifications',
                 component: () => import('@/views/frontoffice/Notifications.vue'),
             },
+
+            {
+                path: 'notifications/urgentes',
+                name: 'notifications-urgentes',
+                component: () => import('@/views/frontoffice/NotificationsUrgentes.vue'),
+            },
             {
                 path: 'activites',
                 name: 'activites',
                 component: () => import('@/views/frontoffice/activites/Liste.vue'),
             },
-            /*
-                Le meme composant sert la creation et la modification : le
-                formulaire est identique, seule la source des valeurs change
-                -- vide a la creation, le contenu renvoye par
-                /activites/{id}/formulaire en modification. Deux composants
-                dupliqueraient les regles, dont celle qui lie PTA et objectif.
-
-                "nouvelle" est le chemin que la sidebar pointe deja ; c'est
-                lui qui nomme la page, et non l'inverse.
-            */
             {
                 path: 'activites/nouvelle',
                 name: 'activites-nouvelle',
                 component: () => import('@/views/frontoffice/activites/Ajout.vue'),
             },
             {
+                path: 'activites/importer',
+                name: 'activites-importer',
+                component: () => import('@/views/frontoffice/activites/Importer.vue'),
+            },
+            {
                 path: 'activites/:id(\\d+)/modifier',
                 name: 'activite-modifier',
                 component: () => import('@/views/frontoffice/activites/Ajout.vue'),
             },
-            /*
-                Declaree avant le detail, et le (\d+) de la route suivante
-                suffirait a l exclure de toute facon : c'est l ordre des
-                declarations qui evite qu'un libelle de sidebar soit lu
-                comme un identifiant si le regex evoluait.
-            */
+            {
+                path: 'activites/traitement',
+                name: 'activites-traitement',
+                component: () => import('@/views/frontoffice/activites/Traitement.vue'),
+            },
             {
                 path: 'activites/brouillons',
                 name: 'activites-brouillons',
                 component: () => import('@/views/frontoffice/activites/Brouillons.vue'),
             },
-            /*
-                Declaree dans le meme bloc que "brouillons" et pour la meme
-                raison : les deux chemins sont nommes, donc aucune de ces routes
-                ne peut etre lue comme un identifiant d'activite.
-            */
             {
                 path: 'activites/a-valider',
                 name: 'activites-a-valider',
@@ -141,6 +136,13 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 component: () => import('@/views/frontoffice/indicateurs/Show.vue')
             },
 
+            {
+                path: '/indicateurs/suivi',
+                name: 'indicateurs-suivi',
+                component: () => import('@/views/frontoffice/indicateurs/Suivi.vue'),
+                meta: { requiresAuth: true, titre: 'Suivi des indicateurs' },
+            },
+
             /* ------------------ SIGNALEMENTS ------------------ */
             {
                 path: 'signalements',
@@ -156,6 +158,48 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 path: 'signalements/:id(\\d+)',
                 name: 'signalement-detail',
                 component: () => import('@/views/frontoffice/signalements/Show.vue'),
+            },
+            {
+                path: '/plans-action',
+                name: 'plans-action',
+                component: () => import('@/views/frontoffice/planaction/List.vue'),
+                meta: { requiresAuth: true, titre: 'Plans d\'action' },
+            },
+            {
+                path: '/plans-action/nouveau',
+                name: 'plan-action-create',
+                component: () => import('@/views/frontoffice/planaction/Create.vue'),
+                meta: { requiresAuth: true, titre: 'Créer un plan d\'action' },
+            },
+            {
+                path: '/plans-action/:id',
+                name: 'plan-action-detail',
+                component: () => import('@/views/frontoffice/planaction/Show.vue'),
+                meta: { requiresAuth: true, titre: 'Détail du plan d\'action' },
+            },
+            {
+                path: '/plans-action/suivi',
+                name: 'plans-action-suivi',
+                component: () => import('@/views/frontoffice/planaction/Suivi.vue'),
+                meta: { requiresAuth: true, titre: 'Suivi des plans d\'action' },
+            },
+            {
+                path: '/demandes-reprise',
+                name: 'demandes-reprise',
+                component: () => import('@/views/frontoffice/demandereprise/DemandeReprise.vue'),
+                meta: { requiresAuth: true, titre: 'Demandes de reprise' },
+            },
+            {
+                path: '/utilisateurs/:id/avancement',
+                name: 'utilisateur-avancement',
+                component: () => import('@/views/frontoffice/utilisateurs/Avancement.vue'),
+                meta: { requiresAuth: true, titre: 'Avancement utilisateur' },
+            },
+            {
+                path: '/activites/a-affecter',
+                name: 'activites-a-affecter',
+                component: () => import('@/views/frontoffice/activites/Affectation.vue'),
+                meta: { requiresAuth: true, titre: 'Activités à affecter' },
             },
         ],
     },

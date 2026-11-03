@@ -16,10 +16,6 @@ public interface IndicateurDetailRow {
 
     String getCode();
 
-    String getCodeHopex();
-
-    String getIndicateurHopex();
-
     String getDesignation();
 
     String getTypeIndicateur();

@@ -15,20 +15,6 @@ interface ApiError {
     success: false
     data: null
     error: string
-
-    /**
-     * Code HTTP de la reponse, ou 0 si elle n'a pas pu etre lue.
-     *
-     * Le message seul ne suffit pas a decider quoi faire d'un echec. Un 409
-     * sur une soumission signifie "cette activite a deja quitte les
-     * brouillons" et la carte doit partir ; un 422 ou un 400 signifie "regle
-     * metier non respectee" et l'activite doit rester, avec son message. Sans
-     * ce nombre, la page doit choisir au hasard -- et choisit generalement de
-     * tout retirer.
-     *
-     * 0 et non null : une reponse illisible est une erreur comme une autre, et
-     * `status === 0` se teste sans se soucier de undefined.
-     */
     status: number
 }
 
@@ -39,28 +25,10 @@ function getAccessToken(): string | null {
     return localStorage.getItem('accessToken')
 }
 
-/**
- * Nom de l'événement émis quand le backend répond 401.
- *
- * api-client.ts est un utilitaire sans accès au store ni au router : importer
- * le store ici créerait un cycle (le store utilise api-client via
- * services/auth). Un événement window casse la dépendance et laisse
- * useSessionWatchdog décider de la redirection.
- */
 export const UNAUTHORIZED_EVENT = 'saga:unauthorized'
 
-/**
- * Signale une réponse 401 à l'application.
- *
- * Le 401 est aussi la réponse normale d'un échec de connexion : l'événement
- * n'est donc qu'un signal, et c'est au watchdog de ne rien faire si aucune
- * session n'est ouverte.
- */
-function notifyIfUnauthorized(response: Response): void {
-    if (response.status !== 401) {
-        return
-    }
 
+function handleAuthFailure(): void {
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
 }
 
@@ -93,13 +61,34 @@ async function handleResponse<T>(
     response: Response
 ): Promise<ApiResponse<T>> {
 
-    notifyIfUnauthorized(response)
+    // 1. Cas explicite : 401 → session morte
+    if (response.status === 401) {
+        handleAuthFailure()
+        return {
+            success: false,
+            data: null,
+            error: 'Session expirée',
+            status: 401,
+        }
+    }
 
+    // 2. Tentative de lecture JSON
     let result: ApiResponse<T>
 
     try {
         result = await response.json()
     } catch {
+        if (getAccessToken() !== null) {
+            handleAuthFailure()
+            return {
+                success: false,
+                data: null,
+                error: 'Session expirée',
+                status: response.status,
+            }
+        }
+
+        // Pas de token : vraie réponse serveur invalide
         return {
             success: false,
             data: null,
@@ -107,14 +96,7 @@ async function handleResponse<T>(
             status: response.status,
         }
     }
-        
-    /*
-        Un succes declare par le corps sur une reponse HTTP en echec --
-        200 dans le corps contre 409 reel, par exemple -- doit rester un echec.
-        On ajoute le statut plutot que d'ecraser le corps : la distinction
-        reste visible, et un appelant qui teste `success` ne peut pas se
-        tromper.
-    */
+
     if (result.success && !response.ok) {
         return {
             success: false,
@@ -146,13 +128,6 @@ export async function get<T>(
     return handleResponse<T>(response)
 }
 
-/**
- * Requête GET renvoyant un blob (contenu d'un fichier).
- *
- * Contrairement à get(), le succès n'est pas JSON : le blob est brut. Seules
- * les erreurs gardent l'enveloppe { success, error } habituelle, ce qui
- * laisse l'appelant afficher la même erreur que sur un GET JSON.
- */
 export async function getBlob(
     url: string
 ): Promise<ApiResponse<Blob>> {
@@ -162,11 +137,31 @@ export async function getBlob(
         headers: getHeaders(),
     })
 
-    if (response.ok) {
-        return { success: true, data: await response.blob() }
+    // 401 explicite
+    if (response.status === 401) {
+        handleAuthFailure()
+        return {
+            success: false,
+            data: null,
+            error: 'Session expirée',
+            status: 401,
+        }
     }
 
-    notifyIfUnauthorized(response)
+    // Réponse OK : on vérifie qu'on n'a pas été redirigé vers du HTML
+    if (response.ok) {
+        const contentType = response.headers.get('content-type') ?? ''
+        if (contentType.includes('text/html') && getAccessToken() !== null) {
+            handleAuthFailure()
+            return {
+                success: false,
+                data: null,
+                error: 'Session expirée',
+                status: response.status,
+            }
+        }
+        return { success: true, data: await response.blob() }
+    }
 
     try {
         const corps = await response.json()
@@ -180,7 +175,15 @@ export async function getBlob(
             }
         }
     } catch {
-        // Réponse d'erreur non JSON : traitee comme reponse invalide.
+        if (getAccessToken() !== null) {
+            handleAuthFailure()
+            return {
+                success: false,
+                data: null,
+                error: 'Session expirée',
+                status: response.status,
+            }
+        }
     }
 
     return {
@@ -248,8 +251,6 @@ export async function del<T = unknown>(
 
 /**
  * Requête POST avec FormData
- *
- * Utilisée notamment pour l'envoi de fichiers/images.
  */
 export async function postForm<T>(
     url: string,
@@ -274,7 +275,7 @@ export async function patch<T>(
 ): Promise<ApiResponse<T>> {
 
     const response = await fetch(`${BASE_URL}${url}`, {
-        method: 'PATCH',
+        method: body ? 'PATCH' : 'PATCH',
         headers: body ? getHeaders(true) : getHeaders(),
         body: body ? JSON.stringify(body) : undefined,
     })

@@ -5,7 +5,7 @@
             <ul class="back-sidebar__list">
 
                 <!-- PRINCIPAL -->
-                <li class="back-sidebar__item">
+                <li v-if="principalItems.length" class="back-sidebar__item">
                     <span class="back-sidebar__label">Principal</span>
                 </li>
                 <li v-for="item in principalItems" :key="item.path" class="back-sidebar__item">
@@ -17,7 +17,7 @@
                 </li>
 
                 <!-- GESTION -->
-                <li class="back-sidebar__item">
+                <li v-if="gestionItems.length" class="back-sidebar__item">
                     <span class="back-sidebar__label">Gestion</span>
                 </li>
                 <li v-for="item in gestionItems" :key="item.path" class="back-sidebar__item">
@@ -29,7 +29,7 @@
                 </li>
 
                 <!-- RÉFÉRENTIELS -->
-                <li class="back-sidebar__item">
+                <li v-if="referentielsItems.length" class="back-sidebar__item">
                     <span class="back-sidebar__label">Référentiels</span>
                 </li>
                 <li v-for="item in referentielsItems" :key="item.path" class="back-sidebar__item">
@@ -41,7 +41,7 @@
                 </li>
 
                 <!-- AUTORISATIONS -->
-                <li class="back-sidebar__item">
+                <li v-if="autorisationsItems.length" class="back-sidebar__item">
                     <span class="back-sidebar__label">Autorisations</span>
                 </li>
                 <li v-for="item in autorisationsItems" :key="item.path" class="back-sidebar__item">
@@ -53,7 +53,7 @@
                 </li>
 
                 <!-- CONFIGURATION -->
-                <li class="back-sidebar__item">
+                <li v-if="configurationItems.length" class="back-sidebar__item">
                     <span class="back-sidebar__label">Configuration</span>
                 </li>
                 <li v-for="item in configurationItems" :key="item.path" class="back-sidebar__item">
@@ -64,8 +64,8 @@
                     </router-link>
                 </li>
 
-                <!-- SUPERVISION -->
-                <li class="back-sidebar__item">
+                <!-- SUPERVISION
+                <li v-if="supervisionItems.length" class="back-sidebar__item">
                     <span class="back-sidebar__label">Supervision</span>
                 </li>
                 <li v-for="item in supervisionItems" :key="item.path" class="back-sidebar__item">
@@ -74,7 +74,7 @@
                         <i :class="item.icon"></i>
                         <span class="back-sidebar__link-text">{{ item.label }}</span>
                     </router-link>
-                </li>
+                </li> -->
 
             </ul>
         </nav>
@@ -84,14 +84,16 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 // --- Types ---
 interface MenuItem {
     path: string
     label: string
     icon: string
-    permission?: string // Pour une future gestion des permissions
+    permission: string
 }
 
 // --- Props ---
@@ -107,62 +109,74 @@ const emit = defineEmits<{
 
 // --- Router ---
 const route = useRoute()
+const authStore = useAuthStore()
 
 /* ============================================================
    PRINCIPAL
    ============================================================ */
-const principalItems: MenuItem[] = [
-    { path: '/backoffice/dashboard', label: 'Tableau de bord', icon: 'bi bi-grid-1x2' },
-    { path: '/backoffice/import-activites', label: "Import d'activités", icon: 'bi bi-file-earmark-arrow-up' },
+const principalMenu: MenuItem[] = [
+    { path: '/backoffice/dashboard', label: 'Tableau de bord', icon: 'bi bi-grid-1x2', permission: 'dashboard:READ' },
 ]
 
 /* ============================================================
    GESTION
    ============================================================ */
-const gestionItems: MenuItem[] = [
-    { path: '/backoffice/utilisateurs', label: 'Utilisateurs', icon: 'bi bi-people' },
+const gestionMenu: MenuItem[] = [
+    { path: '/backoffice/utilisateurs', label: 'Utilisateurs', icon: 'bi bi-people', permission: 'utilisateur:READ' },
 ]
 
 /* ============================================================
    RÉFÉRENTIELS
    ============================================================ */
-const referentielsItems: MenuItem[] = [
-    { path: '/backoffice/departements', label: 'Départements', icon: 'bi bi-building' },
-    { path: '/backoffice/services', label: 'Services', icon: 'bi bi-diagram-3' },
-    { path: '/backoffice/postes', label: 'Postes', icon: 'bi bi-briefcase' },
-    { path: '/backoffice/roles', label: 'Rôles', icon: 'bi bi-person-badge' },
-    { path: '/backoffice/types-activite', label: "Types d'activité", icon: 'bi bi-tags' },
-    { path: '/backoffice/sites', label: 'Sites', icon: 'bi bi-geo-alt' },
-    { path: '/backoffice/indicateurs', label: 'Indicateurs', icon: 'bi bi-graph-up-arrow' },
-    { path: '/backoffice/priorites', label: 'Priorités', icon: 'bi bi-flag' },
-    { path: '/backoffice/statuts', label: 'Statuts', icon: 'bi bi-circle-half' },
+const referentielsMenu: MenuItem[] = [
+    { path: '/backoffice/departements', label: 'Départements', icon: 'bi bi-building', permission: 'departement:READ' },
+    { path: '/backoffice/services', label: 'Services', icon: 'bi bi-diagram-3', permission: 'service:READ' },
+    { path: '/backoffice/postes', label: 'Postes', icon: 'bi bi-briefcase', permission: 'poste:READ' },
+    { path: '/backoffice/roles', label: 'Rôles', icon: 'bi bi-person-badge', permission: 'role:READ' },
+    { path: '/backoffice/types-activite', label: "Types d'activité", icon: 'bi bi-tags', permission: 'type_activite:READ' },
+    { path: '/backoffice/sites', label: 'Sites', icon: 'bi bi-geo-alt', permission: 'site:READ' },
+    { path: '/backoffice/indicateurs', label: 'Indicateurs', icon: 'bi bi-graph-up-arrow', permission: 'indicateur:READ' },
+    { path: '/backoffice/priorites', label: 'Priorités', icon: 'bi bi-flag', permission: 'priorite:READ' },
+    { path: '/backoffice/statuts', label: 'Statuts', icon: 'bi bi-circle-half', permission: 'statut:READ' },
 ]
 
 /* ============================================================
    AUTORISATIONS
    ============================================================ */
-const autorisationsItems: MenuItem[] = [
-    { path: '/backoffice/permissions', label: 'Permissions', icon: 'bi bi-shield-check' },
+const autorisationsMenu: MenuItem[] = [
+    { path: '/backoffice/permissions', label: 'Permissions', icon: 'bi bi-shield-check', permission: 'permission:READ' },
 ]
 
 /* ============================================================
    CONFIGURATION
    ============================================================ */
-const configurationItems: MenuItem[] = [
+const configurationMenu: MenuItem[] = [
     // ⚠️ Pages à créer (hors périmètre phases 1 à 5)
-    { path: '/backoffice/procedures', label: 'Procédures de validation', icon: 'bi bi-file-earmark-text' },
-    { path: '/backoffice/parametres', label: 'Paramètres', icon: 'bi bi-sliders' },
+    { path: '/backoffice/procedures', label: 'Procédures de validation', icon: 'bi bi-file-earmark-text', permission: 'procedure:READ' },
+    { path: '/backoffice/parametres', label: 'Paramètres', icon: 'bi bi-sliders', permission: 'parametre:READ' },
 ]
 
 /* ============================================================
    SUPERVISION
    ============================================================ */
-const supervisionItems: MenuItem[] = [
+const supervisionMenu: MenuItem[] = [
     // ⚠️ Pages à créer (hors périmètre phases 1 à 5)
-    { path: '/backoffice/activites', label: 'Activités', icon: 'bi bi-clipboard-check' },
-    { path: '/backoffice/plans-action', label: "Plans d'action", icon: 'bi bi-list-check' },
-    { path: '/backoffice/indicateurs', label: 'Indicateurs', icon: 'bi bi-bar-chart-line' },
+    { path: '/backoffice/activites', label: 'Activités', icon: 'bi bi-clipboard-check', permission: 'activite:READ' },
+    { path: '/backoffice/plans-action', label: "Plans d'action", icon: 'bi bi-list-check', permission: 'plan_action:READ' },
+    { path: '/backoffice/indicateurs', label: 'Indicateurs', icon: 'bi bi-bar-chart-line', permission: 'indicateur:READ' },
 ]
+
+const visibleItems = (items: MenuItem[]) => items.filter((item) => {
+    const [resource, action] = item.permission.split(':')
+    return resource !== undefined && action !== undefined
+        && authStore.hasPermission(resource, action)
+})
+const principalItems = computed(() => visibleItems(principalMenu))
+const gestionItems = computed(() => visibleItems(gestionMenu))
+const referentielsItems = computed(() => visibleItems(referentielsMenu))
+const autorisationsItems = computed(() => visibleItems(autorisationsMenu))
+const configurationItems = computed(() => visibleItems(configurationMenu))
+const supervisionItems = computed(() => visibleItems(supervisionMenu))
 
 // --- Computed ---
 const isActive = (path: string): boolean => {

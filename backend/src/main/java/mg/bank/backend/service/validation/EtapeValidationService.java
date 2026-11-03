@@ -31,26 +31,30 @@ public class EtapeValidationService {
                 if (poste != null) {
                         Optional<EtapeValidation> etapeDuPoste = etapeValidationRepository
                                         .findFirstByProcedure_IdProcedureAndActifTrueAndPostesDecideurs_IdPosteOrderByNiveauAsc(
-                                                        idProcedure,
-                                                        poste.getIdPoste());
+                                                        idProcedure, poste.getIdPoste());
 
                         if (etapeDuPoste.isPresent()) {
                                 Optional<EtapeValidation> suivante = etapeValidationRepository
                                                 .findFirstByProcedure_IdProcedureAndActifTrueAndNiveauGreaterThanOrderByNiveauAsc(
-                                                                idProcedure,
-                                                                etapeDuPoste.get().getNiveau());
+                                                                idProcedure, etapeDuPoste.get().getNiveau());
 
                                 if (suivante.isPresent()) {
                                         return suivante.get();
                                 }
                         }
-                        return null;
+                        return etapeValidationRepository
+                                        .findFirstByProcedure_IdProcedureAndActifTrueOrderByNiveauAsc(idProcedure)
+                                        .orElseThrow(() -> new ApiException(
+                                                        "La procédure " + idProcedure
+                                                                        + " n'a aucune étape active : impossible de soumettre une activité.",
+                                                        HttpStatus.INTERNAL_SERVER_ERROR));
                 }
 
                 return etapeValidationRepository
                                 .findFirstByProcedure_IdProcedureAndActifTrueOrderByNiveauAsc(idProcedure)
                                 .orElseThrow(() -> new ApiException(
-                                                "Aucune étape active trouvée pour la procédure : " + idProcedure,
+                                                "La procédure " + idProcedure
+                                                                + " n'a aucune étape active : impossible de soumettre une activité.",
                                                 HttpStatus.INTERNAL_SERVER_ERROR));
         }
 
@@ -72,10 +76,10 @@ public class EtapeValidationService {
          * Récupère l'étape immédiatement suivante
          * dans la même procédure.
          */
-        public Optional<EtapeValidation> getEtapeSuivante(EtapeValidation etapeValidation, Integer idProcedure,
-                        Poste poste) {
+        public Optional<EtapeValidation> getEtapeSuivante(
+                        EtapeValidation etapeValidation, Integer idProcedure, Poste poste) {
                 if (etapeValidation == null) {
-                        return Optional.of(getPremiereEtape(idProcedure, poste));
+                        return Optional.ofNullable(getPremiereEtape(idProcedure, poste));
                 }
                 return etapeValidationRepository
                                 .findFirstByProcedure_IdProcedureAndNiveauGreaterThanOrderByNiveauAsc(
@@ -104,11 +108,11 @@ public class EtapeValidationService {
 
         @Transactional(readOnly = true)
         public List<mg.bank.backend.dto.backoffice.EtapeValidationResponse> listerParProcedure(
-                Integer idProcedure) {
+                        Integer idProcedure) {
 
-        return etapeValidationRepository.findByProcedureWithDecideurs(idProcedure)
-                .stream()
-                .map(mg.bank.backend.mapper.validation.EtapeValidationMapper::toResponse)
-                .toList();
+                return etapeValidationRepository.findByProcedureWithDecideurs(idProcedure)
+                                .stream()
+                                .map(mg.bank.backend.mapper.validation.EtapeValidationMapper::toResponse)
+                                .toList();
         }
 }

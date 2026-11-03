@@ -2,8 +2,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BaseButton } from '@/components/base'
-import { getIndicateurFront, listerValeursIndicateur } from '@/services/indicateurFront'
-import type { Indicateur, ValeurIndicateur } from '@/types/backoffice/indicateur'
+import { getIndicateurFront, listerValeursIndicateur, saisirValeurIndicateur } from '@/services/indicateurFront'
+import type { Indicateur, PeriodeCalendrier, ValeurIndicateur } from '@/types/backoffice/indicateur'
+import SaisieValeurModal from '@/components/SaisieValeurModal.vue'
+import CalendrierValeurs from '@/components/CalendrierValeurs.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,6 +25,53 @@ async function charger(): Promise<void> {
         return
     }
     item.value = res.data
+}
+
+const modalSaisieOuverte = ref(false)
+const saisieSuccess = ref('')
+
+function ouvrirSaisie(): void {
+    saisieSuccess.value = ''
+    modalSaisieOuverte.value = true
+}
+
+async function surSaisie(payload: {
+    valeur: number
+    periodeDebut: string
+    periodeFin: string
+    commentaire: string | null
+}): Promise<void> {
+    const res = await saisirValeurIndicateur(id, payload)
+    if (!res.success) {
+        errorMessage.value = res.error
+        return
+    }
+    modalSaisieOuverte.value = false
+    saisieSuccess.value = `Valeur de ${payload.valeur} enregistrée.`
+    await chargerValeurs()
+    setTimeout(() => (saisieSuccess.value = ''), 4000)
+}
+
+// const modalSaisieOuverte = ref(false)
+const periodePrefill = ref<{ debut: string; fin: string } | null>(null)
+
+function ouvrirSaisieDepuisCalendrier(periode: PeriodeCalendrier): void {
+    // Pré-remplit la modale avec la période de la cellule
+    periodePrefill.value = {
+        debut: periode.debut,
+        fin: periode.fin,
+    }
+    modalSaisieOuverte.value = true
+}
+
+function voirPeriode(periode: PeriodeCalendrier): void {
+    alert(
+        `${periode.libelle}\n\n` +
+        `Valeur : ${periode.valeur}\n` +
+        `Saisi le : ${periode.dateSaisie ? new Date(periode.dateSaisie).toLocaleString('fr-FR') : '—'}\n` +
+        `Par : ${periode.saisieParLibelle ?? '—'}\n\n` +
+        `${periode.commentaire ?? ''}`
+    )
 }
 
 /* -------------------- en-tête -------------------- */
@@ -130,6 +179,9 @@ function formaterDate(iso: string | null | undefined): string {
                 <BaseButton variant="secondary" icon="bi bi-arrow-left" @click="router.push({ name: 'indicateurs' })">
                     Retour à la liste
                 </BaseButton>
+                <BaseButton variant="primary" icon="bi bi-plus-lg" :disabled="!item?.actif" @click="ouvrirSaisie">
+                    Saisir une valeur
+                </BaseButton>
                 <BaseButton variant="secondary" :loading="loading" :disabled="loading" @click="charger">
                     <i class="bi bi-arrow-clockwise"></i>
                     Actualiser
@@ -142,6 +194,11 @@ function formaterDate(iso: string | null | undefined): string {
             role="alert">
             <span>{{ errorMessage }}</span>
             <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
+        </div>
+
+        <div v-if="saisieSuccess" class="alert alert-success mb-0" role="status">
+            <i class="bi bi-check-circle-fill"></i>
+            {{ saisieSuccess }}
         </div>
 
         <!-- ============ CHARGEMENT ============ -->
@@ -296,26 +353,6 @@ function formaterDate(iso: string | null | undefined): string {
                     </div>
                 </article>
 
-                <!-- Référentiel HOPEx -->
-                <article v-if="item.codeHopex || item.indicateurHopex" class="info-card">
-                    <header class="info-card__head">
-                        <span class="info-card__icon" aria-hidden="true">
-                            <i class="bi bi-diagram-2"></i>
-                        </span>
-                        <h2 class="info-card__title">Référentiel HOPEx</h2>
-                    </header>
-                    <div class="info-card__body">
-                        <div class="info-row">
-                            <span class="info-row__label">Code HOPEx</span>
-                            <span class="info-row__value info-row__value--mono">{{ v(item.codeHopex) }}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-row__label">Indicateur HOPEx</span>
-                            <span class="info-row__value">{{ v(item.indicateurHopex) }}</span>
-                        </div>
-                    </div>
-                </article>
-
                 <!-- Fréquences -->
                 <article v-if="item.frequenceVerification || item.frequenceAggregation"
                     class="info-card grid-column-full">
@@ -361,6 +398,9 @@ function formaterDate(iso: string | null | undefined): string {
                     </div>
                 </div>
             </section>
+
+            <CalendrierValeurs :id-indicateur="id" @saisir="ouvrirSaisieDepuisCalendrier" @voir="voirPeriode" />
+
 
             <!-- ============ HISTORIQUE ============ -->
             <section v-if="valeurCourante" class="content-card" aria-labelledby="history-title">
@@ -419,9 +459,13 @@ function formaterDate(iso: string | null | undefined): string {
                     </table>
                 </div>
             </section>
+            <!-- CALENDRIER -->
 
         </template>
     </div>
+    <SaisieValeurModal v-model="modalSaisieOuverte" :unite-mesure="item?.uniteMesure" :valeur-cible="item?.valeurCible"
+        :type-indicateur="item?.typeIndicateur" :prefill-debut="periodePrefill?.debut"
+        :prefill-fin="periodePrefill?.fin" @valide="surSaisie" />
 </template>
 
 <style scoped>

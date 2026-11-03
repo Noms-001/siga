@@ -1,6 +1,5 @@
 package mg.bank.backend.dto.activite;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,7 +14,7 @@ import lombok.Setter;
 @Setter
 public class ActiviteEcritureRequest {
 
-    @NotBlank(message = "Le code est obligatoire")
+    /** Facultatif à la création : le backend génère le code si absent. */
     @Size(max = 20, message = "Le code ne doit pas dépasser 20 caractères")
     private String code;
 
@@ -25,14 +24,6 @@ public class ActiviteEcritureRequest {
     @NotBlank(message = "La désignation est obligatoire")
     @Size(max = 255, message = "La désignation ne doit pas dépasser 255 caractères")
     private String designation;
-
-    @NotNull(message = "La date de début prévue est obligatoire")
-    private LocalDate dateDebutPrevue;
-
-    /**
-     * Nullable : une activite peut etre ouverte sans echeance.
-     */
-    private LocalDate dateFinPrevue;
 
     @NotNull(message = "Le type d'activité (PTA ou non PTA) est obligatoire")
     private Boolean pta;
@@ -47,7 +38,6 @@ public class ActiviteEcritureRequest {
 
     private Integer idSite;
 
-    @NotNull(message = "La priorité est obligatoire")
     private Integer idPriorite;
 
     private Integer idService;

@@ -27,6 +27,7 @@ import mg.bank.backend.dto.activite.SousActiviteEcritureRequest;
 import mg.bank.backend.dto.activite.SousActiviteFormulaireDTO;
 import mg.bank.backend.dto.common.PerimetreUtilisateur;
 import mg.bank.backend.enums.StatutsActivite;
+import mg.bank.backend.enums.TypeImport;
 import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.model.activite.Activite;
 import mg.bank.backend.model.activite.Livrable;
@@ -75,6 +76,8 @@ public class ActiviteEcritureService {
         private final ServiceRepository serviceRepository;
 
         private final ActiviteService activiteService;
+
+        private final CodeActiviteService codeActiviteService;
 
         private final ParametreRepository parametreRepository;
 
@@ -139,7 +142,10 @@ public class ActiviteEcritureService {
                                                 activite.getSite() != null
                                                                 ? activite.getSite().getIdSite()
                                                                 : null)
-                                .idPriorite(activite.getPriorite().getIdPriorite())
+                                .idPriorite(
+                                                activite.getPriorite() != null
+                                                                ? activite.getPriorite().getIdPriorite()
+                                                                : null)
                                 .idService(activite.getService().getIdService())
                                 .statut(statut.getStatutCode())
                                 .sousActivites(sousActivites)
@@ -157,9 +163,23 @@ public class ActiviteEcritureService {
 
                 PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
 
-                validerDates(request.getDateDebutPrevue(), request.getDateFinPrevue());
+                LocalDate[] datesPrevues = resoudreDatesPrevues(request);
+                LocalDate dateDebut = datesPrevues[0];
+                LocalDate dateFin = datesPrevues[1];
 
                 ObjectifSpecifique objectif = resoudreObjectif(request);
+                mg.bank.backend.model.referentiel.Service service = resoudreService(
+                                perimetre, request.getIdService());
+
+                codeActiviteService.verrouillerGeneration();
+
+                TypeImport typeImport = objectif == null ? TypeImport.NON_PTA : TypeImport.PTA;
+                String code = request.getCode() == null || request.getCode().isBlank()
+                                ? codeActiviteService.genererCodeActivite(
+                                                typeImport, objectif, dateDebut.getYear(), service.getIdService())
+                                : codeActiviteService.validerCodeActiviteFourni(
+                                                request.getCode(), typeImport, objectif,
+                                                dateDebut.getYear(), service.getIdService());
 
                 String reference = resoudreReference(request);
                 TypeActivite typeActivite = resoudreTypeActivite(request.getIdTypeActivite());
@@ -170,23 +190,17 @@ public class ActiviteEcritureService {
                         id_procedure = parametreRepository.findByCodeAndActifTrue("ID_PROCEDURE_NON_PTA");
                 }
 
-                if (activiteRepository.existsByCodeIgnoreCase(request.getCode().trim())) {
-                        throw new ApiException(
-                                        "Ce code d'activité est déjà utilisé",
-                                        HttpStatus.BAD_REQUEST);
-                }
-
                 Activite activite = activiteRepository.saveAndFlush(Activite.builder()
-                                .code(request.getCode().trim())
+                                .code(code)
                                 .reference(reference)
                                 .designation(request.getDesignation().trim())
-                                .dateDebutPrevue(request.getDateDebutPrevue())
-                                .dateFinPrevue(request.getDateFinPrevue())
+                                .dateDebutPrevue(dateDebut)
+                                .dateFinPrevue(dateFin)
                                 .objectifSpecifique(objectif)
                                 .typeActivite(typeActivite)
                                 .site(resoudreSite(request.getIdSite()))
                                 .priorite(resoudrePriorite(request.getIdPriorite()))
-                                .service(resoudreService(perimetre, request.getIdService()))
+                                .service(service)
                                 .build());
 
                 if (id_procedure.isPresent()) {
@@ -229,6 +243,8 @@ public class ActiviteEcritureService {
                 Activite activite = activiteRepository.verrouillerActivite(idActivite)
                                 .orElseThrow(() -> activiteService.refusOuAbsence(idActivite));
 
+                codeActiviteService.verrouillerGeneration();
+
                 StatutCourantRow statut = statutCourant(idActivite, perimetre)
                                 .orElseThrow(() -> activiteService.refusOuAbsence(idActivite));
 
@@ -238,34 +254,22 @@ public class ActiviteEcritureService {
                                         HttpStatus.CONFLICT);
                 }
 
-                validerDates(request.getDateDebutPrevue(), request.getDateFinPrevue());
+                LocalDate[] datesPrevues = resoudreDatesPrevues(request);
+                LocalDate dateDebut = datesPrevues[0];
+                LocalDate dateFin = datesPrevues[1];
 
                 ObjectifSpecifique objectif = resoudreObjectif(request);
 
-                String nouveauCode = request.getCode().trim();
-
                 String reference = resoudreReference(request);
-
-                if (!nouveauCode.equalsIgnoreCase(activite.getCode())
-                                && activiteRepository.existsByCodeIgnoreCase(nouveauCode)) {
-                        throw new ApiException(
-                                        "Ce code d'activité est déjà utilisé",
-                                        HttpStatus.BAD_REQUEST);
-                }
 
                 List<SousActivite> existantes = sousActiviteRepository
                                 .findByActiviteIdActiviteOrderByDateDebutPrevueAscCodeAsc(
                                                 activite.getIdActivite());
 
-                List<SousActiviteEcritureRequest> demandees = request.getSousActivites() == null
-                                ? List.of()
-                                : request.getSousActivites();
-
-                activite.setCode(nouveauCode);
                 activite.setReference(reference);
                 activite.setDesignation(request.getDesignation().trim());
-                activite.setDateDebutPrevue(request.getDateDebutPrevue());
-                activite.setDateFinPrevue(request.getDateFinPrevue());
+                activite.setDateDebutPrevue(dateDebut);
+                activite.setDateFinPrevue(dateFin);
                 activite.setObjectifSpecifique(objectif);
                 activite.setTypeActivite(resoudreTypeActivite(request.getIdTypeActivite()));
                 activite.setSite(resoudreSite(request.getIdSite()));
@@ -375,12 +379,6 @@ public class ActiviteEcritureService {
 
                 Set<String> codesPris = new HashSet<>();
 
-                String prefixe = entrees.stream()
-                                .anyMatch(entree -> entree.getCode() == null
-                                                || entree.getCode().isBlank())
-                                                                ? prefixeSousActivite(activite)
-                                                                : null;
-
                 existantes.forEach(existante -> {
                         identifiantsExistants.add(existante.getIdSousActivite());
                         codeParLigne.put(existante.getIdSousActivite(), existante.getCode());
@@ -413,9 +411,14 @@ public class ActiviteEcritureService {
                         validerDates(entree.getDateDebutPrevue(), entree.getDateFinPrevue());
 
                         String code = resoudreCodeSousActivite(
-                                        entree, prefixe, codeParLigne, codesPris);
+                                        entree, activite, codeParLigne);
 
-                        codesPris.add(majuscule(code));
+                        if (entree.getIdSousActivite() == null
+                                        && !codesPris.add(majuscule(code))) {
+                                throw new ApiException(
+                                                "Ce code de sous-activité est déjà utilisé",
+                                                HttpStatus.BAD_REQUEST);
+                        }
 
                         if (entree.getIdSousActivite() == null) {
 
@@ -542,78 +545,19 @@ public class ActiviteEcritureService {
 
         private String resoudreCodeSousActivite(
                         SousActiviteEcritureRequest entree,
-                        String prefixe,
-                        Map<Integer, String> codeParLigne,
-                        Set<String> codesPris) {
+                        Activite activite,
+                        Map<Integer, String> codeParLigne) {
 
-                if (entree.getCode() != null && !entree.getCode().isBlank()) {
-
-                        String code = entree.getCode().trim();
-
-                        if (code.length() > 20) {
-                                throw new ApiException(
-                                                "Le code d'une sous-activité ne doit pas dépasser"
-                                                                + " 20 caractères",
-                                                HttpStatus.BAD_REQUEST);
-                        }
-
-                        if (estLibre(code, entree.getIdSousActivite(), codeParLigne, codesPris)) {
-                                return code;
-                        }
-
-                        throw new ApiException(
-                                        "Ce code de sous-activité est déjà utilisé",
-                                        HttpStatus.BAD_REQUEST);
+                if (entree.getIdSousActivite() != null) {
+                        return codeParLigne.get(entree.getIdSousActivite());
                 }
 
-                for (int numero = 1; numero <= 99; numero++) {
-
-                        String candidat = prefixe + String.format("%02d", numero);
-
-                        if (estLibre(candidat, entree.getIdSousActivite(), codeParLigne, codesPris)) {
-                                return candidat;
-                        }
+                if (entree.getCode() == null || entree.getCode().isBlank()) {
+                        return codeActiviteService.genererCodeSousActivite(activite);
                 }
 
-                throw new ApiException(
-                                "Impossible de générer un code de sous-activité pour cette"
-                                                + " activité",
-                                HttpStatus.BAD_REQUEST);
-        }
-
-        private String prefixeSousActivite(Activite activite) {
-
-                String code = activite.getCode() == null ? "" : activite.getCode().trim();
-
-                if (activite.getObjectifSpecifique() != null
-                                && code.length() > 2
-                                && code.charAt(0) == 'A'
-                                && code.charAt(1) == '-') {
-                        return "SA-" + code.substring(2) + "-";
-                }
-
-                int rang = activiteRepository.compterActivitesJusqua(
-                                activite.getIdActivite());
-
-                return "SA-" + activite.getDateDebutPrevue().getYear()
-                                + "-" + String.format("%02d", rang) + "-";
-        }
-
-        private boolean estLibre(
-                        String code,
-                        Integer idLigne,
-                        Map<Integer, String> codeParLigne,
-                        Set<String> codesPris) {
-
-                if (codesPris.contains(majuscule(code))) {
-
-                        String codeDeMaLigne = idLigne == null ? null : codeParLigne.get(idLigne);
-
-                        return codeDeMaLigne != null
-                                        && codeDeMaLigne.equalsIgnoreCase(code);
-                }
-
-                return !sousActiviteRepository.existsByCodeIgnoreCase(code);
+                return codeActiviteService.validerCodeSousActiviteFourni(
+                                entree.getCode(), activite);
         }
 
         // ------------------------------------------------------------------
@@ -709,6 +653,9 @@ public class ActiviteEcritureService {
         }
 
         private Priorite resoudrePriorite(Integer idPriorite) {
+                if (idPriorite == null) {
+                        return null;
+                }
                 return resoudreActif(
                                 prioriteRepository.findById(idPriorite),
                                 Priorite::getActif,
@@ -741,18 +688,53 @@ public class ActiviteEcritureService {
         // ------------------------------------------------------------------
         // Verifications transverses
         // ------------------------------------------------------------------
-        private void validerDates(LocalDate debut, LocalDate fin) {
+        private LocalDate[] resoudreDatesPrevues(ActiviteEcritureRequest request) {
+                LocalDate dateDebut = calculerDateDebut(request.getSousActivites());
+                LocalDate dateFin = calculerDateFin(request.getSousActivites());
 
+                validerDates(dateDebut, dateFin);
+                return new LocalDate[] { dateDebut, dateFin };
+        }
+
+        /**
+         * Date de debut de l'activite = minimum des dates de debut prevues de ses
+         * sous-activites. Null si aucune sous-activite n'a de date.
+         */
+        private LocalDate calculerDateDebut(List<SousActiviteEcritureRequest> sousActivites) {
+                if (sousActivites == null || sousActivites.isEmpty())
+                        return null;
+                return sousActivites.stream()
+                                .map(SousActiviteEcritureRequest::getDateDebutPrevue)
+                                .filter(Objects::nonNull)
+                                .min(LocalDate::compareTo)
+                                .orElse(null);
+        }
+
+        /**
+         * Date de fin de l'activite = maximum des dates de fin prevues de ses
+         * sous-activites. Null si aucune sous-activite n'a de date de fin.
+         */
+        private LocalDate calculerDateFin(List<SousActiviteEcritureRequest> sousActivites) {
+                if (sousActivites == null || sousActivites.isEmpty())
+                        return null;
+                return sousActivites.stream()
+                                .map(SousActiviteEcritureRequest::getDateFinPrevue)
+                                .filter(Objects::nonNull)
+                                .max(LocalDate::compareTo)
+                                .orElse(null);
+        }
+
+        private void validerDates(LocalDate debut, LocalDate fin) {
                 if (debut == null) {
                         throw new ApiException(
-                                        "La date de début prévue est obligatoire",
+                                        "L'activité doit comporter au moins une sous-activité avec une date de début "
+                                                        + "prévue : la période de l'activité en est dérivée.",
                                         HttpStatus.BAD_REQUEST);
                 }
-
                 if (fin != null && fin.isBefore(debut)) {
                         throw new ApiException(
-                                        "La date de fin prévue ne peut pas précéder la date de"
-                                                        + " début prévue",
+                                        "La date de fin calculée (" + fin + ") précède la date de début calculée ("
+                                                        + debut + ").",
                                         HttpStatus.BAD_REQUEST);
                 }
         }

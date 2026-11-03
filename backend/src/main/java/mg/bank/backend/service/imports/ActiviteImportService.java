@@ -1,10 +1,13 @@
 package mg.bank.backend.service.imports;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -50,15 +53,12 @@ import mg.bank.backend.repository.referentiel.ServiceRepository;
 import mg.bank.backend.repository.referentiel.SiteRepository;
 import mg.bank.backend.repository.referentiel.TypeActiviteRepository;
 import mg.bank.backend.repository.validation.ProcedureRepository;
-
 import mg.bank.backend.service.activite.ActiviteService;
-
+import mg.bank.backend.service.activite.CodeActiviteService;
 
 @Service
 @RequiredArgsConstructor
 public class ActiviteImportService {
-
-    private static final long CLE_VERROU_IMPORT = 92_500_001L;
 
     /** Type d'origine attribue aux origines creees a l'import. */
     private static final String TYPE_ORIGINE_IMPORT = "IMPORT";
@@ -80,7 +80,18 @@ public class ActiviteImportService {
     private final OrigineRepository origineRepository;
 
     private final ActiviteService activiteService;
+    private final CodeActiviteService codeActiviteService;
     private final ActiviteImportValidator validator;
+
+    public Activite chargerActivitePourCible(Integer idActivite) {
+        if (idActivite == null) {
+            throw new ApiException("L'activité cible est obligatoire.", HttpStatus.BAD_REQUEST);
+        }
+        return activiteRepository.findById(idActivite)
+                .orElseThrow(() -> new ApiException(
+                        "Activité introuvable (id=" + idActivite + ").",
+                        HttpStatus.NOT_FOUND));
+    }
 
     // ------------------------------------------------------------------
     // Point d'entree
@@ -97,10 +108,8 @@ public class ActiviteImportService {
                     HttpStatus.BAD_REQUEST);
         }
 
-        // 2. Verrou consultatif : serialise les imports pour eviter qu'un code
-        // genere collisionne avec celui d'un import concurrent. Le verrou
-        // est relache automatiquement au commit/rollback.
-        activiteRepository.verrouillerImport(CLE_VERROU_IMPORT);
+        // Le même verrou est utilisé par la création manuelle et les deux imports.
+        codeActiviteService.verrouillerGeneration();
 
         // 3. Resolution des references racine (deja validees, donc presentes).
         mg.bank.backend.model.referentiel.Service service = resoudreService(request.getService());
@@ -113,6 +122,7 @@ public class ActiviteImportService {
         Utilisateur utilisateur = activiteService.utilisateurCourant();
 
         Map<String, ObjectifSpecifique> objectifsCache = new HashMap<>();
+        Map<String, TypeActivite> typeActiviteCache = new HashMap<>();
         Map<String, Indicateur> indicateursCache = new HashMap<>();
         Map<String, Origine> originesCache = new HashMap<>();
 
@@ -128,84 +138,92 @@ public class ActiviteImportService {
         // 4. Insertion, activite par activite.
         for (ActiviteImportDTO dto : request.getActivites()) {
 
-            // 4.a - Construction de l'activite (code genere si absent).
-            String codeActivite = dto.getCode() != null && !dto.getCode().isBlank()
-                    ? dto.getCode().trim()
-                    : genererCodeActivite(dto, request.getTypeImport());
-            if (dto.getCode() == null || dto.getCode().isBlank()) {
-                codesGeneres.add(codeActivite);
+            ObjectifSpecifique objectif = resoudreObjectifSpecifique(
+                    dto.getObjectifSpecifique(),
+                    request.getAnnee(),
+                    objectifsCache);
+
+                // Dates de l'activité dérivées de ses sous-activités avant de produire le code.
+            List<SousActiviteImportDTO> sousDtos = dto.getSousActivites();
+
+            LocalDate dateDebutActivite = null;
+            LocalDate dateFinActivite = null;
+
+            if (sousDtos != null && !sousDtos.isEmpty()) {
+                dateDebutActivite = sousDtos.stream()
+                        .map(SousActiviteImportDTO::getDateDebut)
+                        .filter(Objects::nonNull)
+                        .min(LocalDate::compareTo)
+                        .orElseThrow(() -> new ApiException(
+                                "La date de début de l'activité « " + dto.getDesignation()
+                                        + " » ne peut pas être dérivée : aucune sous-activité "
+                                        + "n'a de date de début.",
+                                HttpStatus.BAD_REQUEST));
+
+                dateFinActivite = sousDtos.stream()
+                        .map(SousActiviteImportDTO::getDateFin)
+                        .filter(Objects::nonNull)
+                        .max(LocalDate::compareTo)
+                        .orElse(dateDebutActivite);
+
+                if (request.getAnnee() != null
+                        && dateDebutActivite.getYear() != request.getAnnee()) {
+                    throw new ApiException(
+                            "La date de début dérivée de l'activité « " + dto.getDesignation()
+                                    + " » (" + dateDebutActivite + ") n'appartient pas à l'année "
+                                    + "de l'import (" + request.getAnnee() + ").",
+                            HttpStatus.BAD_REQUEST);
+                }
             }
 
-            // Le validator a deja verifie, mais on garde un check defensif minimal.
-            if (dto.getDateDebut() != null
-                    && request.getAnnee() != null
-                    && dto.getDateDebut().getYear() != request.getAnnee()) {
-                throw new ApiException(
-                        "La date de début de l'activité « " + dto.getDesignation()
-                                + " » (" + dto.getDateDebut()
-                                + ") n'appartient pas à l'année de l'import ("
-                                + request.getAnnee() + ").",
-                        HttpStatus.BAD_REQUEST);
-            }
+                boolean codeActiviteAbsent = dto.getCode() == null || dto.getCode().isBlank();
+                String codeActivite = codeActiviteAbsent
+                    ? codeActiviteService.genererCodeActivite(
+                        request.getTypeImport(), objectif, request.getAnnee(), service.getIdService())
+                    : codeActiviteService.validerCodeActiviteFourni(
+                        dto.getCode(), request.getTypeImport(), objectif,
+                        request.getAnnee(), service.getIdService());
+                if (codeActiviteAbsent) {
+                codesGeneres.add(codeActivite);
+                }
+
+                // La référence PTA reste dérivée du code attribué ou fourni.
+                String referenceActivite = (TypeImport.PTA == request.getTypeImport())
+                    ? genererReferenceActivite(objectif, codeActivite)
+                    : null;
 
             Activite activite = Activite.builder()
                     .code(codeActivite)
-                    .reference(dto.getReference())
+                    .reference(referenceActivite)
                     .designation(dto.getDesignation())
-                    .dateDebutPrevue(dto.getDateDebut())
-                    .dateFinPrevue(dto.getDateFin())
-                    .dateDebutReelle(dto.getDateDebutReelle())
-                    .dateFinReelle(dto.getDateFinReelle())
+                    .dateDebutPrevue(dateDebutActivite)
+                    .dateFinPrevue(dateFinActivite)
                     .service(service)
                     .priorite(resoudrePriorite(dto.getPriorite()))
-                    .typeActivite(resoudreTypeActivite(dto.getTypeActivite()))
+                    .typeActivite(resoudreTypeActivite(dto.getTypeActivite(), typeActiviteCache))
                     .site(resoudreSite(dto.getSite()))
-                    .objectifSpecifique(resoudreObjectifSpecifique(
-                            dto.getObjectifSpecifique(),
-                            request.getAnnee(),
-                            objectifsCache))
-                    .procedure(Boolean.TRUE.equals(request.getActivitesDejaValidees())
-                            ? null
-                            : procedure)
+                    .objectifSpecifique(objectif)
+                    .procedure(Boolean.TRUE.equals(request.getActivitesDejaValidees()) ? null : procedure)
                     .build();
 
             activite = activiteRepository.saveAndFlush(activite);
             nbActivites++;
 
-            // 4.b - Historique initial via le chemin commun.
             activiteRepository.ajouterChangementStatut(
                     activite.getIdActivite(),
                     utilisateur.getIdUtilisateur(),
                     codeStatutInitial,
                     COMMENTAIRE_HISTORIQUE_INITIAL);
 
-            // 4.c - Sous-activites. Le rang est global (compterActivitesJusqua)
-            // pour eviter deux codes identiques entre activites.
-            int rangActivite = activiteRepository.compterActivitesJusqua(activite.getIdActivite());
-            int annee = activite.getDateDebutPrevue().getYear();
-            int sequenceSous = 1;
+            if (sousDtos != null && !sousDtos.isEmpty()) {
+                for (SousActiviteImportDTO saDto : sousDtos) {
 
-            if (dto.getSousActivites() != null) {
-                for (SousActiviteImportDTO saDto : dto.getSousActivites()) {
-
-                    // Les dates reelles relevent du suivi : elles ne sont
-                    // acceptees que pour des activites deja validees.
-                    if (Boolean.FALSE.equals(request.getActivitesDejaValidees())
-                            && (saDto.getDateDebutReelle() != null
-                                    || saDto.getDateFinReelle() != null)) {
-                        throw new ApiException(
-                                "Les dates réelles de la sous-activité « "
-                                        + saDto.getDesignation()
-                                        + " » ne peuvent être fournies que pour des "
-                                        + "activités déjà validées.",
-                                HttpStatus.BAD_REQUEST);
-                    }
-
-                    String codeSous = saDto.getCode() != null && !saDto.getCode().isBlank()
-                            ? saDto.getCode().trim()
-                            : genererCodeSousActivite(annee, rangActivite, sequenceSous++);
-                    if (saDto.getCode() == null || saDto.getCode().isBlank()) {
-                        codesGeneres.add(codeSous);
+                    boolean codeSousAbsent = saDto.getCode() == null || saDto.getCode().isBlank();
+                    String codeSous = codeSousAbsent
+                        ? codeActiviteService.genererCodeSousActivite(activite)
+                        : codeActiviteService.validerCodeSousActiviteFourni(saDto.getCode(), activite);
+                    if (codeSousAbsent) {
+                    codesGeneres.add(codeSous);
                     }
 
                     SousActivite sa = sousActiviteRepository.save(SousActivite.builder()
@@ -213,15 +231,13 @@ public class ActiviteImportService {
                             .designation(saDto.getDesignation())
                             .dateDebutPrevue(saDto.getDateDebut())
                             .dateFinPrevue(saDto.getDateFin())
-                            .dateDebutReelle(saDto.getDateDebutReelle())
-                            .dateFinReelle(saDto.getDateFinReelle())
+                            // dates reelles restent null : relevent du suivi
                             .activite(activite)
                             .build());
                     nbSousActivites++;
 
                     if (saDto.getLivrables() != null) {
                         for (LivrableImportDTO lDto : saDto.getLivrables()) {
-                            // Meme entite que le formulaire : Livrable.
                             livrableRepository.save(Livrable.builder()
                                     .designation(lDto.getDesignation())
                                     .description(lDto.getDescription())
@@ -233,7 +249,7 @@ public class ActiviteImportService {
                 }
             }
 
-            // 4.d - Resultats intermediaires (rattaches a l'activite).
+            // 4.d - Resultats intermediaires
             if (dto.getResultatsIntermediaires() != null) {
                 for (ResultatIntermediaireImportDTO rDto : dto.getResultatsIntermediaires()) {
                     resultatIntermediaireRepository.save(ResultatIntermediaire.builder()
@@ -244,25 +260,19 @@ public class ActiviteImportService {
                 }
             }
 
-            // 4.e - Indicateurs : reutilises ou crees.
+            // 4.e - Indicateurs
             if (dto.getIndicateurs() != null) {
                 for (IndicateurImportReferenceDTO iDto : dto.getIndicateurs()) {
-                    Indicateur ind = resoudreOuCreerIndicateur(
-                            iDto.getDesignation(),
-                            indicateursCrees,
-                            indicateursCache);
+                    Indicateur ind = resoudreOuCreerIndicateur(iDto, indicateursCrees, indicateursCache);
                     activiteRepository.lierIndicateur(activite.getIdActivite(), ind.getIdIndicateur());
                 }
             }
 
-            // 4.f - Origines : reutilisees ou creees.
+            // 4.f - Origines
             if (dto.getOrigines() != null) {
                 for (OrigineImportReferenceDTO oDto : dto.getOrigines()) {
                     Origine o = resoudreOuCreerOrigine(
-                            oDto.getDesignation(),
-                            utilisateur,
-                            originesCreees,
-                            originesCache);
+                            oDto.getDesignation(), utilisateur, originesCreees, originesCache);
                     activiteRepository.lierOrigine(activite.getIdActivite(), o.getIdOrigine());
                 }
             }
@@ -285,23 +295,35 @@ public class ActiviteImportService {
     // ------------------------------------------------------------------
     // Generation de code
     // ------------------------------------------------------------------
-    private String genererCodeActivite(ActiviteImportDTO dto, TypeImport typeImport) {
-        if (TypeImport.PTA == typeImport) {
+    /**
+     * Genere la reference PTA : {@code <codeObjectif>_<numActivite>}, le
+     * numero etant extrait du code genere.
+     */
+    private String genererReferenceActivite(ObjectifSpecifique objectif, String codeActivite) {
+        if (objectif == null) {
             throw new ApiException(
-                    "Aucune règle de génération de code n'est définie pour les activités PTA. "
-                            + "Le code doit être fourni explicitement.",
+                    "Un objectif spécifique est requis pour générer la référence d'une activité PTA.",
                     HttpStatus.BAD_REQUEST);
         }
-        if (dto.getDateDebut() == null) {
-            throw new ApiException(
-                    "La date de début prévue est nécessaire pour générer le code de l'activité.",
-                    HttpStatus.BAD_REQUEST);
-        }
-        return activiteService.prochainCodeNonPta(dto.getDateDebut().getYear());
+        int numeroActivite = extraireNumeroActivite(codeActivite);
+        return objectif.getCode().trim() + "_" + numeroActivite;
     }
 
-    private String genererCodeSousActivite(int annee, int rang, int sequence) {
-        return String.format(Locale.ROOT, "SA-%d-%02d-%02d", annee, rang, sequence);
+    private int extraireNumeroActivite(String codeActivite) {
+        if (codeActivite == null || codeActivite.isBlank()) {
+            throw new ApiException(
+                    "Le code de l'activité est requis pour générer sa référence PTA.",
+                    HttpStatus.BAD_REQUEST);
+        }
+        String[] segments = codeActivite.split("[-/]");
+        for (int i = segments.length - 1; i >= 0; i--) {
+            if (segments[i] != null && segments[i].matches("\\d+")) {
+                return Integer.parseInt(segments[i]);
+            }
+        }
+        throw new ApiException(
+                "Impossible de dériver le numéro d'activité depuis le code « " + codeActivite + ".",
+                HttpStatus.BAD_REQUEST);
     }
 
     private String genererCodeIndicateur(int offset) {
@@ -370,9 +392,11 @@ public class ActiviteImportService {
 
     private Priorite resoudrePriorite(String code) {
         if (code == null || code.isBlank()) {
-            throw new ApiException(
-                    "La priorité est obligatoire.",
-                    HttpStatus.BAD_REQUEST);
+            return prioriteRepository.findByCodeIgnoreCase("NORMALE")
+                    .filter(Priorite::getActif)
+                    .orElseThrow(() -> new ApiException(
+                            "La priorité par défaut « NORMALE » est absente ou inactive.",
+                            HttpStatus.INTERNAL_SERVER_ERROR));
         }
         Priorite priorite = prioriteRepository.findByCodeIgnoreCase(code.trim())
                 .orElseThrow(() -> new ApiException(
@@ -386,19 +410,36 @@ public class ActiviteImportService {
         return priorite;
     }
 
-    private TypeActivite resoudreTypeActivite(String designation) {
+    private TypeActivite resoudreTypeActivite(String designation, Map<String, TypeActivite> cache) {
         if (designation == null || designation.isBlank()) {
             return null;
         }
-        TypeActivite type = typeActiviteRepository.findByDesignationIgnoreCase(designation.trim())
-                .orElseThrow(() -> new ApiException(
-                        "Type d'activité introuvable : « " + designation + " ».",
-                        HttpStatus.BAD_REQUEST));
+
+        String cle = designation.trim();
+        String cleCache = cle.toLowerCase(Locale.ROOT);
+        TypeActivite dejaVu = cache.get(cleCache);
+        if (dejaVu != null) {
+            return dejaVu;
+        }
+
+        TypeActivite type = typeActiviteRepository.findByDesignationIgnoreCase(cle)
+                .orElseGet(() -> {
+                    TypeActivite cree = typeActiviteRepository.saveAndFlush(TypeActivite.builder()
+                            .designation(cle)
+                            .description("Type créé automatiquement lors d'un import")
+                            .actif(Boolean.TRUE)
+                            .dateCreation(LocalDateTime.now())
+                            .build());
+                    cache.put(cleCache, cree);
+                    return cree;
+                });
+
         if (!Boolean.TRUE.equals(type.getActif())) {
             throw new ApiException(
                     "Le type d'activité « " + designation + " » n'est pas actif.",
                     HttpStatus.BAD_REQUEST);
         }
+        cache.put(cleCache, type);
         return type;
     }
 
@@ -483,33 +524,41 @@ public class ActiviteImportService {
     // Indicateurs et origines : reutilisation ou creation
     // ------------------------------------------------------------------
 
-    private Indicateur resoudreOuCreerIndicateur(
-            String designation,
+    // --- Signature modifiée ---
+    Indicateur resoudreOuCreerIndicateur(
+            IndicateurImportReferenceDTO dto,
             List<String> crees,
             Map<String, Indicateur> cache) {
 
-        String d = designation.trim();
+        String d = dto.getDesignation().trim();
         String cleCache = d.toLowerCase(Locale.ROOT);
 
-        // 0. Deja resolu dans CET import ?
         Indicateur dejaVu = cache.get(cleCache);
         if (dejaVu != null) {
             return dejaVu;
         }
 
-        // 1. Deja en base ?
         Optional<Indicateur> existant = indicateurRepository.findByDesignationIgnoreCase(d);
         if (existant.isPresent()) {
             cache.put(cleCache, existant.get());
             return existant.get();
         }
 
-        // 2. Sinon, creation.
         try {
             String code = genererCodeIndicateur(crees.size());
             Indicateur cree = indicateurRepository.saveAndFlush(Indicateur.builder()
                     .code(code)
                     .designation(d)
+                    .typeIndicateur(emptyToNull(dto.getTypeIndicateur()))
+                    .uniteMesure(emptyToNull(dto.getUniteMesure()))
+                    .frequenceVerification(emptyToNull(dto.getFrequenceVerification()))
+                    .frequenceAggregation(emptyToNull(dto.getFrequenceAggregation()))
+                    .definition(emptyToNull(dto.getDefinition()))
+                    .methodeDetermination(emptyToNull(dto.getMethodeDetermination()))
+                    .objectif(emptyToNull(dto.getObjectif()))
+                    .valeurCible(dto.getValeurCible())
+                    .seuilMin(dto.getSeuilMin())
+                    .seuilMax(dto.getSeuilMax())
                     .actif(Boolean.TRUE)
                     .build());
             crees.add(code);
@@ -523,6 +572,11 @@ public class ActiviteImportService {
             cache.put(cleCache, recupere);
             return recupere;
         }
+    }
+
+    // --- Helper ajouté ---
+    private static String emptyToNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
     }
 
     /**

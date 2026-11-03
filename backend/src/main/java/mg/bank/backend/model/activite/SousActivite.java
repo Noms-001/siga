@@ -31,7 +31,7 @@ public class SousActivite {
     @Column(name = "id_sous_activite")
     private Integer idSousActivite;
 
-    @Column(name = "code", nullable = false, unique = true, length = 20)
+    @Column(name = "code", nullable = false, length = 20)
     private String code;
 
     @Column(name = "designation", nullable = false)
