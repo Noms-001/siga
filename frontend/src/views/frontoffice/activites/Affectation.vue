@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseButton, BaseInput, BaseSelect } from '@/components/base'
@@ -12,8 +13,8 @@ const router = useRouter()
 
 const activites = ref<ActiviteListItem[]>([])
 const loading = ref(false)
-const errorMessage = ref('')
-const successMessage = ref('')
+const errorMessage = useToastMessage('error')
+const successMessage = useToastMessage('success')
 
 const page = ref(0)
 const size = ref(20)
@@ -294,20 +295,6 @@ onMounted(async () => {
         </header>
 
         <!-- ============ MESSAGES ============ -->
-        <div v-if="successMessage" class="alert alert-success d-flex align-items-center gap-2" role="status">
-            <i class="bi bi-check-circle-fill"></i>
-            <span>{{ successMessage }}</span>
-        </div>
-
-        <div v-if="errorMessage" class="alert alert-danger d-flex align-items-center gap-2 justify-content-between"
-            role="alert">
-            <span class="d-inline-flex align-items-center gap-2">
-                <i class="bi bi-exclamation-triangle"></i>
-                {{ errorMessage }}
-            </span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
         <!-- ============ VUE SWITCH ============ -->
         <div class="vue-switch" role="tablist" aria-label="Type d'activité">
             <button type="button" role="tab" :aria-selected="vue === 'PTA'"

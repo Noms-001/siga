@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { onMounted, ref, watch } from 'vue'
 import { BaseTable, BaseButton } from '@/components/base'
 import type { TableColumn } from '@/components/base/BaseTable/BaseTable.types'
@@ -7,7 +8,7 @@ import type { Statut } from '@/types/backoffice/statut'
 
 const items = ref<Statut[]>([])
 const loading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
 const inclureInactifs = ref(false)
 
 const columns: TableColumn<Statut>[] = [
@@ -40,12 +41,6 @@ onMounted(charger)
                 </p>
             </div>
         </header>
-
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
 
         <div class="bo-filters">
             <label class="bo-filters__check">

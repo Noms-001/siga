@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { BaseCard, BaseInput, BaseButton } from '@/components/base'
 import router from '@/router'
 import { useAuthStore } from '@/stores/auth'
+import { useToastMessage } from '@/composables/useToast'
 
 // État du formulaire
 const email = ref('')
@@ -14,7 +15,7 @@ const emailError = ref('')
 const passwordError = ref('')
 
 // Erreur générale de connexion
-const loginError = ref('')
+const loginError = useToastMessage('error')
 
 // État de chargement
 const loading = ref(false)
@@ -138,11 +139,6 @@ const handleLogin = async () => {
                         <!-- Champ Mot de passe -->
                         <BaseInput v-model="password" label="Mot de passe" placeholder="••••••••" type="password"
                             name="password" :required="true" :error="passwordError" size="md" custom-class="mb-4" />
-
-                        <!-- Message d'erreur général -->
-                        <div v-if="loginError" class="alert alert-danger" role="alert">
-                            {{ loginError }}
-                        </div>
 
                         <!-- Bouton de connexion -->
                         <BaseButton type="submit" variant="primary" size="md" :loading="loading" :disabled="loading"

@@ -173,13 +173,16 @@ docker stats
 
 Scripts dans `database/script/` :
 
-| Fichier      | Rôle                                                            |
-| ------------ | --------------------------------------------------------------- |
-| `schema.sql` | Création des tables (534 lignes)                                 |
-| `data.sql`   | Jeu de données initial (1488 lignes)                             |
-| `reset.sql`  | Réinitialisation : `TRUNCATE ... RESTART IDENTITY CASCADE`        |
+| Fichier                            | Rôle                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------- |
+| `schema.sql`                       | Création des tables et des index                                      |
+| `data.sql`                         | Référentiels, permissions et comptes — aucune donnée métier de test  |
+| `migration_code_generation.sql`    | Migration idempotente des index et des compteurs de codes            |
+| `trigger.sql`                      | Fonctions, triggers et planification cron                            |
+| `demo_etats_analyse.sql`           | Jeu fictif `DEMO-*` pour les démos (optionnel, réexécutable)         |
+| `reset.sql`                        | Réinitialisation : `TRUNCATE ... RESTART IDENTITY CASCADE`            |
 
-> ⚠️ `schema.sql` et `data.sql` ne sont exécutés **qu'à la première création**
+> ⚠️ Les scripts d'initialisation ne sont exécutés **qu'à la première création**
 > du volume `postgres_data` (via `/docker-entrypoint-initdb.d/`). Pour les
 > rejouer après modification :
 >
@@ -188,12 +191,18 @@ Scripts dans `database/script/` :
 > docker compose up -d
 > ```
 >
-> Ou manuellement :
+> Ou manuellement, dans cet ordre :
 >
 > ```bash
 > docker compose exec -T postgres psql -U saga_user -d sagadb < database/script/schema.sql
 > docker compose exec -T postgres psql -U saga_user -d sagadb < database/script/data.sql
+> docker compose exec -T postgres psql -U saga_user -d sagadb < database/script/migration_code_generation.sql
+> docker compose exec -T postgres psql -U saga_user -d sagadb < database/script/trigger.sql
+> docker compose exec -T postgres psql -U saga_user -d sagadb < database/script/demo_etats_analyse.sql
 > ```
+>
+> Le script `demo_etats_analyse.sql` est facultatif : il n'ajoute que des
+> données préfixées `DEMO-` et ne touche pas aux autres activités.
 
 ## Exécution locale sans Docker
 
@@ -229,10 +238,13 @@ psql> CREATE USER saga_user WITH PASSWORD 'saga_pwd';
 psql> CREATE DATABASE sagadb OWNER saga_user;
 psql> \q
 
-# Charger le schéma puis les données de démonstration
+# Charger le schéma, les référentiels puis les données de démonstration
 cd database/script
 psql -h localhost -U saga_user -d sagadb -f schema.sql
 psql -h localhost -U saga_user -d sagadb -f data.sql
+psql -h localhost -U saga_user -d sagadb -f migration_code_generation.sql
+psql -h localhost -U saga_user -d sagadb -f trigger.sql
+psql -h localhost -U saga_user -d sagadb -f demo_etats_analyse.sql
 ```
 
 #### Option B — PostgreSQL dans Docker

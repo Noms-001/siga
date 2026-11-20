@@ -3,12 +3,14 @@ import type {
     DashboardAvancement,
     DashboardEcheances,
     DashboardKpi,
-    DashboardPriorite,
+    DashboardPerimetre,
+    DashboardPlanActionOrigine,
     DashboardPtaComparaison,
-    DashboardRisquesIncidents,
     DashboardService,
     DashboardStatut,
-    DashboardValidation,
+    DashboardStatutPriorite,
+    DashboardTypeActivite,
+    PeriodeDashboard,
 } from '@/types/dashboard'
 
 /**
@@ -29,69 +31,92 @@ function query(params: object): string {
     return q ? `?${q}` : ''
 }
 
+/**
+ * Paramètres temporels communs à tous les endpoints du dashboard.
+ * Le backend applique la même période à chaque bloc.
+ */
+function periodeQuery(periode: PeriodeDashboard, serviceId?: number): string {
+    return query({
+        dateDebut: periode.debut,
+        dateFin: periode.fin,
+        serviceId,
+    })
+}
+
 /* ------------------------------------------------------------------ */
 /*  Chaque endpoint a sa fonction, pour que le dashboard puisse les   */
 /*  appeler en parallèle et gérer les erreurs indépendamment.         */
 /* ------------------------------------------------------------------ */
 
+export function getDashboardPerimetre(): Promise<ApiResponse<DashboardPerimetre>> {
+    return get<DashboardPerimetre>('/dashboard/perimetre')
+}
+
 export function getDashboardKpi(
-    annee?: number
+    periode: PeriodeDashboard
 ): Promise<ApiResponse<DashboardKpi>> {
-    return get<DashboardKpi>(`/dashboard/kpi${query({ annee })}`)
+    return get<DashboardKpi>(`/dashboard/kpi${periodeQuery(periode)}`)
 }
 
 export function getDashboardAvancement(
-    annee?: number
+    periode: PeriodeDashboard
 ): Promise<ApiResponse<DashboardAvancement>> {
-    return get<DashboardAvancement>(`/dashboard/avancement${query({ annee })}`)
+    return get<DashboardAvancement>(`/dashboard/avancement${periodeQuery(periode)}`)
 }
 
 export function getDashboardStatuts(
-    annee?: number
+    periode: PeriodeDashboard
 ): Promise<ApiResponse<DashboardStatut[]>> {
-    return get<DashboardStatut[]>(`/dashboard/statuts${query({ annee })}`)
+    return get<DashboardStatut[]>(`/dashboard/statuts${periodeQuery(periode)}`)
 }
 
-export function getDashboardServices(
-    annee?: number
-): Promise<ApiResponse<DashboardService[]>> {
-    return get<DashboardService[]>(`/dashboard/services${query({ annee })}`)
-}
-
-export function getDashboardPriorites(
-    annee?: number,
-    limit?: number
-): Promise<ApiResponse<DashboardPriorite[]>> {
-    return get<DashboardPriorite[]>(
-        `/dashboard/priorites${query({ annee, limit })}`
+export function getDashboardStatutsPriorites(
+    periode: PeriodeDashboard,
+    serviceId?: number
+): Promise<ApiResponse<DashboardStatutPriorite[]>> {
+    return get<DashboardStatutPriorite[]>(
+        `/dashboard/statuts-priorites${periodeQuery(periode, serviceId)}`
     )
 }
 
-export function getDashboardValidations(
-    annee?: number
-): Promise<ApiResponse<DashboardValidation[]>> {
-    return get<DashboardValidation[]>(`/dashboard/validations${query({ annee })}`)
+export function getDashboardServices(
+    periode: PeriodeDashboard
+): Promise<ApiResponse<DashboardService[]>> {
+    return get<DashboardService[]>(`/dashboard/services${periodeQuery(periode)}`)
 }
 
 export function getDashboardEcheances(
-    annee?: number,
+    periode: PeriodeDashboard,
     jours?: number
 ): Promise<ApiResponse<DashboardEcheances>> {
     return get<DashboardEcheances>(
-        `/dashboard/echeances${query({ annee, jours })}`
+        `/dashboard/echeances${query({
+            dateDebut: periode.debut,
+            dateFin: periode.fin,
+            jours,
+        })}`
     )
 }
 
 export function getDashboardPta(
-    annee?: number
+    periode: PeriodeDashboard
 ): Promise<ApiResponse<DashboardPtaComparaison>> {
-    return get<DashboardPtaComparaison>(`/dashboard/pta${query({ annee })}`)
+    return get<DashboardPtaComparaison>(`/dashboard/pta${periodeQuery(periode)}`)
 }
 
-export function getDashboardRisquesIncidents(
-    annee?: number
-): Promise<ApiResponse<DashboardRisquesIncidents>> {
-    return get<DashboardRisquesIncidents>(
-        `/dashboard/risques-incidents${query({ annee })}`
+export function getDashboardTypesActivite(
+    periode: PeriodeDashboard,
+    serviceId?: number
+): Promise<ApiResponse<DashboardTypeActivite[]>> {
+    return get<DashboardTypeActivite[]>(
+        `/dashboard/types-activite${periodeQuery(periode, serviceId)}`
+    )
+}
+
+export function getDashboardPlanActionOrigine(
+    periode: PeriodeDashboard
+): Promise<ApiResponse<DashboardPlanActionOrigine[]>> {
+    return get<DashboardPlanActionOrigine[]>(
+        `/dashboard/plans-action/avancement-origine${periodeQuery(periode)}`
     )
 }

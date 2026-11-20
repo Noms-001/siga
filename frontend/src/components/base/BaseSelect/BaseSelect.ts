@@ -14,86 +14,38 @@ import type {
 } from './BaseSelect.types'
 
 export const baseSelectProps = {
-    modelValue: {
-        type: [String, Number, Object],
-        default: null
-    },
-
-    label: {
-        type: String,
-        default: ''
-    },
-
-    placeholder: {
-        type: String,
-        default: 'Sélectionner'
-    },
-
-    options: {
-        type: Array as PropType<SelectOption[]>,
-        default: () => []
-    },
-
-    optionLabel: {
-        type: String,
-        default: 'label'
-    },
-
-    optionValue: {
-        type: String,
-        default: 'value'
-    },
-
+    modelValue: { type: [String, Number, Object], default: null },
+    label: { type: String, default: '' },
+    placeholder: { type: String, default: 'Sélectionner' },
+    options: { type: Array as PropType<SelectOption[]>, default: () => [] },
+    optionLabel: { type: String, default: 'label' },
+    optionValue: { type: String, default: 'value' },
     optionFormatter: {
-        type: Function as unknown as PropType<
-            ((option: any) => string) | null
-        >,
+        type: Function as unknown as PropType<((option: any) => string) | null>,
         default: null
     },
-
-    required: {
-        type: Boolean,
-        default: false
-    },
-
-    disabled: {
-        type: Boolean,
-        default: false
-    },
-
-    error: {
-        type: String,
-        default: ''
-    },
-
-    customClass: {
-        type: [String, Array, Object],
-        default: ''
-    },
-
-    size: {
-        type: String as PropType<SelectSize>,
-        default: 'md'
-    },
-
-    autocomplete: {
-        type: Boolean,
-        default: false
-    },
-
-    allowCustom: {
-        type: Boolean,
-        default: false
-    }
+    required: { type: Boolean, default: false },
+    disabled: { type: Boolean, default: false },
+    error: { type: String, default: '' },
+    customClass: { type: [String, Array, Object], default: '' },
+    size: { type: String as PropType<SelectSize>, default: 'md' },
+    autocomplete: { type: Boolean, default: false },
+    remote: { type: Boolean, default: false },
+    clearOnInput: { type: Boolean, default: false },
+    allowCustom: { type: Boolean, default: false },
+    icon: { type: String, default: '' },
+    iconRight: { type: String, default: '' },
+    clearable: { type: Boolean, default: false }   // NEW
 }
 
 export const baseSelectEmits = [
-    'update:modelValue'
+    'update:modelValue',
+    'search'
 ]
 
 export function useBaseSelect(
     props: Readonly<BaseSelectProps>,
-    emit: (event: 'update:modelValue', value: any) => void
+    emit: (event: 'update:modelValue' | 'search', value: any) => void
 ) {
     const searchText = ref('')
     const showDropdown = ref(false)
@@ -203,6 +155,20 @@ export function useBaseSelect(
 
         highlightedIndex.value = -1
 
+        if (props.autocomplete) {
+            emit('search', target.value)
+        }
+
+        if (props.autocomplete && props.clearOnInput && hasValue.value) {
+            const libelleSelection = selectedOption.value
+                ? getOptionLabel(selectedOption.value)
+                : ''
+
+            if (searchText.value !== libelleSelection) {
+                emit('update:modelValue', null)
+            }
+        }
+
         if (props.autocomplete && props.allowCustom) {
 
             const trimmedValue = target.value.trim()
@@ -222,6 +188,10 @@ export function useBaseSelect(
     }
 
     const filteredOptions = computed(() => {
+
+        if (props.remote) {
+            return props.options ?? []
+        }
 
         if (
             !searchText.value.trim()
@@ -381,21 +351,43 @@ export function useBaseSelect(
                 newValue === ''
             ) {
 
-                searchText.value = ''
-
-                showDropdown.value = false
+                // Pendant la saisie, la valeur est effacée pour signifier
+                // qu'aucune option n'est sélectionnée : on conserve le texte
+                // tapé et le menu ouvert.
+                if (document.activeElement !== inputRef.value) {
+                    searchText.value = ''
+                    showDropdown.value = false
+                }
 
                 highlightedIndex.value = -1
 
                 return
             }
 
-            updateSearchTextFromValue()
+            if (selectedOption.value) {
+                updateSearchTextFromValue()
+            }
         },
         {
             immediate: true
         }
     )
+
+    const hasValue = computed(() =>
+        props.modelValue !== null
+        && props.modelValue !== undefined
+        && props.modelValue !== ''
+    )
+
+    const clear = () => {
+        if (props.autocomplete) {
+            emit('search', '')
+        }
+        emit('update:modelValue', null)
+        searchText.value = ''
+        showDropdown.value = false
+        highlightedIndex.value = -1
+    }
 
     onMounted(() => {
 
@@ -427,7 +419,9 @@ export function useBaseSelect(
         dropdownRef,
         filteredOptions,
         selectedOption,
-
+        hasValue,
+        
+        clear,
         getOptionLabel,
         getOptionValue,
         updateValue,

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BaseButton } from '@/components/base'
@@ -15,7 +16,7 @@ const id = Number(route.params.id)
 
 const data = ref<UtilisateurAvancement | null>(null)
 const loading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
 
 const annee = ref(new Date().getFullYear())
 const ongletActif = ref<'activites' | 'plans'>('activites')
@@ -125,13 +126,8 @@ onMounted(charger)
         </header>
 
         <!-- Erreur -->
-        <div v-if="errorMessage" class="alert alert-danger d-flex justify-content-between">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
         <!-- Chargement -->
-        <div v-else-if="loading" class="loading-state">
+        <div v-if="loading" class="loading-state">
             <div class="skeleton skeleton-cards"></div>
             <div class="skeleton skeleton-table"></div>
         </div>

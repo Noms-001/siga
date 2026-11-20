@@ -32,6 +32,14 @@ export interface DashboardStatut {
     nombre: number
 }
 
+export interface DashboardStatutPriorite {
+    statut: string
+    statutLibelle: string
+    priorite: string
+    prioriteLibelle: string
+    nombre: number
+}
+
 export interface DashboardService {
     idService: number
     service: string
@@ -41,35 +49,6 @@ export interface DashboardService {
     enRetard: number
     nonCommencees: number
     avancement: number
-}
-
-export interface DashboardPriorite {
-    id: number
-    code: string
-    reference: string | null
-    designation: string
-    service: string | null
-    priorite: string | null
-    prioriteCode: string | null
-    statut: string | null
-    statutLibelle: string | null
-    dateDebut: string | null
-    dateEcheance: string | null
-    avancement: number
-    /** 0 si non en retard ; > 0 = nombre de jours de retard. */
-    joursRetard: number
-}
-
-export interface DashboardValidation {
-    idValidation: number
-    idActivite: number
-    codeActivite: string
-    designationActivite: string
-    demandeur: string | null
-    etape: string | null
-    niveau: number | null
-    dateDemande: string
-    decision: string | null
 }
 
 export interface DashboardEcheance {
@@ -106,18 +85,39 @@ export interface DashboardPtaComparaison {
     nonPta: DashboardPtaSection
 }
 
-export interface DashboardPlansAction {
-    total: number
-    enCours: number
-    termines: number
-    enRetard: number
+export interface DashboardTypeActivite {
+    idTypeActivite: number
+    typeActivite: string
+    totalActivites: number
+    avancement: number
 }
 
-/**
- * Le backend n'expose aujourd'hui QUE `plansAction`. Les risques et
- * incidents n'ont pas de table en base — le DTO ne les porte pas. Ne pas
- * les inventer côté front, même pour remplir un vide visuel.
- */
-export interface DashboardRisquesIncidents {
-    plansAction: DashboardPlansAction
+/** Période globale appliquée à tous les blocs du dashboard. */
+export interface PeriodeDashboard {
+    debut: string
+    fin: string
+}
+
+export type DashboardPerimetreNiveau = 'DEPARTEMENT' | 'SERVICE' | 'GLOBAL'
+
+export interface DashboardOption {
+    id: number
+    code: string | null
+    libelle: string
+}
+
+export interface DashboardPerimetre {
+    niveau: DashboardPerimetreNiveau
+    idService: number | null
+    idDepartement: number | null
+    service: string | null
+    services: DashboardOption[]
+}
+
+/** Avancement moyen des plans d'action pour une origine. */
+export interface DashboardPlanActionOrigine {
+    origine: string
+    libelle: string
+    total: number
+    avancement: number
 }

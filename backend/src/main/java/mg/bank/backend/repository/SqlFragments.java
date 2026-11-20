@@ -21,9 +21,9 @@ public final class SqlFragments {
 
     public static final String AVANCEMENT_ACTIVITE_COURANT = """
             LEFT JOIN LATERAL (
-                SELECT AVG(dernier.valeur_pourcentage) AS avancement
+                SELECT COALESCE(AVG(COALESCE(dernier.valeur_pourcentage, 0)), 0) AS avancement
                 FROM sous_activite sa
-                JOIN LATERAL (
+                LEFT JOIN LATERAL (
                     SELECT av2.valeur_pourcentage
                     FROM avancement_sous_activite av2
                     WHERE av2.id_sous_activite = sa.id_sous_activite
@@ -45,6 +45,68 @@ public final class SqlFragments {
                   AND NOT EXISTS (
                       SELECT 1 FROM avancement_plan_action a2
                       WHERE a2.id_plan_action = pa.id_plan_action
+                        AND (a2.date_changement, a2.id_avancement_plan_action)
+                            > (a.date_changement, a.id_avancement_plan_action))
+            ) av ON TRUE
+            LEFT JOIN statut sta ON sta.id_statut = av.id_statut
+            """;
+
+    /*
+     * ------------------------------------------------------------------
+     * Variantes historiques : le dernier etat connu A UNE DATE DONNEE.
+     *
+     * Le dashboard applique un filtre temporel global. Pour une periode
+     * passee, afficher le statut courant fausserait la lecture : on
+     * reconstitue l'etat a `dateReference` (= min(fin, aujourd'hui)).
+     * ------------------------------------------------------------------
+     */
+
+    public static final String STATUT_ACTIVITE_A_DATE = """
+            LEFT JOIN LATERAL (
+                SELECT h.id_statut
+                FROM historique_activite h
+                WHERE h.id_activite = act.id_activite
+                  AND h.date_changement::date <= CAST(:dateReference AS date)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM historique_activite h2
+                      WHERE h2.id_activite = act.id_activite
+                        AND h2.date_changement::date <= CAST(:dateReference AS date)
+                        AND (h2.date_changement, h2.id_historique_activite)
+                            > (h.date_changement, h.id_historique_activite))
+            ) hist ON TRUE
+            LEFT JOIN statut sta ON sta.id_statut = hist.id_statut
+            """;
+
+    public static final String AVANCEMENT_ACTIVITE_A_DATE = """
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(AVG(COALESCE(dernier.valeur_pourcentage, 0)), 0) AS avancement
+                FROM sous_activite sa
+                LEFT JOIN LATERAL (
+                    SELECT av2.valeur_pourcentage
+                    FROM avancement_sous_activite av2
+                    WHERE av2.id_sous_activite = sa.id_sous_activite
+                      AND av2.date_changement::date <= CAST(:dateReference AS date)
+                      AND NOT EXISTS (
+                          SELECT 1 FROM avancement_sous_activite av3
+                          WHERE av3.id_sous_activite = sa.id_sous_activite
+                            AND av3.date_changement::date <= CAST(:dateReference AS date)
+                            AND (av3.date_changement, av3.id_historique_sous_activite)
+                                > (av2.date_changement, av2.id_historique_sous_activite))
+                ) dernier ON TRUE
+                WHERE sa.id_activite = act.id_activite
+            ) av ON TRUE
+            """;
+
+    public static final String AVANCEMENT_PLAN_ACTION_A_DATE = """
+            LEFT JOIN LATERAL (
+                SELECT a.valeur_pourcentage, a.id_statut
+                FROM avancement_plan_action a
+                WHERE a.id_plan_action = pa.id_plan_action
+                  AND a.date_changement::date <= CAST(:dateReference AS date)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM avancement_plan_action a2
+                      WHERE a2.id_plan_action = pa.id_plan_action
+                        AND a2.date_changement::date <= CAST(:dateReference AS date)
                         AND (a2.date_changement, a2.id_avancement_plan_action)
                             > (a.date_changement, a.id_avancement_plan_action))
             ) av ON TRUE

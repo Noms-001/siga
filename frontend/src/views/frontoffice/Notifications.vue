@@ -93,14 +93,8 @@
         </section>
 
         <!-- ============ ERREUR ============ -->
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
         <!-- ============ CHARGEMENT INITIAL ============ -->
-        <div v-else-if="initialLoading" class="loading-state">
+        <div v-if="initialLoading" class="loading-state">
             <div v-for="i in 4" :key="i" class="skeleton-card">
                 <div class="skeleton-row">
                     <div class="skeleton skeleton--badge"></div>
@@ -219,6 +213,7 @@
 </template>
 
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { BaseButton, BaseSelect } from '@/components/base'
 import NotificationDetailModal from '@/components/NotificationDetailModal.vue'
@@ -241,7 +236,7 @@ const initialLoading = ref(true)
 const refreshing = ref(false)
 const markingAll = ref(false)
 const readingIds = ref<Set<number>>(new Set())
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
 
 /* Pagination */
 const page = ref(0)

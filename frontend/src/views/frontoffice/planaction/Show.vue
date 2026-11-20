@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { BaseButton } from '@/components/base'
+import { BaseButton, BaseModal } from '@/components/base'
 import { detailPlan, saisirAvancement } from '@/services/planaction'
 import type {
     AvancementPlanAction,
     PlanActionDetail,
 } from '@/types/planaction'
-import AvancementSaisieModal from '@/components/suivi/AvancementSaisieModal.vue'
 import DemandeRepriseButton from '../demandereprise/DemandeRepriseButton.vue'
 
 const route = useRoute()
@@ -18,10 +18,16 @@ const id = Number(route.params.id)
 
 const plan = ref<PlanActionDetail | null>(null)
 const loading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
+const successMessage = useToastMessage('success')
+
+/* -------------------- état modal saisie -------------------- */
 
 const modalOpen = ref(false)
-const successMessage = ref('')
+const saisieValeur = ref(0)
+const saisieCommentaire = ref('')
+const saisieError = ref('')
+const saisieEnCours = ref(false)
 
 /* -------------------- en-tête -------------------- */
 
@@ -47,16 +53,65 @@ async function charger(): Promise<void> {
 
 /* -------------------- actions -------------------- */
 
+const avancementActuel = computed(() => plan.value?.avancement ?? 0)
+const avancementActuelArrondi = computed(() => Math.round(avancementActuel.value))
+
 function ouvrirSaisie(): void {
+    saisieValeur.value = avancementActuelArrondi.value
+    saisieCommentaire.value = ''
+    saisieError.value = ''
+    saisieEnCours.value = false
     modalOpen.value = true
 }
 
-async function surSaisie(payload: { valeurPourcentage: number; commentaire: string | null }): Promise<void> {
-    const res = await saisirAvancement(id, payload)
-    if (!res.success) {
-        errorMessage.value = res.error
+// Bloque la fermeture pendant l'enregistrement
+const saisieOuverte = computed({
+    get: () => modalOpen.value,
+    set: (v: boolean) => {
+        if (saisieEnCours.value && !v) return
+        modalOpen.value = v
+    },
+})
+
+const peutValiderSaisie = computed(() => {
+    const v = saisieValeur.value
+    return (
+        Number.isFinite(v) &&
+        v >= avancementActuelArrondi.value &&
+        v <= 100
+    )
+})
+
+async function validerSaisie(): Promise<void> {
+    saisieError.value = ''
+
+    const v = saisieValeur.value
+    if (!Number.isFinite(v)) {
+        saisieError.value = 'Veuillez saisir une valeur valide.'
         return
     }
+    if (v < avancementActuelArrondi.value) {
+        saisieError.value = `La valeur ne peut pas être inférieure à l'avancement actuel (${avancementActuelArrondi.value} %).`
+        return
+    }
+    if (v > 100) {
+        saisieError.value = 'La valeur ne peut pas dépasser 100 %.'
+        return
+    }
+
+    saisieEnCours.value = true
+    const payload = {
+        valeurPourcentage: v,
+        commentaire: saisieCommentaire.value.trim() || null,
+    }
+    const res = await saisirAvancement(id, payload)
+    saisieEnCours.value = false
+
+    if (!res.success) {
+        saisieError.value = res.error
+        return
+    }
+
     modalOpen.value = false
     successMessage.value = `Avancement enregistré : ${payload.valeurPourcentage} %`
     await charger()
@@ -160,18 +215,7 @@ onMounted(charger)
         </header>
 
         <!-- SUCCÈS -->
-        <div v-if="successMessage" class="alert alert-success mb-0" role="status">
-            <i class="bi bi-check-circle-fill"></i>
-            {{ successMessage }}
-        </div>
-
         <!-- ERREUR -->
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
         <!-- CHARGEMENT -->
         <div v-if="loading" class="loading-state">
             <div class="skeleton skeleton-hero"></div>
@@ -386,11 +430,71 @@ onMounted(charger)
         </template>
     </div>
 
-    <!-- MODAL SAISIE -->
-    <AvancementSaisieModal v-model="modalOpen" :avancement-actuel="plan?.avancement ?? 0" @valide="surSaisie" />
+    <!-- ================================================================
+         MODAL SAISIE (BaseModal) -->
+    <BaseModal v-model="saisieOuverte" title="Saisir un avancement" size="md" :loading="saisieEnCours"
+        :close-on-outside="!saisieEnCours">
+        <form class="saisie-form" @submit.prevent="validerSaisie">
+            <!-- Avancement actuel -->
+            <div class="saisie-current">
+                <span class="saisie-current__label">Avancement actuel</span>
+                <span class="saisie-current__value">{{ avancementActuelArrondi }} %</span>
+            </div>
+
+            <!-- Nouveau pourcentage -->
+            <div class="form-group">
+                <label for="saisie-valeur" class="form-label">Nouveau pourcentage</label>
+
+                <div class="slider-row">
+                    <input id="saisie-valeur" v-model.number="saisieValeur" type="range" :min="avancementActuelArrondi"
+                        max="100" step="1" class="slider" />
+
+                    <div class="number-wrapper">
+                        <input v-model.number="saisieValeur" type="number" :min="avancementActuelArrondi" max="100"
+                            step="1" class="number-input" aria-label="Pourcentage d'avancement" />
+                        <span class="number-suffix">%</span>
+                    </div>
+                </div>
+
+                <div class="preview-progress" aria-hidden="true">
+                    <div class="preview-progress__bar"
+                        :style="{ width: `${Math.min(100, Math.max(0, saisieValeur))}%` }" />
+                </div>
+            </div>
+
+            <!-- Commentaire -->
+            <div class="form-group">
+                <label for="saisie-commentaire" class="form-label">
+                    Commentaire
+                    <span class="form-label__hint">(optionnel)</span>
+                </label>
+                <textarea id="saisie-commentaire" v-model="saisieCommentaire" class="form-textarea" rows="3"
+                    placeholder="Préciser l'état d'avancement…" />
+            </div>
+
+            <!-- Erreur locale -->
+            <div v-if="saisieError" class="form-error" role="alert">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                {{ saisieError }}
+            </div>
+        </form>
+
+        <template #footer>
+            <BaseButton variant="secondary" :disabled="saisieEnCours" @click="saisieOuverte = false">
+                Annuler
+            </BaseButton>
+            <BaseButton variant="primary" icon="bi bi-check-lg" :disabled="!peutValiderSaisie || saisieEnCours"
+                @click="validerSaisie">
+                Enregistrer
+            </BaseButton>
+        </template>
+    </BaseModal>
 </template>
 
 <style scoped>
+/* ───────────────────────────────────────────────────────────
+   Page (inchangé)
+   ─────────────────────────────────────────────────────────── */
 .pa-detail-page {
     min-height: calc(100vh - 68px);
     padding: 34px 38px 24px;
@@ -1008,6 +1112,179 @@ onMounted(charger)
     to {
         background-position: -200% 0;
     }
+}
+
+/* ───────────────────────────────────────────────────────────
+   Formulaire saisie (dans le modal)
+   ─────────────────────────────────────────────────────────── */
+.saisie-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.saisie-current {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: #f5f7fa;
+    border: 1px solid #e6ebf3;
+    border-radius: 10px;
+}
+
+.saisie-current__label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #8a95a8;
+}
+
+.saisie-current__value {
+    font-family: Manrope, "DM Sans", sans-serif;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #1a2a6c;
+    font-variant-numeric: tabular-nums;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #15233c;
+}
+
+.form-label__hint {
+    color: #8a95a8;
+    font-weight: 400;
+}
+
+.slider-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.slider {
+    flex: 1;
+    appearance: none;
+    height: 8px;
+    border-radius: 4px;
+    background: #eef1f5;
+    outline: none;
+    cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #4a6cf7;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(74, 108, 247, 0.4);
+    cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #4a6cf7;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(74, 108, 247, 0.4);
+    cursor: pointer;
+}
+
+.number-wrapper {
+    position: relative;
+    width: 92px;
+    flex: none;
+}
+
+.number-input {
+    width: 100%;
+    padding: 0.55rem 1.75rem 0.55rem 0.75rem;
+    border: 1px solid #d8dee7;
+    border-radius: 10px;
+    font-size: 0.92rem;
+    font-family: ui-monospace, Menlo, monospace;
+    font-weight: 600;
+    color: #1a2a6c;
+    background: #fff;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.number-input:focus {
+    border-color: #4a6cf7;
+    box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.15);
+}
+
+.number-suffix {
+    position: absolute;
+    right: 0.65rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #8a95a8;
+    pointer-events: none;
+}
+
+.preview-progress {
+    height: 6px;
+    background: #eef1f5;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.35rem;
+}
+
+.preview-progress__bar {
+    height: 100%;
+    background: linear-gradient(90deg, #4a6cf7, #6b8dff);
+    border-radius: 3px;
+    transition: width 0.25s ease;
+}
+
+.form-textarea {
+    width: 100%;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid #d8dee7;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-family: inherit;
+    color: #15233c;
+    background: #fff;
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.form-textarea:focus {
+    border-color: #4a6cf7;
+    box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.15);
+}
+
+.form-error {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 0.85rem;
+    background: #fde9e9;
+    color: #b03030;
+    border: 1px solid #f4c7c7;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 500;
 }
 
 /* Responsive */

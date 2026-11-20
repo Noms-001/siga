@@ -1,6 +1,3 @@
--- Migration idempotente pour les bases déjà initialisées avant la génération centralisée.
--- Les codes existants ne sont pas modifiés. Les index scoped refuseront la migration
--- si un même service (ou une même activité parente) contient des doublons de casse.
 CREATE TABLE IF NOT EXISTS code_sequence (
     cle VARCHAR(120) PRIMARY KEY,
     dernier_numero INTEGER NOT NULL CHECK (dernier_numero >= 0)
@@ -44,8 +41,6 @@ DROP INDEX IF EXISTS uq_sous_activite_code_ci;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_sous_activite_parent_code_ci
     ON sous_activite (id_activite, LOWER(code));
 
--- Conserve le maximum déjà observé afin qu'une suppression ultérieure
--- n'autorise jamais la réutilisation d'une séquence historique.
 INSERT INTO code_sequence (cle, dernier_numero)
 SELECT 'ACT:PTA:' || a.id_service || ':' || code_parts[1] || ':' || a.id_objectif_specifique,
              MAX(code_parts[3]::INTEGER)

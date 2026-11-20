@@ -287,43 +287,66 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
      Optional<PlanActionListRow> findByIdWithDetails(@Param("id") Integer id);
 
      @Query(value = """
-               SELECT pa.id_plan_action          AS id,
-                      pa.code                     AS code,
-                      pa.designation              AS designation,
-                      pa.date_fin_prevue          AS dateFinPrevue,
-                      sta.code                    AS statutCode,
-                      COALESCE(av.valeur_pourcentage, 0) AS avancement,
-                      resp.id_utilisateur         AS responsableId,
-                      u.nom                       AS responsableNom,
-                      u.prenom                    AS responsablePrenom
-               FROM plan_action pa
-               """
-               + SqlFragments.AVANCEMENT_PLAN_ACTION_DERNIER
-               + """
-                         LEFT JOIN LATERAL (
-                                  SELECT aff.id_utilisateur
-                                  FROM affectation_plan_action aff
-                                  JOIN role r ON r.id_role = aff.id_role
-                                  WHERE aff.id_plan_action = pa.id_plan_action
-                                    AND aff.date_desaffectation IS NULL
-                                    AND r.code = 'RESPONSABLE'
-                                  ORDER BY aff.date_affectation ASC
-                                  LIMIT 1
-                              ) resp ON TRUE
-                         LEFT JOIN utilisateur u ON u.id_utilisateur = resp.id_utilisateur
-                         WHERE (:statutsParDefautCsv IS NULL
-                                OR sta.code = ANY(string_to_array(:statutsParDefautCsv, ',')))
-                         """, nativeQuery = true)
+                SELECT pa.id_plan_action          AS id,
+                       pa.code                     AS code,
+                       pa.designation              AS designation,
+                       pa.date_fin_prevue          AS dateFinPrevue,
+                       sta.code                    AS statutCode,
+                       COALESCE(av.valeur_pourcentage, 0) AS avancement,
+                       resp.id_utilisateur         AS responsableId,
+                       u.nom                       AS responsableNom,
+                       u.prenom                    AS responsablePrenom
+                FROM plan_action pa
+                """
+                + SqlFragments.AVANCEMENT_PLAN_ACTION_A_DATE
+                + """
+                          LEFT JOIN LATERAL (
+                                   SELECT aff.id_utilisateur
+                                   FROM affectation_plan_action aff
+                                   JOIN role r ON r.id_role = aff.id_role
+                                   WHERE aff.id_plan_action = pa.id_plan_action
+                                     AND aff.date_desaffectation IS NULL
+                                     AND r.code = 'RESPONSABLE'
+                                   ORDER BY aff.date_affectation ASC
+                                   LIMIT 1
+                               ) resp ON TRUE
+                          LEFT JOIN utilisateur u ON u.id_utilisateur = resp.id_utilisateur
+                          WHERE (:statutsParDefautCsv IS NULL
+                                 OR sta.code = ANY(string_to_array(:statutsParDefautCsv, ',')))
+                            AND pa.date_debut_prevue <= CAST(:dateFin AS date)
+                            AND pa.date_fin_prevue >= CAST(:dateDebut AS date)
+                          """, nativeQuery = true)
      List<PlanActionSuiviRow> findPlansPourSuivi(
-               @Param("statutsParDefautCsv") String statutsParDefautCsv);
+                @Param("statutsParDefautCsv") String statutsParDefautCsv,
+                @Param("dateDebut") java.time.LocalDate dateDebut,
+                @Param("dateFin") java.time.LocalDate dateFin,
+                @Param("dateReference") java.time.LocalDate dateReference);
 
 
+     /**
+      * Une origine unique par plan : l'origine marquée principale, sinon
+      * l'origine de plus petit identifiant. Même règle que le dashboard.
+      */
      @Query(value = """
-               SELECT pao.id_plan_action AS idPlanAction,
-                      o.type_origine     AS typeOrigine
-               FROM plan_action_origine pao
-               JOIN origine o ON o.id_origine = pao.id_origine
-               WHERE pao.id_plan_action IN (:ids)
-               """, nativeQuery = true)
+                SELECT choix.id_plan_action AS idPlanAction,
+                     CASE
+                         WHEN UPPER(choix.type_origine) LIKE 'INCIDENT%' THEN 'INCIDENT'
+                         WHEN UPPER(choix.type_origine) LIKE 'RISQUE%' THEN 'RISQUE'
+                         ELSE 'AUTRE'
+                     END AS typeOrigine
+                FROM (
+                    SELECT DISTINCT ON (pao.id_plan_action)
+                         pao.id_plan_action,
+                         o.type_origine,
+                         pao.est_principale,
+                         pao.id_origine
+                    FROM plan_action_origine pao
+                    JOIN origine o ON o.id_origine = pao.id_origine
+                    WHERE pao.id_plan_action IN (:ids)
+                    ORDER BY pao.id_plan_action,
+                         (pao.est_principale IS TRUE) DESC,
+                         pao.id_origine ASC
+                ) choix
+                  """, nativeQuery = true)
      List<PlanActionTypeOrigineRow> findTypesOriginePourPlans(@Param("ids") List<Integer> ids);
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BaseTable, BaseButton, BaseConfirm }  from '@/components/base' 
@@ -16,8 +17,8 @@ const route = useRoute()
 
 const items = ref<Procedure[]>([])
 const loading = ref(false)
-const errorMessage = ref('')
-const flashMessage = ref('')
+const errorMessage = useToastMessage('error')
+const flashMessage = useToastMessage('success')
 const inclureInactifs = ref(false)
 
 const confirmOpen = ref(false)
@@ -122,16 +123,6 @@ onMounted(() => {
                 Ajouter une procédure
             </BaseButton>
         </header>
-
-        <div v-if="flashMessage" class="alert alert-success mb-0" role="status">
-            {{ flashMessage }}
-        </div>
-
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
 
         <div class="bo-filters">
             <label class="bo-filters__check">

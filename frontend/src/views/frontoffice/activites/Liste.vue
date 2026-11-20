@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -14,10 +15,10 @@ import {
 } from '@/components/base'
 import * as activiteService from '@/services/activite'
 import { ANNEE_DEFAUT } from '@/services/activite'
-import { useAutocomplete, type Suggestion } from '@/composables/useAutocomplete'
 import { useConfirmation } from '@/composables/useConfirmation'
 import {
     EN_RETARD,
+    type ActiviteAutocomplete,
     type ActiviteFiltres,
     type ActiviteListItem,
     type ActiviteOption,
@@ -94,7 +95,7 @@ const totalElements = ref(0)
 
 const chargement = ref(false)
 const chargementStats = ref(false)
-const erreur = ref<string | null>(null)
+const erreur = useToastMessage('error')
 
 const router = useRouter()
 const confirmation = useConfirmation()
@@ -187,52 +188,85 @@ const anneesOptions = ANNEES.map(a => ({ id: a, libelle: String(a) }))
 const trimestresOptions = TRIMESTRES.map(t => ({ id: t.value, libelle: t.label }))
 
 // ------------------------------------------------------------------
-// Autocompletes
+// Autocompletes distants BaseSelect
 // ------------------------------------------------------------------
 
-function formatSuggestion(s: Suggestion): string {
-    return s.libelleSecondaire
-        ? `${s.code} — ${s.libelle} (${s.libelleSecondaire})`
-        : `${s.code} — ${s.libelle}`
+const activiteSuggestions = ref<ActiviteAutocomplete[]>([])
+const objectifSuggestions = ref<ActiviteAutocomplete[]>([])
+const activiteSelection = ref<number | null>(null)
+const objectifSelection = ref<number | null>(null)
+const activiteQuery = ref('')
+const objectifQuery = ref('')
+
+const activiteSuggestionOptions = computed(() => activiteSuggestions.value)
+const objectifSuggestionOptions = computed(() => objectifSuggestions.value)
+
+function formatAutocomplete(option: ActiviteAutocomplete): string {
+    const code = option.code ?? ''
+    const libelle = option.libelle ?? ''
+    return option.libelleSecondaire
+        ? `${code} — ${libelle} (${option.libelleSecondaire})`
+        : `${code} — ${libelle}`
 }
 
-const autocompleteActivite = useAutocomplete({
-    rechercher: async (terme: string) => {
-        const reponse = await activiteService.autocompleterActivites(terme)
-        return reponse.success ? reponse.data : []
-    },
-    onSelectionner: (s) => {
-        filtres.search = s.code ?? ''
-        appliquerFiltres()
-    },
-    onEffacer: () => {
-        if (filtres.search !== '') {
-            filtres.search = ''
-            appliquerFiltres()
-        }
-    },
-    delaiMs: DELAI_RECHERCHE,
-})
+let minuteurAutocompleteActivite: ReturnType<typeof setTimeout> | null = null
+let minuteurAutocompleteObjectif: ReturnType<typeof setTimeout> | null = null
+let requeteAutocompleteActivite = 0
+let requeteAutocompleteObjectif = 0
 
-const autocompleteObjectif = useAutocomplete({
-    rechercher: async (terme: string) => {
-        const reponse = await activiteService.autocompleterObjectifs(terme)
-        return reponse.success ? reponse.data : []
-    },
-    onSelectionner: (s) => {
-        filtres.objectifSpecifiqueId = s.id
-        filtres.objectifSearch = ''
-        appliquerFiltres()
-    },
-    onEffacer: () => {
-        if (filtres.objectifSpecifiqueId !== null || filtres.objectifSearch !== '') {
-            filtres.objectifSpecifiqueId = null
-            filtres.objectifSearch = ''
-            appliquerFiltres()
+function rechercherActivites(terme: string): void {
+    activiteQuery.value = terme
+    filtres.search = terme
+    activiteSuggestions.value = []
+    if (minuteurAutocompleteActivite) clearTimeout(minuteurAutocompleteActivite)
+    const jeton = ++requeteAutocompleteActivite
+    if (!terme.trim()) return
+
+    minuteurAutocompleteActivite = setTimeout(async () => {
+        const reponse = await activiteService.autocompleterActivites(terme, vue.value === 'PTA')
+        if (jeton === requeteAutocompleteActivite) {
+            activiteSuggestions.value = reponse.success ? reponse.data : []
         }
-    },
-    delaiMs: DELAI_RECHERCHE,
-})
+    }, DELAI_RECHERCHE)
+}
+
+function rechercherObjectifs(terme: string): void {
+    objectifQuery.value = terme
+    filtres.objectifSearch = terme
+    objectifSuggestions.value = []
+    if (minuteurAutocompleteObjectif) clearTimeout(minuteurAutocompleteObjectif)
+    const jeton = ++requeteAutocompleteObjectif
+    if (!terme.trim()) return
+
+    minuteurAutocompleteObjectif = setTimeout(async () => {
+        const reponse = await activiteService.autocompleterObjectifs(terme)
+        if (jeton === requeteAutocompleteObjectif) {
+            objectifSuggestions.value = reponse.success ? reponse.data : []
+        }
+    }, DELAI_RECHERCHE)
+}
+
+function selectionnerActivite(valeur: number | null): void {
+    activiteSelection.value = valeur
+    if (valeur === null) return
+    const suggestion = activiteSuggestions.value.find(item => item.id === valeur)
+    if (!suggestion) return
+    filtres.search = suggestion.code ?? ''
+    activiteQuery.value = filtres.search
+    appliquerFiltres()
+}
+
+function selectionnerObjectif(valeur: number | null): void {
+    objectifSelection.value = valeur
+    if (valeur === null) {
+        filtres.objectifSpecifiqueId = null
+        return
+    }
+    filtres.objectifSpecifiqueId = valeur
+    filtres.objectifSearch = ''
+    objectifQuery.value = ''
+    appliquerFiltres()
+}
 
 // ------------------------------------------------------------------
 // Chargement
@@ -306,16 +340,6 @@ async function chargerOptions() {
     }
 }
 
-function surRechercheActivite() {
-    filtres.search = autocompleteActivite.saisie.value
-    autocompleteActivite.charger()
-}
-
-function surRechercheObjectif() {
-    filtres.objectifSearch = autocompleteObjectif.saisie.value
-    autocompleteObjectif.charger()
-}
-
 // ------------------------------------------------------------------
 // Actions
 // ------------------------------------------------------------------
@@ -376,10 +400,15 @@ function retirerStatut() {
 function changerVue(nouvelle: VueActivite) {
     if (vue.value === nouvelle) return
     vue.value = nouvelle
+    activiteSuggestions.value = []
+    if (activiteQuery.value.trim()) rechercherActivites(activiteQuery.value)
     filtres.objectifSearch = ''
     filtres.objectifSpecifiqueId = null
-    autocompleteObjectif.saisie.value = ''
-    autocompleteObjectif.fermer()
+    objectifQuery.value = ''
+    objectifSelection.value = null
+    objectifSuggestions.value = []
+    requeteAutocompleteObjectif++
+    if (minuteurAutocompleteObjectif) clearTimeout(minuteurAutocompleteObjectif)
     page.value = 1
     void charger()
 }
@@ -397,10 +426,16 @@ function reinitialiser() {
     filtres.dateDebut = ''
     filtres.dateFin = ''
     statutActif.value = null
-    autocompleteActivite.saisie.value = ''
-    autocompleteObjectif.saisie.value = ''
-    autocompleteActivite.fermer()
-    autocompleteObjectif.fermer()
+    activiteQuery.value = ''
+    objectifQuery.value = ''
+    activiteSelection.value = null
+    objectifSelection.value = null
+    activiteSuggestions.value = []
+    objectifSuggestions.value = []
+    requeteAutocompleteActivite++
+    requeteAutocompleteObjectif++
+    if (minuteurAutocompleteActivite) clearTimeout(minuteurAutocompleteActivite)
+    if (minuteurAutocompleteObjectif) clearTimeout(minuteurAutocompleteObjectif)
     page.value = 1
     void charger()
 }
@@ -552,6 +587,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
     if (minuteurFiltre) clearTimeout(minuteurFiltre)
+    if (minuteurAutocompleteActivite) clearTimeout(minuteurAutocompleteActivite)
+    if (minuteurAutocompleteObjectif) clearTimeout(minuteurAutocompleteObjectif)
     document.removeEventListener('click', onDocumentClick)
     window.removeEventListener('scroll', fermerEditionPriorite, true)
     window.removeEventListener('resize', fermerEditionPriorite)
@@ -598,12 +635,6 @@ watch(
         </header>
 
         <!-- ============ ERREUR ============ -->
-        <div v-if="erreur" class="alert alert-danger d-flex align-items-center gap-2" role="alert">
-            <i class="bi bi-exclamation-triangle"></i>
-            <span>{{ erreur }}</span>
-            <button type="button" class="btn-close ms-auto" @click="erreur = null"></button>
-        </div>
-
         <!-- ============ BASCULE PTA / NON PTA ============ -->
         <div class="vue-switch mb-3" role="tablist" aria-label="Type d'activité">
             <button v-for="v in VUES" :key="v.value" type="button" role="tab" class="vue-switch__btn"
@@ -678,46 +709,19 @@ watch(
                         <div class="filtres__section">
                             <span class="filtres__section-label">Recherche</span>
                             <div class="filtres__section-grid">
-                                <div ref="autocompleteActivite.racine" class="filtres__col"
-                                    @keydown="autocompleteActivite.surTouche">
-                                    <BaseInput v-model="autocompleteActivite.saisie.value" label="Recherche activité"
-                                        type="search" icon="bi bi-search" placeholder="Code, référence ou désignation"
-                                        autocomplete="off" :aria-expanded="autocompleteActivite.ouvert.value"
-                                        @input="surRechercheActivite" />
-                                    <ul v-if="autocompleteActivite.ouvert.value && autocompleteActivite.suggestions.value.length"
-                                        class="autocomplete" role="listbox" aria-label="Suggestions d'activité">
-                                        <li v-for="(s, i) in autocompleteActivite.suggestions.value" :key="s.id"
-                                            role="option" :aria-selected="i === autocompleteActivite.indexActif.value"
-                                            :class="{ 'autocomplete__item--actif': i === autocompleteActivite.indexActif.value }"
-                                            @mouseenter="autocompleteActivite.survoler(i)">
-                                            <button type="button" tabindex="-1"
-                                                @click="autocompleteActivite.selectionner(s)">
-                                                {{ formatSuggestion(s) }}
-                                            </button>
-                                        </li>
-                                    </ul>
-                                </div>
+                                <BaseSelect :model-value="activiteSelection ?? undefined" class="filtres__col"
+                                    label="Recherche activité" placeholder="Code, référence ou désignation"
+                                    icon="bi bi-search"
+                                    :options="activiteSuggestionOptions" option-label="code" option-value="id"
+                                    :option-formatter="formatAutocomplete" autocomplete remote clear-on-input clearable
+                                    @search="rechercherActivites" @update:model-value="selectionnerActivite" />
 
-                                <div v-if="estVuePta" ref="autocompleteObjectif.racine" class="filtres__col"
-                                    @keydown="autocompleteObjectif.surTouche">
-                                    <BaseInput v-model="autocompleteObjectif.saisie.value"
-                                        label="Recherche objectif spécifique" type="search" icon="bi bi-bullseye"
-                                        placeholder="Code ou désignation" autocomplete="off"
-                                        :aria-expanded="autocompleteObjectif.ouvert.value"
-                                        @input="surRechercheObjectif" />
-                                    <ul v-if="autocompleteObjectif.ouvert.value && autocompleteObjectif.suggestions.value.length"
-                                        class="autocomplete" role="listbox" aria-label="Suggestions d'objectif">
-                                        <li v-for="(s, i) in autocompleteObjectif.suggestions.value" :key="s.id"
-                                            role="option" :aria-selected="i === autocompleteObjectif.indexActif.value"
-                                            :class="{ 'autocomplete__item--actif': i === autocompleteObjectif.indexActif.value }"
-                                            @mouseenter="autocompleteObjectif.survoler(i)">
-                                            <button type="button" tabindex="-1"
-                                                @click="autocompleteObjectif.selectionner(s)">
-                                                {{ formatSuggestion(s) }}
-                                            </button>
-                                        </li>
-                                    </ul>
-                                </div>
+                                <BaseSelect v-if="estVuePta" :model-value="objectifSelection ?? undefined" class="filtres__col"
+                                    label="Recherche objectif spécifique" placeholder="Code ou désignation"
+                                    icon="bi bi-search"
+                                    :options="objectifSuggestionOptions" option-label="code" option-value="id"
+                                    :option-formatter="formatAutocomplete" autocomplete remote clear-on-input clearable
+                                    @search="rechercherObjectifs" @update:model-value="selectionnerObjectif" />
                             </div>
                         </div>
 
@@ -1491,46 +1495,6 @@ watch(
 
 .filtres__badge button:hover {
     background: rgba(59, 99, 217, .14);
-}
-
-.autocomplete {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    z-index: 20;
-    margin: 0.15rem 0 0;
-    padding: 0.25rem;
-    list-style: none;
-    background: #fff;
-    border: 1px solid #e6ebf3;
-    border-radius: 10px;
-    box-shadow: 0 12px 28px rgba(26, 42, 108, .12);
-    max-height: 240px;
-    overflow-y: auto;
-}
-
-.autocomplete button {
-    display: block;
-    width: 100%;
-    padding: 0.45rem 0.6rem;
-    border: none;
-    border-radius: 5px;
-    background: transparent;
-    text-align: left;
-    font-size: 0.82rem;
-    color: #40516b;
-    cursor: pointer;
-}
-
-.autocomplete button:hover {
-    background: #f3f6fc;
-}
-
-.autocomplete__item--actif button {
-    background: #edf1fd;
-    color: #1a2a6c;
-    font-weight: 600;
 }
 
 /* --- Tableau --- */

@@ -21,7 +21,6 @@ import mg.bank.backend.repository.indicateur.ValeurIndicateurRepository;
 public class IndicateurService {
 
     private final IndicateurRepository indicateurRepository;
-    private final ValeurIndicateurRepository valeurIndicateurRepository; // à ajouter en haut
 
     /* -------------------- lecture -------------------- */
 

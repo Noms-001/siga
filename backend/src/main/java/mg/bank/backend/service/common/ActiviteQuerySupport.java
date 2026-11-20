@@ -4,11 +4,13 @@ import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 
 import mg.bank.backend.dto.common.ActiviteFiltreCriteria;
 import mg.bank.backend.dto.common.OptionDTO;
 import mg.bank.backend.dto.common.PerimetreUtilisateur;
 import mg.bank.backend.enums.StatutActiviteEnum;
+import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.repository.projection.common.OptionRow;
 
 public final class ActiviteQuerySupport {
@@ -40,6 +42,14 @@ public final class ActiviteQuerySupport {
     }
 
     public static Arguments arguments(ActiviteFiltreCriteria filtres, PerimetreUtilisateur perimetre) {
+        LocalDate dateDebut = filtres == null ? null : filtres.getDateDebut();
+        LocalDate dateFin = filtres == null ? null : filtres.getDateFin();
+        if (dateDebut != null && dateFin != null && dateDebut.isAfter(dateFin)) {
+            throw new ApiException(
+                    "La date de début doit être antérieure ou égale à la date de fin",
+                    HttpStatus.BAD_REQUEST);
+        }
+
         Boolean pta = filtres == null || filtres.getPta() == null
                 ? Boolean.TRUE
                 : filtres.getPta();
@@ -72,8 +82,8 @@ public final class ActiviteQuerySupport {
                 filtres == null ? null : filtres.getAnnee(),
                 moisDebut(filtres == null ? null : filtres.getTrimestre()),
                 moisFin(filtres == null ? null : filtres.getTrimestre()),
-                filtres == null ? null : filtres.getDateDebut(),
-                filtres == null ? null : filtres.getDateFin());
+                dateDebut,
+                dateFin);
     }
 
     public static Integer moisDebut(Integer trimestre) {

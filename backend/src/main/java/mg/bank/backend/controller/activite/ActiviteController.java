@@ -36,6 +36,7 @@ import mg.bank.backend.dto.activite.ActiviteListItemDTO;
 import mg.bank.backend.dto.activite.ActiviteOptionsDTO;
 import mg.bank.backend.dto.activite.ActiviteStatistiquesDTO;
 import mg.bank.backend.dto.activite.ActiviteSuiviDTO;
+import mg.bank.backend.dto.activite.ActiviteSuiviStatistiquesDTO;
 import mg.bank.backend.dto.activite.ActiviteTransitionResponse;
 import mg.bank.backend.dto.activite.AutocompleteDTO;
 import mg.bank.backend.dto.activite.ChangerPrioriteRequest;
@@ -187,9 +188,10 @@ public class ActiviteController {
          */
         @GetMapping("/autocomplete")
         public ResponseEntity<ApiResponse<List<AutocompleteDTO>>> autocomplete(
-                        @RequestParam(required = false) String q) {
+                        @RequestParam(required = false) String q,
+                        @RequestParam(required = false) Boolean pta) {
                 return ResponseEntity.ok(
-                                ApiResponse.success(activiteService.autocompleterActivites(q)));
+                                ApiResponse.success(activiteService.autocompleterActivites(q, pta)));
         }
 
         @PostMapping("/{idActivite}/soumettre-validation")
@@ -515,6 +517,27 @@ public class ActiviteController {
                                 pagination.getSort());
 
                 return ResponseEntity.ok(ApiResponse.success(resultat));
+        }
+
+        @GetMapping("/suivi/statistiques")
+        public ResponseEntity<ApiResponse<ActiviteSuiviStatistiquesDTO>> statistiquesSuivi(
+                        @RequestParam(required = false) Boolean pta,
+                        @RequestParam(required = false) String search,
+                        @RequestParam(required = false) Integer serviceId,
+                        @RequestParam(required = false) Integer prioriteId,
+                        @RequestParam(required = false) String statut,
+                        @RequestParam(required = false) Integer annee,
+                        @RequestParam(required = false) Integer trimestre,
+                        @RequestParam(required = false) LocalDate dateDebut,
+                        @RequestParam(required = false) LocalDate dateFin) {
+
+                ActiviteFiltreCriteria filtres = filtres(
+                                pta, search, null, null, serviceId,
+                                prioriteId, null, null, statut, annee, trimestre,
+                                dateDebut, dateFin);
+
+                return ResponseEntity.ok(ApiResponse.success(
+                                activiteService.statistiquesSuivi(filtres)));
         }
 
         @PatchMapping("/{idActivite}/priorite")

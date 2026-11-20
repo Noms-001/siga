@@ -1,13 +1,14 @@
 <script setup lang="ts">
 
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { BaseButton, BaseConfirm, BaseInput, BaseModal, BaseSelect } from '@/components/base'
-import { useAutocomplete, type Suggestion } from '@/composables/useAutocomplete'
 import { useConfirmation } from '@/composables/useConfirmation'
+import { useToast } from '@/composables/useToast'
 import * as activiteService from '@/services/activite'
 import type {
+    ActiviteAutocomplete,
     ActiviteEcriture,
     ActiviteOption,
     LivrableEcriture,
@@ -24,6 +25,7 @@ interface LigneResultat {
 
 const route = useRoute()
 const confirmation = useConfirmation()
+const toast = useToast()
 const router = useRouter()
 
 /** Id d'activite en mode modification, null en mode creation. */
@@ -37,8 +39,6 @@ const estModification = computed(() => idModification.value !== null)
 
 const chargement = ref(false)
 const enregistrement = ref(false)
-const erreurGlobale = ref<string | null>(null)
-const succes = ref<string | null>(null)
 const erreurChargement = ref<string | null>(null)
 
 const options = reactive({
@@ -72,16 +72,6 @@ const erreurs = reactive<Record<string, string>>({})
 // Période dérivée des sous-activités (computed, jamais envoyée)
 // ------------------------------------------------------------------
 
-/**
- * Date de début de l'activité = minimum des dates de début prévues de ses
- * sous-activités.
- *
- * **Calculée uniquement pour l'affichage et la validation front.** Elle
- * n'est PAS envoyée au backend : `ActiviteEcritureRequest` ne porte plus
- * ces champs, c'est `ActiviteEcritureService.resoudreDatesPrevues()` qui
- * recalcule min/max côté serveur. Le front reflète ce que le backend
- * produira, sans en être la source.
- */
 const dateDebutCalculee = computed<string>(() => {
     const debuts = form.sousActivites
         .map(s => s.dateDebutPrevue)
@@ -115,7 +105,7 @@ const objectifRetenu = ref<{ code: string | null; annee: number | null; prochain
     null
 )
 
-function proposerReference(suggestion: Suggestion): void {
+function proposerReference(suggestion: ActiviteAutocomplete): void {
     if (estModification.value) return
 
     objectifRetenu.value = {
@@ -142,31 +132,68 @@ function oublierPropositionObjectif(): void {
 }
 
 // ------------------------------------------------------------------
-// Objectif specifique : autocomplete
+// Objectif specifique : BaseSelect avec recherche distante
 // ------------------------------------------------------------------
 
-function formatSuggestion(s: Suggestion): string {
-    return s.libelleSecondaire
-        ? `${s.code ?? ''} — ${s.libelle ?? ''} (${s.libelleSecondaire})`
-        : `${s.code ?? ''} — ${s.libelle ?? ''}`
+const objectifs = ref<ActiviteAutocomplete[]>([])
+
+const objectifOptions = computed<Array<Record<string, unknown>>>(() =>
+    objectifs.value.map((objectif) => ({ ...objectif }))
+)
+
+let minuteurObjectif: ReturnType<typeof setTimeout> | null = null
+let jetonObjectif = 0
+
+function formatObjectif(option: Record<string, unknown>): string {
+    const code = typeof option.code === 'string' ? option.code : ''
+    const libelle = typeof option.libelle === 'string' ? option.libelle : ''
+    const secondaire = typeof option.libelleSecondaire === 'string' ? option.libelleSecondaire : ''
+
+    return secondaire ? `${code} — ${libelle} (${secondaire})` : `${code} — ${libelle}`
 }
 
-function afficherObjectif(s: Suggestion): void {
-    form.idObjectifSpecifique = s.id
-    autocompleteObjectif.saisie.value = formatSuggestion(s)
+async function rechercherObjectifs(terme: string): Promise<void> {
+    const jeton = ++jetonObjectif
+    const reponse = await activiteService.autocompleterObjectifs(terme)
 
-    proposerReference(s)
+    if (jeton !== jetonObjectif) return
+
+    objectifs.value = reponse.success ? reponse.data : []
 }
 
-const autocompleteObjectif = useAutocomplete({
-    rechercher: async (terme: string) => {
-        const reponse = await activiteService.autocompleterObjectifs(terme)
-        return reponse.success ? reponse.data : []
-    },
-    onSelectionner: afficherObjectif,
-    onEffacer: retirerObjectif,
-    delaiMs: 300,
-})
+function surRechercheObjectif(terme: string): void {
+    if (minuteurObjectif !== null) clearTimeout(minuteurObjectif)
+    minuteurObjectif = setTimeout(() => void rechercherObjectifs(terme), 300)
+}
+
+function memoriserObjectif(objectifCourant: ActiviteAutocomplete): void {
+    jetonObjectif++
+
+    objectifs.value = [
+        objectifCourant,
+        ...objectifs.value.filter((objectif) => objectif.id !== objectifCourant.id),
+    ]
+}
+
+function surSelectionObjectif(valeur: unknown): void {
+    const id = typeof valeur === 'number' ? valeur : null
+
+    form.idObjectifSpecifique = id
+
+    if (id === null) {
+        oublierPropositionObjectif()
+        return
+    }
+
+    const option = objectifs.value.find((objectif) => objectif.id === id)
+    if (option) proposerReference(option)
+}
+
+async function afficherObjectif(objectifCourant: ActiviteAutocomplete): Promise<void> {
+    memoriserObjectif(objectifCourant)
+    await nextTick()
+    surSelectionObjectif(objectifCourant.id)
+}
 
 function changerPta(valeur: boolean): void {
     form.pta = valeur
@@ -180,8 +207,6 @@ function changerPta(valeur: boolean): void {
 function retirerObjectif(): void {
     form.idObjectifSpecifique = null
     oublierPropositionObjectif()
-    autocompleteObjectif.saisie.value = ''
-    autocompleteObjectif.fermer()
 }
 
 // ------------------------------------------------------------------
@@ -291,7 +316,7 @@ async function creerObjectifReellement(code: string, designation: string, annee:
 
     // Succès : plus rien à rouvrir.
     objectifEnCoursDeCreation.value = null
-    afficherObjectif(reponse.data)
+    await afficherObjectif(reponse.data)
     modalObjectif.value = false
 }
 
@@ -462,7 +487,7 @@ const optionsService = computed(() => versOptions(options.services))
 async function chargerReferentiels(): Promise<void> {
     const reponse = await activiteService.chargerOptions()
     if (!reponse.success) {
-        erreurGlobale.value = reponse.error
+        toast.showError(reponse.error)
         return
     }
     options.services = reponse.data.services ?? []
@@ -496,17 +521,22 @@ async function chargerPourModification(): Promise<void> {
     form.idPriorite = data.idPriorite
     form.idService = data.idService
 
-    form.pta = data.idObjectifSpecifique !== null
-    form.idObjectifSpecifique = data.idObjectifSpecifique
-    autocompleteObjectif.saisie.value = data.idObjectifSpecifique === null
-        ? ''
-        : [
-            data.objectifCode ?? '',
-            data.objectifDesignation ?? '',
-            data.objectifAnnee ? `(${data.objectifAnnee})` : '',
-        ]
-            .filter(Boolean)
-            .join(' ')
+    const idObjectif = data.idObjectifSpecifique
+
+    form.pta = idObjectif !== null
+
+    if (idObjectif !== null) {
+        memoriserObjectif({
+            id: idObjectif,
+            code: data.objectifCode,
+            libelle: data.objectifDesignation,
+            libelleSecondaire: data.objectifAnnee === null ? null : String(data.objectifAnnee),
+            annee: data.objectifAnnee,
+            prochainNumero: null,
+        })
+    }
+
+    form.idObjectifSpecifique = idObjectif
 
     form.resultatsIntermediaires = (data.resultatsIntermediaires ?? []).map((r) => ({
         idResultatIntermediaire: r.idResultatIntermediaire,
@@ -569,9 +599,6 @@ function construireCorps(): ActiviteEcriture {
 }
 
 function enregistrer(): void {
-    succes.value = null
-    erreurGlobale.value = null
-
     if (!valider()) return
 
     const modification = estModification.value
@@ -603,13 +630,15 @@ async function enregistrerReellement(): Promise<void> {
     enregistrement.value = false
 
     if (!reponse.success) {
-        erreurGlobale.value = reponse.error
+        toast.showError(reponse.error)
         return
     }
 
-    succes.value = estModification.value
-        ? 'Activité modifiée.'
-        : 'Activité créée en brouillon.'
+    toast.showSuccess(
+        estModification.value
+            ? 'Activité modifiée.'
+            : 'Activité créée en brouillon.'
+    )
 
     router.push({
         name: 'activite-detail',
@@ -627,7 +656,12 @@ function annuler(): void {
 
 onMounted(async () => {
     await chargerReferentiels()
+    await rechercherObjectifs('')
     await chargerPourModification()
+})
+
+onBeforeUnmount(() => {
+    if (minuteurObjectif !== null) clearTimeout(minuteurObjectif)
 })
 </script>
 
@@ -664,16 +698,6 @@ onMounted(async () => {
                 </BaseButton>
             </div>
         </header>
-
-        <div v-if="erreurGlobale" class="alert alert-danger alert-dismissible" role="alert">
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            {{ erreurGlobale }}
-            <button type="button" class="btn-close" @click="erreurGlobale = null"></button>
-        </div>
-        <div v-if="succes" class="alert alert-success" role="alert">
-            <i class="bi bi-check-circle me-2"></i>
-            {{ succes }}
-        </div>
 
         <div v-if="chargement" class="detail-state">
             <div class="spinner-border text-primary" role="status"></div>
@@ -743,46 +767,27 @@ onMounted(async () => {
                     <div class="field-grid">
                         <!-- Objectif spécifique -->
                         <div v-if="form.pta" class="field full">
-                            <div :ref="autocompleteObjectif.racine">
-                                <div class="position-relative">
-                                    <div class="objectif-champ">
-                                        <div class="objectif-champ__input">
-                                            <BaseInput :model-value="autocompleteObjectif.saisie.value"
-                                                label="Objectif spécifique" type="search" required
-                                                placeholder="Code, désignation ou année" autocomplete="off"
-                                                :error="erreurs.idObjectifSpecifique"
-                                                :aria-expanded="autocompleteObjectif.ouvert.value" @update:model-value="(valeur: string) => {
-                                                    autocompleteObjectif.saisie.value = valeur
-                                                    autocompleteObjectif.charger()
-                                                }" />
-                                        </div>
-                                        <button type="button" class="objectif-champ__creer" title="Créer un objectif"
-                                            aria-label="Créer un objectif" :disabled="enregistrementObjectif"
-                                            @click="ouvrirModalObjectif">
-                                            <i class="bi bi-plus-lg"></i>
-                                        </button>
-                                    </div>
-
-                                    <ul v-if="autocompleteObjectif.ouvert.value && autocompleteObjectif.suggestions.value.length"
-                                        class="autocomplete" role="listbox" aria-label="Suggestions d'objectif">
-                                        <li v-for="(s, i) in autocompleteObjectif.suggestions.value" :key="s.id"
-                                            role="option" :aria-selected="i === autocompleteObjectif.indexActif.value"
-                                            :class="{ 'autocomplete__item--actif': i === autocompleteObjectif.indexActif.value }"
-                                            @mouseenter="autocompleteObjectif.survoler(i)">
-                                            <button type="button" tabindex="-1"
-                                                @click="autocompleteObjectif.selectionner(s)">
-                                                {{ formatSuggestion(s) }}
-                                            </button>
-                                        </li>
-                                    </ul>
+                            <div class="objectif-champ">
+                                <div class="objectif-champ__input">
+                                    <BaseSelect :model-value="form.idObjectifSpecifique ?? undefined"
+                                        label="Objectif spécifique" required autocomplete remote clear-on-input
+                                        clearable placeholder="Code, désignation ou année" icon="bi bi-bullseye"
+                                        :options="objectifOptions" option-value="id" :option-formatter="formatObjectif"
+                                        :error="erreurs.idObjectifSpecifique" @search="surRechercheObjectif"
+                                        @update:model-value="surSelectionObjectif" />
                                 </div>
-                                <p class="hint">
-                                    La référence est proposée d'après cet objectif ; le code sera attribué par le serveur.
-                                    <template v-if="form.idObjectifSpecifique !== null">
-                                        Vider le champ le retire.
-                                    </template>
-                                </p>
+                                <button type="button" class="objectif-champ__creer" title="Créer un objectif"
+                                    aria-label="Créer un objectif" :disabled="enregistrementObjectif"
+                                    @click="ouvrirModalObjectif">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
                             </div>
+                            <p class="hint">
+                                La référence est proposée d'après cet objectif ; le code sera attribué par le serveur.
+                                <template v-if="form.idObjectifSpecifique !== null">
+                                    Vider le champ le retire.
+                                </template>
+                            </p>
                         </div>
 
                         <!-- Code + Référence (PTA) -->
@@ -818,7 +823,7 @@ onMounted(async () => {
                             <div class="bloc-ajoutable">
                                 <div class="bloc-ajoutable__entete">
                                     <span class="label">Résultats intermédiaires</span>
-                                    <button type="button" class="lien-ajout" @click="ajouterResultatIntermediaire">
+                                    <button type="button" class="btn-ajouter" @click="ajouterResultatIntermediaire">
                                         <i class="bi bi-plus-lg"></i>
                                         Ajouter
                                     </button>
@@ -903,16 +908,16 @@ onMounted(async () => {
                         <span class="section-num">04</span>
                         <div>
                             <h2>Sous-activités</h2>
-                            <p>Facultatif. Le code sera généré à partir des références de l'activité parente.</p>
+                            <p>Au moins une sous-activité datée est requise : elle détermine la période de l'activité. Son code sera généré automatiquement.</p>
                         </div>
-                        <button type="button" class="lien-ajout lien-ajout--cta" @click="ajouterSousActivite">
+                        <button type="button" class="btn-ajouter section-head__action" @click="ajouterSousActivite">
                             <i class="bi bi-plus-lg"></i>
                             Ajouter
                         </button>
                     </div>
 
                     <p v-if="form.sousActivites.length === 0" class="aucun-resultat">
-                        Aucune sous-activité. L'activité peut être créée sans.
+                        Aucune sous-activité ajoutée. Ajoutez-en une pour définir la période de l'activité.
                     </p>
 
                     <div v-for="(sous, index) in form.sousActivites" :key="index" class="sous-activite">
@@ -955,7 +960,7 @@ onMounted(async () => {
                                         {{ sous.livrables.length }}
                                     </span>
                                 </span>
-                                <button type="button" class="lien-ajout" @click="ajouterLivrable(sous)">
+                                <button type="button" class="btn-ajouter" @click="ajouterLivrable(sous)">
                                     <i class="bi bi-plus-lg"></i>
                                     Ajouter un livrable
                                 </button>
@@ -996,7 +1001,7 @@ onMounted(async () => {
             <aside class="form-side">
                 <section class="panel side-card">
                     <h2 class="side-title">Récapitulatif</h2>
-                    <p class="side-sub">Aperçu de la fiche avant enregistrement.</p>
+                    <p class="side-sub">Récapitulatif des informations saisies avant enregistrement — ce n’est pas un état statistique.</p>
                     <div class="recap">
                         <div class="recap-row">
                             <span>Type</span>
@@ -1153,25 +1158,8 @@ onMounted(async () => {
     flex-wrap: wrap;
 }
 
-.section-head--with-action>.lien-ajout--cta {
+.section-head__action {
     margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.4rem 0.8rem;
-    border: 1px solid #e6ebf3;
-    border-radius: 8px;
-    background: #fff;
-    color: #1a2a6c;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background .15s, border-color .15s;
-}
-
-.lien-ajout--cta:hover {
-    background: #f3f6fc;
-    border-color: #4a6cf7;
 }
 
 .section-num {
@@ -1528,49 +1516,7 @@ onMounted(async () => {
 }
 
 /* ==========================================================================
-   10. AUTOCOMPLETE
-   ========================================================================== */
-.autocomplete {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    z-index: 20;
-    margin: 0.15rem 0 0;
-    padding: 0.3rem;
-    list-style: none;
-    background: #fff;
-    border: 1px solid #dde4ec;
-    border-radius: 10px;
-    box-shadow: 0 12px 28px rgba(26, 42, 108, .12);
-    max-height: 260px;
-    overflow-y: auto;
-}
-
-.autocomplete button {
-    display: block;
-    width: 100%;
-    padding: 0.5rem 0.65rem;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    text-align: left;
-    font-size: 0.84rem;
-    color: #33475c;
-    cursor: pointer;
-}
-
-.autocomplete button:hover {
-    background: #eef5f8;
-}
-
-.autocomplete__item--actif button {
-    background: #eef5f8;
-    font-weight: 600;
-}
-
-/* ==========================================================================
-   11. BLOCS AJOUTABLES
+   10. BLOCS AJOUTABLES
    ========================================================================== */
 .bloc-ajoutable {
     display: flex;
@@ -1585,21 +1531,61 @@ onMounted(async () => {
     gap: 1rem;
 }
 
-.lien-ajout {
+.btn-ajouter {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
-    padding: 0;
-    border: none;
-    background: transparent;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #1a6fb0;
+    gap: 0.45rem;
+    padding: 0.42rem 0.85rem 0.42rem 0.55rem;
+    border: 1px solid rgba(74, 108, 247, 0.28);
+    border-radius: 999px;
+    background: linear-gradient(180deg, #ffffff 0%, #f5f8ff 100%);
+    color: #1a2a6c;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
     cursor: pointer;
+    box-shadow: 0 1px 2px rgba(26, 42, 108, 0.06);
+    transition:
+        border-color .16s ease,
+        color .16s ease,
+        background .16s ease,
+        box-shadow .16s ease,
+        transform .16s ease;
 }
 
-.lien-ajout:hover {
-    text-decoration: underline;
+.btn-ajouter i {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(74, 108, 247, 0.12);
+    color: #4a6cf7;
+    font-size: 0.72rem;
+    transition: background .16s ease, color .16s ease;
+}
+
+.btn-ajouter:hover {
+    border-color: #4a6cf7;
+    color: #4a6cf7;
+    background: #f0f4ff;
+    box-shadow: 0 6px 16px rgba(74, 108, 247, 0.16);
+    transform: translateY(-1px);
+}
+
+.btn-ajouter:hover i {
+    background: #4a6cf7;
+    color: #ffffff;
+}
+
+.btn-ajouter:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(74, 108, 247, 0.16);
+}
+
+.btn-ajouter:focus-visible {
+    outline: 2px solid rgba(74, 108, 247, 0.45);
+    outline-offset: 2px;
 }
 
 .aucun-resultat {

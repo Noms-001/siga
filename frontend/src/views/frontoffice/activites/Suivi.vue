@@ -1,11 +1,13 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref, watch } from 'vue'
-import { BaseButton, BaseModal, BaseSelect } from '@/components/base'
+import { BaseButton, BaseInput, BaseModal, BaseSelect } from '@/components/base'
 import {
     autocompleteActivites,
     enregistrerAvancement,
     listerSuivi,
     optionsSuivi,
+    statistiquesActivites,
     statistiquesSuivi,
     type AutocompleteItem,
 } from '@/services/suivi'
@@ -13,6 +15,7 @@ import type {
     ActiviteOptions,
     ActiviteStatistiques,
     ActiviteSuivi,
+    ActiviteSuiviStatistiques,
     AvancementRequest,
 } from '@/types/suivi'
 import ProgressCircle from '@/components/suivi/ProgressCircle.vue'
@@ -22,12 +25,13 @@ import ProgressCircle from '@/components/suivi/ProgressCircle.vue'
 const pta = ref<boolean>(true)
 
 const stats = ref<ActiviteStatistiques | null>(null)
+const statsSuivi = ref<ActiviteSuiviStatistiques | null>(null)
 const statsLoading = ref(false)
-const statsError = ref('')
+const statsError = useToastMessage('error')
 
 const activites = ref<ActiviteSuivi[]>([])
 const loading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
 const totalElements = ref(0)
 const page = ref(0)
 const size = ref(20)
@@ -57,7 +61,7 @@ function sousActivitesOuvertes(id: number): boolean {
 const modalOpen = ref(false)
 const modalStep = ref<'edit' | 'confirm'>('edit')
 const modalLoading = ref(false)
-const modalError = ref('')
+const modalError = useToastMessage('error')
 
 const sousActiviteSelectionnee = ref<{
     id: number
@@ -176,11 +180,19 @@ const carteActive = ref<'all' | 'NON_COMMENCEE' | 'EN_COURS' | 'TERMINEE'>('all'
 const recherche = ref('')
 const idService = ref<number | 'all'>('all')
 const idPriorite = ref<number | 'all'>('all')
+const filtreDateDebut = ref('')
+const filtreDateFin = ref('')
 
-/* Autocomplete */
+/* Autocomplete BaseSelect */
 const suggestions = ref<AutocompleteItem[]>([])
-const suggestionsOpen = ref(false)
+const suggestionSelection = ref<number | string | null>(null)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+let suggestionRequestId = 0
+
+function formatSuggestion(option: AutocompleteItem): string {
+    const secondaire = option.libelleSecondaire ? ` (${option.libelleSecondaire})` : ''
+    return `${option.code} — ${option.libelle}${secondaire}`
+}
 
 /* -------------------- computed -------------------- */
 
@@ -193,6 +205,12 @@ const dateDuJour = computed(() =>
     })
         .format(new Date())
         .toUpperCase()
+)
+
+const erreurPeriode = computed(() =>
+    filtreDateDebut.value && filtreDateFin.value && filtreDateDebut.value > filtreDateFin.value
+        ? 'La date de début doit être antérieure ou égale à la date de fin.'
+        : ''
 )
 
 const serviceOptions = computed(() => {
@@ -216,13 +234,11 @@ const statutBackend = computed(() => {
 })
 
 const avancementGlobal = computed(() => {
-    if (activites.value.length === 0) return 0
-    const total = activites.value.reduce((sum, a) => sum + (a.avancement ?? 0), 0)
-    return Math.round(total / activites.value.length)
+    return Math.round(statsSuivi.value?.avancementMoyen ?? 0)
 })
 
 const totalSousActivites = computed(() =>
-    activites.value.reduce((sum, a) => sum + a.sousActivites.length, 0)
+    statsSuivi.value?.totalSousActivites ?? 0
 )
 
 const filtresActifs = computed(() =>
@@ -230,6 +246,8 @@ const filtresActifs = computed(() =>
     || recherche.value.trim() !== ''
     || idService.value !== 'all'
     || idPriorite.value !== 'all'
+    || filtreDateDebut.value !== ''
+    || filtreDateFin.value !== ''
 )
 
 /** Y a-t-il au moins une activité qui porte des sous-activités ? */
@@ -274,36 +292,60 @@ function buildParams() {
         serviceId: idService.value === 'all' ? undefined : Number(idService.value),
         prioriteId: idPriorite.value === 'all' ? undefined : Number(idPriorite.value),
         statut: statutBackend.value,
+        dateDebut: filtreDateDebut.value || undefined,
+        dateFin: filtreDateFin.value || undefined,
     }
 }
 
+let statsRequestId = 0
+let listeRequestId = 0
+
 async function chargerStats(): Promise<void> {
+    const requestId = ++statsRequestId
     statsLoading.value = true
     statsError.value = ''
-    const res = await statistiquesSuivi(buildParams())
-    statsLoading.value = false
-    if (!res.success) {
-        statsError.value = res.error
-        return
+    try {
+        const params = buildParams()
+        const [compteurs, agregats] = await Promise.all([
+            statistiquesActivites(params),
+            statistiquesSuivi(params),
+        ])
+        if (requestId !== statsRequestId) return
+        statsLoading.value = false
+        if (!compteurs.success) statsError.value = compteurs.error
+        else stats.value = compteurs.data
+        if (!agregats.success) statsError.value = agregats.error
+        else statsSuivi.value = agregats.data
+    } catch {
+        if (requestId !== statsRequestId) return
+        statsLoading.value = false
+        statsError.value = 'Impossible de charger les statistiques du suivi.'
     }
-    stats.value = res.data
 }
 
 async function chargerListe(): Promise<void> {
+    const requestId = ++listeRequestId
     loading.value = true
     errorMessage.value = ''
-    const res = await listerSuivi({
-        ...buildParams(),
-        page: page.value,
-        size: size.value,
-    })
-    loading.value = false
-    if (!res.success) {
-        errorMessage.value = res.error
-        return
+    try {
+        const res = await listerSuivi({
+            ...buildParams(),
+            page: page.value,
+            size: size.value,
+        })
+        if (requestId !== listeRequestId) return
+        loading.value = false
+        if (!res.success) {
+            errorMessage.value = res.error
+            return
+        }
+        activites.value = res.data.content
+        totalElements.value = res.data.totalElements
+    } catch {
+        if (requestId !== listeRequestId) return
+        loading.value = false
+        errorMessage.value = 'Impossible de charger la liste des activités.'
     }
-    activites.value = res.data.content
-    totalElements.value = res.data.totalElements
 }
 
 async function chargerOptions(): Promise<void> {
@@ -316,6 +358,11 @@ async function chargerOptions(): Promise<void> {
 function basculerPta(valeur: boolean): void {
     if (pta.value === valeur) return
     pta.value = valeur
+    if (recherche.value.trim()) onRechercheInput(recherche.value)
+    else {
+        suggestionRequestId++
+        suggestions.value = []
+    }
     page.value = 0
     recharger()
 }
@@ -327,6 +374,19 @@ function choisirCarte(carte: typeof carteActive.value): void {
 }
 
 function recharger(): void {
+    if (erreurPeriode.value) {
+        statsRequestId++
+        listeRequestId++
+        statsLoading.value = false
+        loading.value = false
+        stats.value = null
+        statsSuivi.value = null
+        activites.value = []
+        totalElements.value = 0
+        statsError.value = erreurPeriode.value
+        errorMessage.value = erreurPeriode.value
+        return
+    }
     chargerStats()
     chargerListe()
 }
@@ -334,38 +394,58 @@ function recharger(): void {
 function reinitialiserFiltres(): void {
     carteActive.value = 'all'
     recherche.value = ''
+    suggestionSelection.value = null
+    suggestions.value = []
+    suggestionRequestId++
+    if (searchTimer) clearTimeout(searchTimer)
     idService.value = 'all'
     idPriorite.value = 'all'
+    filtreDateDebut.value = ''
+    filtreDateFin.value = ''
     page.value = 0
     recharger()
 }
 
-function onRechercheInput(): void {
+function onRechercheInput(terme: string): void {
     if (searchTimer) clearTimeout(searchTimer)
-    const q = recherche.value.trim()
+    const requestId = ++suggestionRequestId
+    recherche.value = terme
+    const q = terme.trim()
     if (!q) {
         suggestions.value = []
-        suggestionsOpen.value = false
+        page.value = 0
+        recharger()
         return
     }
     searchTimer = setTimeout(async () => {
-        const res = await autocompleteActivites(q)
+        const res = await autocompleteActivites(q, pta.value)
+        if (requestId !== suggestionRequestId) return
         if (res.success) {
             suggestions.value = res.data
-            suggestionsOpen.value = true
+        } else {
+            suggestions.value = []
         }
     }, 250)
 }
 
-function choisirSuggestion(item: AutocompleteItem): void {
-    recherche.value = item.code
-    suggestionsOpen.value = false
+function selectionnerActivite(valeur: number | string | null): void {
+    suggestionSelection.value = valeur
+    if (valeur === null) return
+    suggestionRequestId++
+    if (searchTimer) clearTimeout(searchTimer)
+    const item = typeof valeur === 'number'
+        ? suggestions.value.find(suggestion => suggestion.id === valeur)
+        : null
+    recherche.value = item?.code ?? String(valeur)
     page.value = 0
     recharger()
 }
 
-function fermerSuggestions(): void {
-    setTimeout(() => (suggestionsOpen.value = false), 150)
+function validerRechercheLibre(): void {
+    if (suggestions.value.length === 0 && recherche.value.trim()) {
+        page.value = 0
+        recharger()
+    }
 }
 
 /* -------------------- formats -------------------- */
@@ -413,7 +493,7 @@ onMounted(async () => {
     recharger()
 })
 
-watch([idService, idPriorite], () => {
+watch([idService, idPriorite, filtreDateDebut, filtreDateFin], () => {
     page.value = 0
     recharger()
 })
@@ -489,7 +569,7 @@ watch([idService, idPriorite], () => {
 
             <div class="summary__progress">
                 <div class="summary__progress-head">
-                    <span class="summary__progress-label">Avancement global</span>
+                    <span class="summary__progress-label">Avancement moyen des activités filtrées</span>
                     <span class="summary__progress-value">
                         {{ avancementGlobal }}<small>%</small>
                     </span>
@@ -499,8 +579,8 @@ watch([idService, idPriorite], () => {
                     <div class="summary__bar-fill" :style="{ width: avancementGlobal + '%' }"></div>
                 </div>
                 <div class="summary__progress-foot">
-                    {{ activites.length }} activité{{ activites.length > 1 ? 's' : '' }} affichée{{ activites.length > 1
-                        ? 's' : '' }}
+                    {{ statsSuivi?.totalActivites ?? 0 }} activité{{ (statsSuivi?.totalActivites ?? 0) > 1 ? 's' : '' }}
+                    correspondant{{ (statsSuivi?.totalActivites ?? 0) > 1 ? 'es' : 'e' }} aux filtres
                     <span class="summary__dot">•</span>
                     {{ totalSousActivites }} sous-activité{{ totalSousActivites > 1 ? 's' : '' }}
                 </div>
@@ -526,23 +606,12 @@ watch([idService, idPriorite], () => {
             </header>
 
             <div class="filters-card__body">
-                <div class="filters__search" @focusout="fermerSuggestions">
-                    <i class="bi bi-search" aria-hidden="true"></i>
-                    <input type="text" placeholder="Rechercher une activité (code, référence, désignation)…"
-                        v-model="recherche" aria-label="Rechercher une activité" @input="onRechercheInput"
-                        @focus="suggestions.length && (suggestionsOpen = true)"
-                        @keydown.enter="page = 0; recharger()" />
-                    <ul v-if="suggestionsOpen && suggestions.length" class="filters__suggestions" role="listbox">
-                        <li v-for="s in suggestions" :key="s.id" role="option" class="filters__suggestion"
-                            @mousedown.prevent="choisirSuggestion(s)">
-                            <span class="filters__suggestion-code">{{ s.code }}</span>
-                            <span class="filters__suggestion-label">{{ s.libelle }}</span>
-                            <span v-if="s.libelleSecondaire" class="filters__suggestion-secondary">
-                                {{ s.libelleSecondaire }}
-                            </span>
-                        </li>
-                    </ul>
-                </div>
+                <BaseSelect :model-value="suggestionSelection ?? undefined" class="filters__search"
+                    label="Rechercher une activité" icon="bi bi-search" size="sm"
+                    placeholder="Code, référence ou désignation…" :options="suggestions"
+                    option-label="code" option-value="id" :option-formatter="formatSuggestion"
+                    autocomplete remote clear-on-input clearable @search="onRechercheInput"
+                    @update:model-value="selectionnerActivite" @keydown.enter="validerRechercheLibre" />
 
                 <div v-if="(options?.services?.length ?? 0) > 0" class="filters__select">
                     <BaseSelect v-model="idService" size="sm" placeholder="Tous les services"
@@ -553,22 +622,17 @@ watch([idService, idPriorite], () => {
                     <BaseSelect v-model="idPriorite" size="sm" placeholder="Toutes les priorités"
                         :options="prioriteOptions" />
                 </div>
+
+                <div class="filters__dates">
+                    <BaseInput v-model="filtreDateDebut" type="date" label="Date de début" />
+                    <BaseInput v-model="filtreDateFin" type="date" label="Date de fin" />
+                </div>
+                <p v-if="erreurPeriode" class="filters__date-error" role="alert">{{ erreurPeriode }}</p>
             </div>
         </section>
 
-        <!-- ============ MESSAGES ============ -->
-        <div v-if="statsError" class="alert alert-danger mb-0" role="alert">
-            {{ statsError }}
-        </div>
-
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="recharger">Réessayer</BaseButton>
-        </div>
-
         <!-- ============ CHARGEMENT ============ -->
-        <div v-else-if="loading" class="loading-state">
+        <div v-if="loading" class="loading-state">
             <div v-for="i in 3" :key="i" class="skeleton-card">
                 <div class="skeleton skeleton--line skeleton--short"></div>
                 <div class="skeleton skeleton--line"></div>
@@ -731,10 +795,6 @@ watch([idService, idPriorite], () => {
             <div class="modal-avancement__sous">
                 <strong>{{ sousActiviteSelectionnee.designation }}</strong>
                 <span class="modal-avancement__code">{{ sousActiviteSelectionnee.code }}</span>
-            </div>
-
-            <div v-if="modalError" class="alert alert-danger mb-0" role="alert">
-                {{ modalError }}
             </div>
 
             <div v-if="sens === 'reopen'" class="modal-warning modal-warning--danger" role="note">
@@ -1149,93 +1209,25 @@ watch([idService, idPriorite], () => {
 }
 
 .filters__search {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0 0.85rem;
-    min-height: 38px;
-    background: #fff;
-    border: 1px solid #e6ebf3;
-    border-radius: 10px;
-    transition: border-color .15s, box-shadow .15s;
-}
-
-.filters__search:focus-within {
-    border-color: #4a6cf7;
-    box-shadow: 0 0 0 3px rgba(74, 108, 247, .14);
-}
-
-.filters__search i {
-    color: #8a95a8;
-    font-size: 0.9rem;
-}
-
-.filters__search input {
-    flex: 1;
     min-width: 0;
-    border: none;
-    outline: none;
-    background: transparent;
-    font-size: 0.85rem;
-    color: #15233c;
-    padding: 0.55rem 0;
-    font-family: inherit;
-}
-
-.filters__search input::placeholder {
-    color: #9aa4b8;
-}
-
-.filters__suggestions {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    z-index: 20;
-    list-style: none;
-    margin: 0;
-    padding: 0.3rem 0;
-    background: #fff;
-    border: 1px solid #e6ebf3;
-    border-radius: 10px;
-    box-shadow: 0 12px 28px rgba(26, 42, 108, .12);
-    max-height: 260px;
-    overflow-y: auto;
-}
-
-.filters__suggestion {
-    display: grid;
-    grid-template-columns: minmax(90px, auto) 1fr auto;
-    gap: 0.55rem;
-    padding: 0.5rem 0.85rem;
-    cursor: pointer;
-    font-size: 0.83rem;
-    align-items: baseline;
-}
-
-.filters__suggestion:hover {
-    background: #eef5f8;
-}
-
-.filters__suggestion-code {
-    font-family: ui-monospace, Menlo, monospace;
-    color: #3b63d9;
-    font-size: 0.78rem;
-    font-weight: 600;
-}
-
-.filters__suggestion-label {
-    color: #15233c;
-}
-
-.filters__suggestion-secondary {
-    color: #8a95a8;
-    font-size: 0.75rem;
 }
 
 .filters__select {
     min-width: 190px;
+}
+
+.filters__dates {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.filters__date-error {
+    grid-column: 1 / -1;
+    margin: -0.35rem 0 0;
+    color: #a61b16;
+    font-size: 0.78rem;
 }
 
 /* ============================================================
@@ -2013,6 +2005,11 @@ watch([idService, idPriorite], () => {
     .filters__search {
         grid-column: 1 / -1;
     }
+
+    .filters__dates,
+    .filters__date-error {
+        grid-column: 1 / -1;
+    }
 }
 
 @media (max-width: 767.98px) {
@@ -2026,6 +2023,10 @@ watch([idService, idPriorite], () => {
 
     .filters__select {
         min-width: 0;
+    }
+
+    .filters__dates {
+        grid-template-columns: 1fr;
     }
 }
 

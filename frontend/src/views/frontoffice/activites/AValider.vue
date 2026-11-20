@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
@@ -85,8 +86,8 @@ const LARGEUR_MENU = 240
 
 const lignes = ref<LigneAValider[]>([])
 const chargement = ref(false)
-const erreur = ref<string | null>(null)
-const succes = ref<string | null>(null)
+const erreur = useToastMessage('error')
+const succes = useToastMessage('success')
 
 /**
  * Ids en cours de décision.
@@ -674,18 +675,6 @@ async function executerLot(
         </header>
 
         <!-- ============ MESSAGES ============ -->
-        <div v-if="succes" class="alert alert-success d-flex align-items-center gap-2" role="status">
-            <i class="bi bi-check-circle"></i>
-            <span>{{ succes }}</span>
-            <button type="button" class="btn-close ms-auto" @click="succes = null"></button>
-        </div>
-
-        <div v-if="erreur" class="alert alert-danger d-flex align-items-center gap-2" role="alert">
-            <i class="bi bi-exclamation-triangle"></i>
-            <span>{{ erreur }}</span>
-            <button type="button" class="btn-close ms-auto" @click="erreur = null"></button>
-        </div>
-
         <!-- ============ CHARGEMENT ============ -->
         <div v-if="chargement && !lignes.length && !erreur" class="detail-state">
             <div class="spinner-border text-primary" role="status"></div>

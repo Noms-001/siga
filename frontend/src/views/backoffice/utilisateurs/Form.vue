@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseInput, BaseSelect, BaseButton } from '@/components/base'
@@ -36,7 +37,7 @@ const services = ref<Service[]>([])
 const postes = ref<Poste[]>([])
 
 const errors = ref<Record<string, string>>({})
-const globalError = ref('')
+const globalError = useToastMessage('error')
 const loading = ref(false)
 const submitting = ref(false)
 
@@ -61,6 +62,31 @@ const posteOptions = computed(() =>
             label: `${p.nom}${p.isMetier ? '' : ' (support)'}`,
         }))
 )
+
+/** Initiales pour l'avatar du récapitulatif. */
+const initiales = computed(() => {
+    const p = form.value.prenom.trim().charAt(0)
+    const n = form.value.nom.trim().charAt(0)
+    return (p + n).toUpperCase() || '?'
+})
+
+/** Récapitulatif live des valeurs saisies (avec libellés résolus). */
+const resume = computed(() => {
+    const dep = departements.value.find(d => d.id === Number(form.value.idDepartement))
+    const serv = services.value.find(s => s.id === Number(form.value.idService))
+    const poste = postes.value.find(p => p.id === Number(form.value.idPoste))
+    const nomComplet = [form.value.prenom.trim(), form.value.nom.trim()]
+        .filter(Boolean)
+        .join(' ')
+    return {
+        nomComplet: nomComplet || 'Nouvel utilisateur',
+        email: form.value.email.trim() || '—',
+        telephone: form.value.telephone.trim() || '—',
+        departement: dep ? `${dep.code} — ${dep.nom}` : '—',
+        service: serv ? serv.nom : 'Aucun',
+        poste: poste ? poste.nom : '—',
+    }
+})
 
 async function charger(): Promise<void> {
     loading.value = true
@@ -153,54 +179,85 @@ onMounted(charger)
                 </p>
             </div>
         </header>
+        <div class="bo-layout">
+            <div class="bo-form">
+                <div class="bo-form__row">
+                    <BaseInput v-model="form.nom" label="Nom" required :error="errors.nom"
+                        :disabled="loading || submitting" />
+                    <BaseInput v-model="form.prenom" label="Prénom" required :error="errors.prenom"
+                        :disabled="loading || submitting" />
+                </div>
 
-        <div v-if="globalError" class="alert alert-danger mb-0" role="alert">
-            {{ globalError }}
-        </div>
+                <BaseInput v-model="form.email" type="email" label="Email" required placeholder="utilisateur@exemple.mg"
+                    :error="errors.email" :disabled="loading || submitting" />
 
-        <div class="bo-form">
-            <div class="bo-form__row">
-                <BaseInput v-model="form.nom" label="Nom" required :error="errors.nom"
+                <BaseInput v-model="form.telephone" type="tel" label="Téléphone" placeholder="Optionnel"
                     :disabled="loading || submitting" />
-                <BaseInput v-model="form.prenom" label="Prénom" required :error="errors.prenom"
-                    :disabled="loading || submitting" />
+
+                <hr class="bo-form__sep">
+
+                <BaseSelect v-model="form.idDepartement" label="Département" required
+                    placeholder="Sélectionner un département" :options="departementOptions"
+                    :error="errors.idDepartement" :disabled="loading || submitting" />
+
+                <BaseSelect v-model="form.idService" label="Service" placeholder="Aucun (optionnel)"
+                    :options="serviceOptions" :disabled="loading || submitting || form.idDepartement === ''" />
+
+                <BaseSelect v-model="form.idPoste" label="Poste" required placeholder="Sélectionner un poste"
+                    :options="posteOptions" :error="errors.idPoste" :disabled="loading || submitting" />
+
+                <div class="bo-form__info" role="note">
+                    <i class="bi bi-info-circle"></i>
+                    <span>
+                        À la création, le compte est inactif. L'utilisateur reçoit un
+                        email d'activation pour définir son mot de passe et activer
+                        son compte.
+                    </span>
+                </div>
+
+                <div class="bo-form__actions">
+                    <BaseButton variant="secondary" :disabled="submitting" @click="annuler">
+                        Annuler
+                    </BaseButton>
+                    <BaseButton :loading="submitting" @click="soumettre">
+                        Créer
+                    </BaseButton>
+                </div>
             </div>
+            <aside class="bo-resume" aria-label="Récapitulatif">
+                <div class="bo-resume__header">
+                    <div class="bo-resume__avatar">{{ initiales }}</div>
+                    <div class="bo-resume__identity">
+                        <div class="bo-resume__name">{{ resume.nomComplet }}</div>
+                        <div class="bo-resume__email">{{ resume.email }}</div>
+                    </div>
+                </div>
 
-            <BaseInput v-model="form.email" type="email" label="Email" required placeholder="utilisateur@exemple.mg"
-                :error="errors.email" :disabled="loading || submitting" />
+                <hr class="bo-resume__sep">
 
-            <BaseInput v-model="form.telephone" type="tel" label="Téléphone" placeholder="Optionnel"
-                :disabled="loading || submitting" />
-
-            <hr class="bo-form__sep">
-
-            <BaseSelect v-model="form.idDepartement" label="Département" required
-                placeholder="Sélectionner un département" :options="departementOptions" :error="errors.idDepartement"
-                :disabled="loading || submitting" />
-
-            <BaseSelect v-model="form.idService" label="Service" placeholder="Aucun (optionnel)"
-                :options="serviceOptions" :disabled="loading || submitting || form.idDepartement === ''" />
-
-            <BaseSelect v-model="form.idPoste" label="Poste" required placeholder="Sélectionner un poste"
-                :options="posteOptions" :error="errors.idPoste" :disabled="loading || submitting" />
-
-            <div class="bo-form__info" role="note">
-                <i class="bi bi-info-circle"></i>
-                <span>
-                    À la création, le compte est inactif. L'utilisateur reçoit un
-                    email d'activation pour définir son mot de passe et activer
-                    son compte.
-                </span>
-            </div>
-
-            <div class="bo-form__actions">
-                <BaseButton variant="secondary" :disabled="submitting" @click="annuler">
-                    Annuler
-                </BaseButton>
-                <BaseButton :loading="submitting" @click="soumettre">
-                    Créer
-                </BaseButton>
-            </div>
+                <dl class="bo-resume__list">
+                    <div class="bo-resume__item">
+                        <dt>Téléphone</dt>
+                        <dd>{{ resume.telephone }}</dd>
+                    </div>
+                    <div class="bo-resume__item">
+                        <dt>Département</dt>
+                        <dd>{{ resume.departement }}</dd>
+                    </div>
+                    <div class="bo-resume__item">
+                        <dt>Service</dt>
+                        <dd>{{ resume.service }}</dd>
+                    </div>
+                    <div class="bo-resume__item">
+                        <dt>Poste</dt>
+                        <dd>{{ resume.poste }}</dd>
+                    </div>
+                    <div class="bo-resume__item">
+                        <dt>Statut initial</dt>
+                        <dd><span class="bo-resume__badge">Inactif</span></dd>
+                    </div>
+                </dl>
+            </aside>
         </div>
     </div>
 </template>
@@ -279,6 +336,120 @@ onMounted(charger)
     justify-content: flex-end;
     gap: 0.75rem;
     margin-top: 0.5rem;
+}
+
+.bo-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 720px) 300px;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.bo-resume {
+    position: sticky;
+    top: 1.5rem;
+    background: var(--dts-surface);
+    border: 1px solid var(--dts-border);
+    border-radius: var(--dts-radius);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.bo-resume__header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.bo-resume__avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--dts-navy);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+}
+
+.bo-resume__identity {
+    min-width: 0;
+}
+
+.bo-resume__name {
+    font-weight: 600;
+    color: var(--dts-navy);
+    font-size: 0.92rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bo-resume__email {
+    font-size: 0.78rem;
+    color: var(--dts-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bo-resume__sep {
+    border: none;
+    border-top: 1px solid var(--dts-border);
+    margin: 0;
+}
+
+.bo-resume__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin: 0;
+}
+
+.bo-resume__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.bo-resume__item dt {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--dts-muted);
+    font-weight: 600;
+}
+
+.bo-resume__item dd {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--dts-text-2);
+    word-break: break-word;
+}
+
+.bo-resume__badge {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: var(--dts-blue-50);
+    color: var(--dts-blue);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+@media (max-width: 992px) {
+    .bo-layout {
+        grid-template-columns: 1fr;
+    }
+    .bo-resume {
+        position: static;
+        order: -1;   /* le récap passe au-dessus du formulaire sur petit écran */
+    }
 }
 
 @media (max-width: 576px) {

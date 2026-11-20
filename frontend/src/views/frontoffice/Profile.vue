@@ -139,11 +139,6 @@
                                 </div>
                             </div>
 
-                            <div v-if="formAlert" class="alert" :class="`alert--${formAlert.type}`" role="alert">
-                                <i
-                                    :class="formAlert.type === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'"></i>
-                                <span>{{ formAlert.message }}</span>
-                            </div>
                         </div>
                     </div>
 
@@ -236,12 +231,6 @@
                                 minuscule, un chiffre et un caractère spécial.
                             </p>
 
-                            <div v-if="passwordAlert" class="alert" :class="`alert--${passwordAlert.type}`"
-                                role="alert">
-                                <i
-                                    :class="passwordAlert.type === 'success' ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'"></i>
-                                <span>{{ passwordAlert.message }}</span>
-                            </div>
 
                             <div class="content-card__actions">
                                 <BaseButton variant="secondary" :disabled="isSavingPassword"
@@ -266,6 +255,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { BaseButton, BaseConfirm, BaseInput } from '@/components/base'
 import { useConfirmation } from '@/composables/useConfirmation'
+import { useToast } from '@/composables/useToast'
 import { formatDate } from '@/utils/date'
 import * as authService from '@/services/auth'
 import router from '@/router'
@@ -293,14 +283,13 @@ const isEditingProfile = ref(false)
 const isSavingProfile = ref(false)
 const form = ref({ nom: '', prenom: '', email: '', telephone: '' })
 const errors = ref<Record<string, string>>({})
-const formAlert = ref<{ type: 'success' | 'danger'; message: string } | null>(null)
+const toast = useToast()
 
 /* Changement de mot de passe */
 const isEditingPassword = ref(false)
 const isSavingPassword = ref(false)
 const passwordForm = ref({ ancienMotDePasse: '', password: '', confirmPassword: '' })
 const passwordErrors = ref<Record<string, string>>({})
-const passwordAlert = ref<{ type: 'success' | 'danger'; message: string } | null>(null)
 
 /* -------------------- computed -------------------- */
 const user = computed(() => authStore.user)
@@ -347,7 +336,6 @@ const startEditProfile = () => {
     if (!user.value) return
 
     isEditingProfile.value = true
-    formAlert.value = null
     errors.value = {}
 
     form.value = {
@@ -363,13 +351,11 @@ const confirmation = useConfirmation()
 const cancelEditProfile = () => {
     isEditingProfile.value = false
     isSavingProfile.value = false
-    formAlert.value = null
     errors.value = {}
 }
 
 const saveProfile = () => {
     errors.value = {}
-    formAlert.value = null
 
     if (!form.value.nom.trim()) {
         errors.value.nom = 'Le nom est obligatoire'
@@ -418,7 +404,7 @@ const enregistrerProfil = async () => {
         })
 
         if (!response.success) {
-            formAlert.value = { type: 'danger', message: response.error }
+            toast.showError(response.error)
             return
         }
 
@@ -434,12 +420,9 @@ const enregistrerProfil = async () => {
         authStore.setUser(response.data.profil)
 
         isEditingProfile.value = false
-        formAlert.value = { type: 'success', message: 'Vos informations ont été mises à jour.' }
+        toast.showSuccess('Vos informations ont été mises à jour.')
     } catch (err) {
-        formAlert.value = {
-            type: 'danger',
-            message: err instanceof Error ? err.message : 'Une erreur est survenue.',
-        }
+        toast.showError(err instanceof Error ? err.message : 'Une erreur est survenue.')
     } finally {
         isSavingProfile.value = false
     }
@@ -447,7 +430,6 @@ const enregistrerProfil = async () => {
 
 const startChangePassword = () => {
     isEditingPassword.value = true
-    passwordAlert.value = null
     passwordErrors.value = {}
     passwordForm.value = { ancienMotDePasse: '', password: '', confirmPassword: '' }
 }
@@ -455,14 +437,12 @@ const startChangePassword = () => {
 const cancelChangePassword = () => {
     isEditingPassword.value = false
     isSavingPassword.value = false
-    passwordAlert.value = null
     passwordErrors.value = {}
     passwordForm.value = { ancienMotDePasse: '', password: '', confirmPassword: '' }
 }
 
 const savePassword = () => {
     passwordErrors.value = {}
-    passwordAlert.value = null
 
     if (!passwordForm.value.ancienMotDePasse) {
         passwordErrors.value.ancienMotDePasse = 'Le mot de passe actuel est obligatoire'
@@ -502,18 +482,15 @@ const enregistrerMotDePasse = async () => {
         const response = await authService.changePassword({ ...passwordForm.value })
 
         if (!response.success) {
-            passwordAlert.value = { type: 'danger', message: response.error }
+            toast.showError(response.error)
             return
         }
 
         cancelChangePassword()
-        passwordAlert.value = { type: 'success', message: 'Votre mot de passe a été modifié.' }
+        toast.showSuccess('Votre mot de passe a été modifié.')
         passwordErrors.value = {}
     } catch (err) {
-        passwordAlert.value = {
-            type: 'danger',
-            message: err instanceof Error ? err.message : 'Une erreur est survenue.',
-        }
+        toast.showError(err instanceof Error ? err.message : 'Une erreur est survenue.')
     } finally {
         isSavingPassword.value = false
     }

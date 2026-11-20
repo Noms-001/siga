@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -50,8 +51,8 @@ type LigneWorkflow = ActiviteListItem
 
 const lignes = ref<LigneWorkflow[]>([])
 const chargement = ref(false)
-const erreur = ref<string | null>(null)
-const succes = ref<string | null>(null)
+const erreur = useToastMessage('error')
+const succes = useToastMessage('success')
 
 const page = ref(1)
 const taillePage = ref(20)
@@ -576,18 +577,6 @@ onMounted(charger)
                 {{ o.label }}
             </button>
         </nav>
-
-        <div v-if="succes" class="alert alert-success d-flex align-items-center gap-2" role="status">
-            <i class="bi bi-check-circle"></i>
-            <span>{{ succes }}</span>
-            <button type="button" class="btn-close ms-auto" @click="succes = null"></button>
-        </div>
-
-        <div v-if="erreur" class="alert alert-danger d-flex align-items-center gap-2" role="alert">
-            <i class="bi bi-exclamation-triangle"></i>
-            <span>{{ erreur }}</span>
-            <button type="button" class="btn-close ms-auto" @click="erreur = null"></button>
-        </div>
 
         <div v-if="chargement && !lignes.length" class="detail-state">
             <div class="spinner-border text-primary" role="status"></div>

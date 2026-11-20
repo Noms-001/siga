@@ -22,7 +22,7 @@ interface KpiCard {
  * divergence entre le contrat backend et l'affichage.
  */
 const cards: KpiCard[] = [
-    { key: 'totalActivites',      label: 'Total activités',  hint: 'Activités enregistrées',  icon: 'bi bi-collection',         tone: 'neutral' },
+    { key: 'totalActivites',      label: 'Activités suivies', hint: 'Hors brouillons',          icon: 'bi bi-collection',         tone: 'neutral' },
     { key: 'enCours',             label: 'En cours',         hint: 'Activités démarrées',     icon: 'bi bi-play-circle',        tone: 'info' },
     { key: 'terminees',           label: 'Terminées',        hint: 'Activités clôturées',     icon: 'bi bi-check2-circle',      tone: 'success' },
     { key: 'enRetard',            label: 'En retard',        hint: 'Échéance dépassée',       icon: 'bi bi-exclamation-triangle', tone: 'danger' },
@@ -32,7 +32,7 @@ const cards: KpiCard[] = [
     { key: 'suspendues',          label: 'Suspendues',       hint: 'En pause temporaire',     icon: 'bi bi-pause-circle',       tone: 'muted' },
     { key: 'annulees',            label: 'Annulées',         hint: 'Activités abandonnées',   icon: 'bi bi-x-circle',           tone: 'muted' },
     { key: 'enAttenteValidation', label: 'En attente',       hint: 'Validation requise',      icon: 'bi bi-shield-exclamation', tone: 'warning' },
-    { key: 'avancementGlobal',    label: 'Avancement global', hint: 'Moyenne pondérée',       icon: 'bi bi-speedometer2',       tone: 'info', suffix: '%' },
+    { key: 'avancementGlobal',    label: 'Avancement moyen',  hint: 'Moyenne des activités',  icon: 'bi bi-speedometer2',       tone: 'info', suffix: '%' },
 ]
 
 const rows = computed(() => {

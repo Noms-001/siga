@@ -27,6 +27,7 @@ import mg.bank.backend.dto.planaction.PlanActionEcritureRequest;
 import mg.bank.backend.dto.planaction.PlanActionEcritureResponse;
 import mg.bank.backend.dto.planaction.PlanActionListItemDTO;
 import mg.bank.backend.dto.planaction.SuiviGlobalPlanActionDTO;
+import mg.bank.backend.service.common.PeriodeSupport;
 import mg.bank.backend.service.planaction.PlanActionService;
 import mg.bank.backend.service.planaction.SuiviGlobalPlanActionService;
 
@@ -68,6 +69,43 @@ public class PlanActionController {
                                                 pagination.getPageSize(),
                                                 pagination.getSort())));
         }
+        @GetMapping("/a-valider")
+        public ResponseEntity<ApiResponse<PageResponse<PlanActionListItemDTO>>> aValider(
+                        @PageableDefault(size = 20) Pageable pagination) {
+                return ResponseEntity.ok(ApiResponse.success(
+                                planActionService.aValider(
+                                                pagination.getPageNumber(),
+                                                pagination.getPageSize(),
+                                                pagination.getSort())));
+        }
+
+        @GetMapping("/a-demarrer")
+        public ResponseEntity<ApiResponse<PageResponse<PlanActionListItemDTO>>> aDemarrer(
+                        @PageableDefault(size = 20) Pageable pagination) {
+                return ResponseEntity.ok(ApiResponse.success(
+                                planActionService.aDemarrer(
+                                                pagination.getPageNumber(),
+                                                pagination.getPageSize(),
+                                                pagination.getSort())));
+        }
+
+        @PostMapping("/{id}/soumettre-validation")
+        public ResponseEntity<ApiResponse<PlanActionDetailDTO>> soumettreValidation(
+                        @PathVariable Integer id,
+                        @RequestParam(required = false) String commentaire) {
+                return ResponseEntity.ok(ApiResponse.success(
+                                planActionService.soumettre(id, commentaire)));
+        }
+
+        @PostMapping("/{id}/valider")
+        public ResponseEntity<ApiResponse<PlanActionDetailDTO>> valider(
+                        @PathVariable Integer id,
+                        @RequestParam(defaultValue = "false") Boolean rejeter,
+                        @RequestParam(required = false) String commentaire) {
+                return ResponseEntity.ok(ApiResponse.success(
+                                planActionService.valider(id, Boolean.TRUE.equals(rejeter), commentaire)));
+        }
+
 
         @PostMapping
         public ResponseEntity<ApiResponse<PlanActionEcritureResponse>> creer(
@@ -107,8 +145,12 @@ public class PlanActionController {
         }
 
         @GetMapping("/suivi-global")
-        public ResponseEntity<ApiResponse<SuiviGlobalPlanActionDTO>> suiviGlobal() {
+        public ResponseEntity<ApiResponse<SuiviGlobalPlanActionDTO>> suiviGlobal(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateDebut,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFin,
+                        @RequestParam(required = false) Integer annee) {
                 return ResponseEntity.ok(ApiResponse.success(
-                                suiviGlobalPlanActionService.suiviGlobal()));
+                                suiviGlobalPlanActionService.suiviGlobal(
+                                                PeriodeSupport.resoudre(dateDebut, dateFin, annee))));
         }
 }

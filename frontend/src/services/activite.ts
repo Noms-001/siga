@@ -1,13 +1,3 @@
-/**
- * Service API de la liste des activites.
- *
- * Le statut n'a pas de champ dedie dans la page : il est porte par les cards
- * et envoye ici comme parametre. C'est volontaire, pour qu'il n'existe qu'un
- * seul endroit ou appliquer un filtre de statut.
- *
- * Aucune pagination n'est faite ici ni dans les composants : la pagination
- * est appliquee par le backend apres les filtres.
- */
 import { getCurrentYear } from '@/utils/date'
 import { del, get, getBlob, patch, post, postForm, put } from './api-client'
 import type { ApiResponse } from './api-client'
@@ -198,9 +188,10 @@ export async function chargerOptions() {
 }
 
 /** Autocomplete activite : code, reference, designation. */
-export async function autocompleterActivites(q: string) {
+export async function autocompleterActivites(q: string, pta: boolean) {
     const params = new URLSearchParams()
     if (q.trim()) params.set('q', q.trim())
+    params.set('pta', String(pta))
 
     return get<ActiviteAutocomplete[]>(`/activites/autocomplete?${params.toString()}`)
 }
@@ -354,7 +345,7 @@ export async function changerPrioriteActivite(
 ): Promise<ApiResponse<void>> {
 
     return patch<void>(
-        `/api/activites/${idActivite}/priorite`,
+        `/activites/${idActivite}/priorite`,
         { idPriorite }
     )
 }
@@ -365,7 +356,7 @@ export async function demanderReprise(
 ): Promise<ApiResponse<unknown>> {
     // Idem : post<T> retourne ApiResponse<T>.
     return post<unknown>(
-        `/api/demandes-reprise/activites/${idActivite}`,
+        `/demandes-reprise/activites/${idActivite}`,
         { motif }
     )
 }

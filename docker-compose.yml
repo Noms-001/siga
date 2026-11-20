@@ -31,7 +31,9 @@ services:
       - postgres_data:/var/lib/postgresql
       - ./database/script/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./database/script/data.sql:/docker-entrypoint-initdb.d/02-data.sql:ro
-      - ./database/script/trigger.sql:/docker-entrypoint-initdb.d/03-trigger.sql:ro
+      - ./database/script/migration_code_generation.sql:/docker-entrypoint-initdb.d/03-migration-code-generation.sql:ro
+      - ./database/script/trigger.sql:/docker-entrypoint-initdb.d/04-trigger.sql:ro
+      - ./database/script/demo_etats_analyse.sql:/docker-entrypoint-initdb.d/05-demo-etats-analyse.sql:ro
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]

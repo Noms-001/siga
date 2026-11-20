@@ -15,7 +15,7 @@
             <nav class="nav" aria-label="Navigation principale">
 
                 <!-- Vue d'ensemble -->
-                <router-link v-if="can('dashboard', 'READ')" to="/dashboard" class="nav-item"
+                <router-link to="/dashboard" class="nav-item"
                     :class="{ active: isActive('/dashboard') }" :title="isCollapsed ? 'Vue d’ensemble' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -28,9 +28,20 @@
                     <span class="nav-text">Vue d’ensemble</span>
                 </router-link>
 
+                <router-link to="/membres/suivi" class="nav-item"
+                    :class="{ active: isActive('/membres/suivi') }" :title="isCollapsed ? 'Suivi des membres' : undefined">
+                    <span class="nav-icon">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg>
+                    </span>
+                    <span class="nav-text">Suivi des membres</span>
+                </router-link>
+
                 <!-- ACTIVITÉS -->
                 <button
-                    v-if="hasAny('activite:READ', 'activite:CREATE', 'affectation_activite:READ', 'validation_activite:READ', 'validation_activite:VALIDATE')"
                     type="button" class="nav-item nav-toggle" :class="{ 'has-active': isGroupActive('activites') }"
                     @click="toggle('activites')" :aria-expanded="openSections.activites"
                     :title="isCollapsed ? 'Activités' : undefined">
@@ -45,28 +56,25 @@
                         <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
-                <div v-if="hasAny('activite:READ', 'activite:CREATE', 'affectation_activite:READ', 'validation_activite:READ', 'validation_activite:VALIDATE')"
-                    class="nav-sub" :class="{ open: openSections.activites }">
+                <div class="nav-sub" :class="{ open: openSections.activites }">
                     <div class="nav-sub-inner">
-                        <router-link v-if="can('activite', 'READ')" to="/activites" class="nav-sub-item"
+                        <router-link to="/activites" class="nav-sub-item"
                             :class="{ active: isActive('/activites') }">
                             Liste des activités
                         </router-link>
-                        <router-link v-if="can('activite', 'CREATE')" to="/activites/nouvelle" class="nav-sub-item"
+                        <router-link to="/activites/nouvelle" class="nav-sub-item"
                             :class="{ active: isActive('/activites/nouvelle') }">
                             Nouvelle activité
                         </router-link>
-                        <router-link v-if="can('activite', 'CREATE')" to="/activites/importer" class="nav-sub-item"
+                        <router-link to="/activites/importer" class="nav-sub-item"
                             :class="{ active: isActive('/activites/importer') }">
                             Importer des activités
                         </router-link>
-                        <router-link
-                            v-if="hasAny('activite:READ', 'affectation_activite:READ', 'validation_activite:READ', 'validation_activite:VALIDATE')"
-                            to="/activites/traitement" class="nav-sub-item"
+                        <router-link to="/activites/traitement" class="nav-sub-item"
                             :class="{ active: isActive('/activites/traitement') }">
                             Traitement des activités
                         </router-link>
-                        <router-link v-if="can('activite', 'READ')" to="/activites/suivi" class="nav-sub-item"
+                        <router-link to="/activites/suivi" class="nav-sub-item"
                             :class="{ active: isActive('/activites/suivi') }">
                             Suivi des activités
                         </router-link>
@@ -74,7 +82,7 @@
                 </div>
 
                 <!-- PLANS D'ACTION -->
-                <button v-if="hasAny('plan_action:READ', 'plan_action:CREATE')" type="button"
+                <button type="button"
                     class="nav-item nav-toggle" :class="{ 'has-active': isGroupActive('plans') }"
                     @click="toggle('plans')" :aria-expanded="openSections.plans"
                     :title="isCollapsed ? 'Plans d’action' : undefined">
@@ -83,31 +91,26 @@
                             <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                         </svg>
                     </span>
-                    <span class="nav-text">Plans d’action</span>
+                    <span class="nav-text">Plans d’actions</span>
                     <svg class="chev" :class="{ open: openSections.plans }" viewBox="0 0 24 24" aria-hidden="true">
                         <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
-                <div v-if="hasAny('plan_action:READ', 'plan_action:CREATE')" class="nav-sub"
-                    :class="{ open: openSections.plans }">
+                <div class="nav-sub" :class="{ open: openSections.plans }">
                     <div class="nav-sub-inner">
-                        <router-link v-if="can('plan_action', 'READ')" to="/plans-action" class="nav-sub-item"
+                        <router-link to="/plans-action" class="nav-sub-item"
                             :class="{ active: isActive('/plans-action') }">
                             Liste des plans d’action
                         </router-link>
-                        <router-link v-if="can('plan_action', 'CREATE')" to="/plans-action/nouveau" class="nav-sub-item"
+                        <router-link to="/plans-action/nouveau" class="nav-sub-item"
                             :class="{ active: isActive('/plans-action/nouveau') }">
                             Nouveau plan d’action
-                        </router-link>
-                        <router-link v-if="can('plan_action', 'READ')" to="/plans-action/suivi" class="nav-sub-item"
-                            :class="{ active: isActive('/plans-action/suivi') }">
-                            Suivi des plans d’action
                         </router-link>
                     </div>
                 </div>
 
                 <!-- SIGNALEMENTS -->
-                <button v-if="hasAny('signalement:READ', 'signalement:CREATE')" type="button"
+                <button type="button"
                     class="nav-item nav-toggle" :class="{ 'has-active': isGroupActive('signalements') }"
                     @click="toggle('signalements')" :aria-expanded="openSections.signalements"
                     :title="isCollapsed ? 'Signalements' : undefined">
@@ -125,14 +128,13 @@
                         <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
-                <div v-if="hasAny('signalement:READ', 'signalement:CREATE')" class="nav-sub"
-                    :class="{ open: openSections.signalements }">
+                <div class="nav-sub" :class="{ open: openSections.signalements }">
                     <div class="nav-sub-inner">
-                        <router-link v-if="can('signalement', 'READ')" to="/signalements" class="nav-sub-item"
+                        <router-link to="/signalements" class="nav-sub-item"
                             :class="{ active: isActive('/signalements') && route.path !== '/signalements/nouveau' }">
                             Liste des signalements
                         </router-link>
-                        <router-link v-if="can('signalement', 'CREATE')" to="/signalements/nouveau" class="nav-sub-item"
+                        <router-link to="/signalements/nouveau" class="nav-sub-item"
                             :class="{ active: isActive('/signalements/nouveau') }">
                             Nouveau signalement
                         </router-link>
@@ -140,7 +142,7 @@
                 </div>
 
                 <!-- INDICATEURS -->
-                <button v-if="can('indicateur', 'READ')" type="button" class="nav-item nav-toggle"
+                <button type="button" class="nav-item nav-toggle"
                     :class="{ 'has-active': isGroupActive('indicateurs') }" @click="toggle('indicateurs')"
                     :aria-expanded="openSections.indicateurs" :title="isCollapsed ? 'Indicateurs' : undefined">
                     <span class="nav-icon">
@@ -154,34 +156,21 @@
                         <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
-                <div v-if="can('indicateur', 'READ')" class="nav-sub" :class="{ open: openSections.indicateurs }">
+                <div class="nav-sub" :class="{ open: openSections.indicateurs }">
                     <div class="nav-sub-inner">
-                        <router-link v-if="can('indicateur', 'READ')" to="/indicateurs" class="nav-sub-item"
+                        <router-link to="/indicateurs" class="nav-sub-item"
                             :class="{ active: isActive('/indicateurs') }">
                             Liste des indicateurs
                         </router-link>
-                        <router-link v-if="can('indicateur', 'READ')" to="/indicateurs/suivi" class="nav-sub-item"
+                        <router-link to="/indicateurs/suivi" class="nav-sub-item"
                             :class="{ active: isActive('/indicateurs/suivi') }">
                             Suivi des indicateurs
                         </router-link>
                     </div>
                 </div>
 
-                <!-- Utilisateurs -->
-                <router-link v-if="can('utilisateur', 'READ')" to="/utilisateurs" class="nav-item"
-                    :class="{ active: isActive('/utilisateurs') }" :title="isCollapsed ? 'Utilisateurs' : undefined">
-                    <span class="nav-icon">
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
-                            <circle cx="10" cy="7" r="4" />
-                            <path d="M21 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-                        </svg>
-                    </span>
-                    <span class="nav-text">Utilisateurs</span>
-                </router-link>
-
                 <!-- Notifications -->
-                <router-link v-if="can('notification', 'READ')" to="/notifications" class="nav-item"
+                <router-link to="/notifications" class="nav-item"
                     :class="{ active: isActive('/notifications') }" :title="isCollapsed ? 'Notifications' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -236,12 +225,6 @@ const emit = defineEmits<{
 
 const route = useRoute()
 const authStore = useAuthStore()
-
-const can = (resource: string, action: string) => authStore.hasPermission(resource, action)
-const hasAny = (...permissions: string[]) => permissions.some((permission) => {
-    const [resource, action] = permission.split(':')
-    return resource !== undefined && action !== undefined && can(resource, action)
-})
 
 const isActive = (path: string) => route.path === path
 const notificationCount = computed(() => props.notificationCount ?? 0)

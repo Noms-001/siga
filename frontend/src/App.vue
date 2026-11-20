@@ -4,11 +4,25 @@
       <component :is="Component" />
     </Transition>
   </RouterView>
+
+  <BaseToast ref="toastRef" />
 </template>
 
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import { RouterView } from 'vue-router'
+
+import { BaseToast } from '@/components/base'
+import type { ToastInstance } from '@/components/base/BaseToast'
 import { useSessionWatchdog } from '@/composables/useSessionWatchdog'
+import { useToast } from '@/composables/useToast'
+
+const toastRef = ref<ToastInstance | null>(null)
+const toast = useToast()
+
+onMounted(() => {
+  toast.setToastInstance(toastRef.value)
+})
 
 /*
  * Déconnexion automatique après une période d'inactivité, avec

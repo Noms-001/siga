@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseButton, BaseInput, BaseConfirm } from '@/components/base'
@@ -27,7 +28,7 @@ const form = ref<{
 })
 
 const errors = ref<Record<string, string>>({})
-const globalError = ref('')
+const globalError = useToastMessage('error')
 const submitting = ref(false)
 
 /* -------------------- confirmation -------------------- */
@@ -175,11 +176,6 @@ const formulairePret = computed(() =>
         </header>
 
         <!-- ERREUR GLOBALE -->
-        <div v-if="globalError" class="alert alert-danger mb-0" role="alert">
-            <i class="bi bi-exclamation-triangle-fill"></i>
-            {{ globalError }}
-        </div>
-
         <!-- FORMULAIRE -->
         <form class="form-layout" novalidate @submit.prevent="demanderConfirmation">
             <div class="form-main">

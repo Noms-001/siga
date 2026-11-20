@@ -132,6 +132,94 @@ public class PlanActionService {
         }
 
         @Transactional(readOnly = true)
+        public PageResponse<PlanActionListItemDTO> aValider(int page, int size, Sort sort) {
+                return rechercher("EN_ATTENTE_VALIDATION", null, null, null, null,
+                                null, null, null, page, size, sort);
+        }
+
+        @Transactional(readOnly = true)
+        public PageResponse<PlanActionListItemDTO> aDemarrer(int page, int size, Sort sort) {
+                return rechercher("NON_COMMENCEE", null, null, null, null,
+                                null, null, null, page, size, sort);
+        }
+
+        @Transactional
+        public PlanActionDetailDTO soumettre(Integer idPlanAction, String commentaire) {
+                PlanActionListRow row = planActionRepository.findByIdWithDetails(idPlanAction)
+                                .orElseThrow(() -> new ApiException(
+                                                "Plan d'action introuvable.", HttpStatus.NOT_FOUND));
+
+                if (!"BROUILLON".equals(row.getStatutCode())) {
+                        throw new ApiException(
+                                        "Seul un brouillon peut être soumis à la validation.",
+                                        HttpStatus.CONFLICT);
+                }
+
+                PlanAction plan = planActionRepository.findById(idPlanAction)
+                                .orElseThrow(() -> new ApiException(
+                                                "Plan d'action introuvable.", HttpStatus.NOT_FOUND));
+
+                Statut statut = statutRepository.findByCode("EN_ATTENTE_VALIDATION")
+                                .orElseThrow(() -> new ApiException(
+                                                "Statut EN_ATTENTE_VALIDATION introuvable en base.",
+                                                HttpStatus.INTERNAL_SERVER_ERROR));
+
+                Utilisateur auteur = activiteService.utilisateurCourant();
+
+                avancementPlanActionRepository.save(AvancementPlanAction.builder()
+                                .valeurPourcentage(java.math.BigDecimal.ZERO)
+                                .commentaire((commentaire == null || commentaire.isBlank())
+                                                ? "Soumission à la validation"
+                                                : commentaire.trim())
+                                .dateChangement(LocalDateTime.now())
+                                .utilisateur(auteur)
+                                .statut(statut)
+                                .planAction(plan)
+                                .build());
+
+                return detail(idPlanAction);
+        }
+
+        @Transactional
+        public PlanActionDetailDTO valider(Integer idPlanAction, boolean rejeter, String commentaire) {
+                PlanActionListRow row = planActionRepository.findByIdWithDetails(idPlanAction)
+                                .orElseThrow(() -> new ApiException(
+                                                "Plan d'action introuvable.", HttpStatus.NOT_FOUND));
+
+                if (!"EN_ATTENTE_VALIDATION".equals(row.getStatutCode())) {
+                        throw new ApiException(
+                                        "Ce plan d'action n'est pas en attente de validation.",
+                                        HttpStatus.CONFLICT);
+                }
+
+                PlanAction plan = planActionRepository.findById(idPlanAction)
+                                .orElseThrow(() -> new ApiException(
+                                                "Plan d'action introuvable.", HttpStatus.NOT_FOUND));
+
+                String codeStatut = rejeter ? "BROUILLON" : "NON_COMMENCEE";
+                Statut statut = statutRepository.findByCode(codeStatut)
+                                .orElseThrow(() -> new ApiException(
+                                                "Statut " + codeStatut + " introuvable en base.",
+                                                HttpStatus.INTERNAL_SERVER_ERROR));
+
+                Utilisateur decideur = activiteService.utilisateurCourant();
+
+                avancementPlanActionRepository.save(AvancementPlanAction.builder()
+                                .valeurPourcentage(java.math.BigDecimal.ZERO)
+                                .commentaire((commentaire == null || commentaire.isBlank())
+                                                ? (rejeter ? "Plan rejeté" : "Plan validé")
+                                                : commentaire.trim())
+                                .dateChangement(LocalDateTime.now())
+                                .utilisateur(decideur)
+                                .statut(statut)
+                                .planAction(plan)
+                                .build());
+
+                return detail(idPlanAction);
+        }
+
+
+        @Transactional(readOnly = true)
         public PageResponse<PlanActionListItemDTO> mesBrouillons(int page, int size, Sort sort) {
                 Utilisateur utilisateur = activiteService.utilisateurCourant();
 
@@ -370,10 +458,7 @@ public class PlanActionService {
         private static final Set<String> ROLES_SAISIE = Set.of("RESPONSABLE", "SUPPLEANT");
         private static final Set<String> STATUTS_NON_SAISISSABLES = Set.of("BROUILLON", "ANNULEE");
 
-        /**
-         * Historique complet des avancements, du plus recent au plus ancien.
-         * Le premier element (courant=true) porte le statut et l'avancement courants.
-         */
+
         @Transactional(readOnly = true)
         public List<AvancementPlanActionDetailDTO> listerAvancements(Integer idPlanAction) {
                 PlanAction plan = planActionRepository.findById(idPlanAction)

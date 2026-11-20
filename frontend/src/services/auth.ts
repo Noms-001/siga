@@ -19,7 +19,9 @@ export async function login(
   data: LoginRequest
 ): Promise<ApiResponse<LoginResponse>> {
 
-  const response = await post<LoginResponse>('/auth/login', data)
+  const response = await post<LoginResponse>('/auth/login', data, {
+    authRequest: true,
+  })
 
   return response
 }
@@ -31,7 +33,9 @@ export async function loginBackoffice(
   data: LoginRequest
 ): Promise<ApiResponse<LoginResponse>> {
 
-  const response = await post<LoginResponse>('/backoffice/auth/login', data)
+  const response = await post<LoginResponse>('/backoffice/auth/login', data, {
+    authRequest: true,
+  })
 
   return response
 }
@@ -59,7 +63,7 @@ export async function logout(): Promise<ApiResponse<null>> {
 export function forgotPassword(
   data: ForgotPasswordRequest
 ): Promise<ApiResponse<null>> {
-  return post<null>('/auth/password/forgot', data)
+  return post<null>('/auth/password/forgot', data, { authRequest: true })
 }
 
 /**
@@ -69,7 +73,8 @@ export function verifyResetPasswordToken(
   token: string
 ): Promise<ApiResponse<null>> {
   return get<null>(
-    `/auth/password/reset/verify?token=${encodeURIComponent(token)}`
+    `/auth/password/reset/verify?token=${encodeURIComponent(token)}`,
+    { authRequest: true }
   )
 }
 
@@ -79,7 +84,7 @@ export function verifyResetPasswordToken(
 export function resetPassword(
   data: ResetPasswordRequest
 ): Promise<ApiResponse<null>> {
-  return post<null>('/auth/password/reset', data)
+  return post<null>('/auth/password/reset', data, { authRequest: true })
 }
 
 /**
@@ -110,7 +115,8 @@ export function verifyActivationToken(
     token: string
 ): Promise<ApiResponse<null>> {
     return get<null>(
-        `/auth/activation/verify?token=${encodeURIComponent(token)}`
+        `/auth/activation/verify?token=${encodeURIComponent(token)}`,
+        { authRequest: true }
     )
 }
 
@@ -127,5 +133,5 @@ export function activateAccount(
         token,
         password,
         confirmPassword,
-    })
+    }, { authRequest: true })
 }

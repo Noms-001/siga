@@ -87,7 +87,9 @@ router.beforeEach(async (to) => {
         }
     }
 
-    const requiredPermission = permissionForRoute(to.path)
+    const requiredPermission = to.meta.requiresBackoffice
+        ? permissionForRoute(to.path)
+        : null
     if (requiredPermission && !authStore.hasPermission(
         requiredPermission.resource,
         requiredPermission.action,

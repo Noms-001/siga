@@ -1,51 +1,75 @@
 package mg.bank.backend.service.dashboard;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
+import mg.bank.backend.dto.common.OptionDTO;
+import mg.bank.backend.dto.common.PerimetreUtilisateur;
 import mg.bank.backend.dto.dashboard.DashboardAvancementDTO;
 import mg.bank.backend.dto.dashboard.DashboardEcheanceDTO;
 import mg.bank.backend.dto.dashboard.DashboardEcheancesDTO;
 import mg.bank.backend.dto.dashboard.DashboardKpiDTO;
+import mg.bank.backend.dto.dashboard.DashboardPerimetreDTO;
+import mg.bank.backend.dto.dashboard.DashboardPlanActionOrigineDTO;
 import mg.bank.backend.dto.dashboard.DashboardPlansActionDTO;
-import mg.bank.backend.dto.dashboard.DashboardPrioriteDTO;
 import mg.bank.backend.dto.dashboard.DashboardPtaComparaisonDTO;
 import mg.bank.backend.dto.dashboard.DashboardPtaDTO;
 import mg.bank.backend.dto.dashboard.DashboardRisquesIncidentsDTO;
 import mg.bank.backend.dto.dashboard.DashboardServiceDTO;
 import mg.bank.backend.dto.dashboard.DashboardStatutDTO;
-import mg.bank.backend.dto.dashboard.DashboardValidationDTO;
+import mg.bank.backend.dto.dashboard.DashboardStatutPrioriteDTO;
+import mg.bank.backend.dto.dashboard.DashboardTypeActiviteDTO;
 import mg.bank.backend.enums.StatutActiviteEnum;
+import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.repository.dashboard.DashboardRepository;
 import mg.bank.backend.repository.projection.dashboard.DashboardAvancementRow;
 import mg.bank.backend.repository.projection.dashboard.DashboardEcheanceRow;
 import mg.bank.backend.repository.projection.dashboard.DashboardKpiRow;
+import mg.bank.backend.repository.projection.dashboard.DashboardPlanActionOrigineRow;
 import mg.bank.backend.repository.projection.dashboard.DashboardPlanActionRow;
 import mg.bank.backend.repository.projection.dashboard.DashboardPtaRow;
-import mg.bank.backend.repository.projection.dashboard.DashboardValidationRow;
+import mg.bank.backend.repository.referentiel.ServiceRepository;
+import mg.bank.backend.service.common.ActiviteQuerySupport;
+import mg.bank.backend.service.common.PeriodeSupport.Periode;
+import mg.bank.backend.service.utilisateur.CurrentUserService;
 
 @Service
 @RequiredArgsConstructor
 public class DashboardService {
 
-    /** Limite par défaut pour la liste des activités prioritaires. */
-    private static final int LIMITE_PRIORITES_DEFAUT = 10;
-    private static final int LIMITE_PRIORITES_MAX = 100;
-
     /** Fenêtre par défaut pour les échéances proches, en jours. */
     private static final int JOURS_ECHEANCE_DEFAUT = 7;
     private static final int JOURS_ECHEANCE_MAX = 365;
 
+    private static final List<String> ORIGINES =
+            List.of("INCIDENT", "RISQUE", "AUTRE");
+    private static final Map<String, String> LIBELLES_ORIGINE = Map.of(
+            "INCIDENT", "Incident",
+            "RISQUE", "Risque",
+            "AUTRE", "Autre");
+
     private final DashboardRepository dashboardRepository;
+    private final CurrentUserService currentUserService;
+    private final ServiceRepository serviceRepository;
+
+    /** Filtres de perimetre transmis aux requetes SQL. */
+    private record Scope(Integer service, Integer departement) {
+    }
 
     /* ------------------------------------------------------------------ */
 
     @Transactional(readOnly = true)
-    public DashboardKpiDTO kpi(Integer annee) {
-        DashboardKpiRow row = dashboardRepository.kpi(annee, codesTerminaux());
+    public DashboardKpiDTO kpi(Periode periode, Integer serviceId) {
+        Scope scope = resoudreScope(serviceId);
+        DashboardKpiRow row = dashboardRepository.kpi(
+                periode.debut(), periode.fin(), periode.reference(),
+                scope.service(), scope.departement(), codesTerminaux());
         if (row == null) {
             return DashboardKpiDTO.builder().build();
         }
@@ -64,8 +88,11 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public DashboardAvancementDTO avancement(Integer annee) {
-        DashboardAvancementRow row = dashboardRepository.avancement(annee);
+    public DashboardAvancementDTO avancement(Periode periode, Integer serviceId) {
+        Scope scope = resoudreScope(serviceId);
+        DashboardAvancementRow row = dashboardRepository.avancement(
+                periode.debut(), periode.fin(), periode.reference(),
+                scope.service(), scope.departement());
         if (row == null) {
             return DashboardAvancementDTO.builder().build();
         }
@@ -78,8 +105,11 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public List<DashboardStatutDTO> statuts(Integer annee) {
-        return dashboardRepository.statuts(annee).stream()
+    public List<DashboardStatutDTO> statuts(Periode periode, Integer serviceId) {
+        Scope scope = resoudreScope(serviceId);
+        return dashboardRepository.statuts(
+                periode.debut(), periode.fin(), periode.reference(),
+                scope.service(), scope.departement()).stream()
                 .map(r -> DashboardStatutDTO.builder()
                         .statut(r.getStatut())
                         .libelle(r.getLibelle())
@@ -89,8 +119,27 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public List<DashboardServiceDTO> services(Integer annee) {
-        return dashboardRepository.services(annee, codesTerminaux()).stream()
+    public List<DashboardStatutPrioriteDTO> statutsPriorites(Periode periode, Integer serviceId) {
+        Scope scope = resoudreScope(serviceId);
+        return dashboardRepository.statutsPriorites(
+                periode.debut(), periode.fin(), periode.reference(),
+                scope.service(), scope.departement()).stream()
+                .map(r -> DashboardStatutPrioriteDTO.builder()
+                        .statut(r.getStatut())
+                        .statutLibelle(r.getStatutLibelle())
+                        .priorite(r.getPriorite())
+                        .prioriteLibelle(r.getPrioriteLibelle())
+                        .nombre(nulSiAbsent(r.getNombre()))
+                        .build())
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DashboardServiceDTO> services(Periode periode, Integer serviceId) {
+        Scope scope = resoudreScope(serviceId);
+        return dashboardRepository.services(
+                periode.debut(), periode.fin(), periode.reference(),
+                scope.service(), scope.departement(), codesTerminaux()).stream()
                 .map(r -> DashboardServiceDTO.builder()
                         .idService(r.getIdService())
                         .service(r.getService())
@@ -105,40 +154,28 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public List<DashboardPrioriteDTO> priorites(Integer annee, Integer limit) {
-        int limite = normaliserLimite(limit);
-        return dashboardRepository.priorites(annee, codesTerminaux(), limite).stream()
-                .map(r -> DashboardPrioriteDTO.builder()
-                        .id(r.getId())
-                        .code(r.getCode())
-                        .reference(r.getReference())
-                        .designation(r.getDesignation())
-                        .service(r.getService())
-                        .priorite(r.getPrioriteLibelle())
-                        .prioriteCode(r.getPrioriteCode())
-                        .statut(r.getStatutCode())
-                        .statutLibelle(r.getStatutLibelle())
-                        .dateDebut(r.getDateDebut())
-                        .dateEcheance(r.getDateEcheance())
+    public List<DashboardTypeActiviteDTO> typesActivite(Periode periode, Integer serviceId) {
+        Scope scope = resoudreScope(serviceId);
+        return dashboardRepository.typesActivite(
+                periode.debut(), periode.fin(), periode.reference(),
+                scope.service(), scope.departement()).stream()
+                .map(r -> DashboardTypeActiviteDTO.builder()
+                        .idTypeActivite(r.getIdTypeActivite())
+                        .typeActivite(r.getTypeActivite())
+                        .totalActivites(nulSiAbsent(r.getTotalActivites()))
                         .avancement(nulSiAbsentDouble(r.getAvancement()))
-                        .joursRetard(nulSiAbsent(r.getJoursRetard()))
                         .build())
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<DashboardValidationDTO> validations(Integer annee) {
-        return dashboardRepository.validationsEnAttente(annee).stream()
-                .map(this::versValidation)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public DashboardEcheancesDTO echeances(Integer annee, Integer jours) {
+    public DashboardEcheancesDTO echeances(Periode periode, Integer jours, Integer serviceId) {
         int fenetre = normaliserFenetre(jours);
+        Scope scope = resoudreScope(serviceId);
 
         List<DashboardEcheanceRow> toutes = dashboardRepository.echeances(
-                annee, codesTerminaux(), fenetre);
+                periode.debut(), periode.fin(), periode.reference(),
+                scope.service(), scope.departement(), codesTerminaux(), fenetre);
 
         List<DashboardEcheanceDTO> enRetard = toutes.stream()
                 .filter(r -> r.getJours() != null && r.getJours() > 0) // ← strictement
@@ -157,10 +194,15 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public DashboardPtaComparaisonDTO pta(Integer annee) {
+    public DashboardPtaComparaisonDTO pta(Periode periode, Integer serviceId) {
+        Scope scope = resoudreScope(serviceId);
         return DashboardPtaComparaisonDTO.builder()
-                .pta(versPta(dashboardRepository.pta(annee, true, codesTerminaux())))
-                .nonPta(versPta(dashboardRepository.pta(annee, false, codesTerminaux())))
+                .pta(versPta(dashboardRepository.pta(
+                        periode.debut(), periode.fin(), periode.reference(),
+                        scope.service(), scope.departement(), true, codesTerminaux())))
+                .nonPta(versPta(dashboardRepository.pta(
+                        periode.debut(), periode.fin(), periode.reference(),
+                        scope.service(), scope.departement(), false, codesTerminaux())))
                 .build();
     }
 
@@ -187,7 +229,123 @@ public class DashboardService {
                 .build();
     }
 
+    /**
+     * Avancement moyen des plans d'action par origine sur la période.
+     *
+     * Les plans d'action ne portent pas de service : cet indicateur reste
+     * global (non restreint au périmètre), mais il respecte le filtre
+     * temporel et reconstitue l'avancement à la date de référence.
+     */
+    @Transactional(readOnly = true)
+    public List<DashboardPlanActionOrigineDTO> avancementPlansParOrigine(Periode periode) {
+        Map<String, DashboardPlanActionOrigineRow> index = new HashMap<>();
+        for (DashboardPlanActionOrigineRow row
+                : dashboardRepository.avancementPlansParOrigine(
+                        periode.debut(), periode.fin(), periode.reference())) {
+            if (row.getOrigine() == null) {
+                continue;
+            }
+            index.put(row.getOrigine(), row);
+        }
+
+        return ORIGINES.stream()
+                .map(origine -> {
+                    DashboardPlanActionOrigineRow row = index.get(origine);
+                    long total = row == null ? 0 : nulSiAbsent(row.getTotal());
+                    double avancement = row == null
+                            ? 0
+                            : arrondi(nulSiAbsentDouble(row.getAvancement()));
+                    return DashboardPlanActionOrigineDTO.builder()
+                            .origine(origine)
+                            .libelle(LIBELLES_ORIGINE.get(origine))
+                            .total(total)
+                            .avancement(avancement)
+                            .build();
+                })
+                .toList();
+    }
+
+    /**
+     * Périmètre de l'utilisateur connecté et services proposés au filtre
+     * du graphique « types d'activité ».
+     */
+    @Transactional(readOnly = true)
+    public DashboardPerimetreDTO perimetre() {
+        PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
+
+        if (perimetre.estRattacheService()) {
+            String nom = serviceRepository.findById(perimetre.getIdService())
+                    .map(s -> s.getNom())
+                    .orElse(null);
+            return DashboardPerimetreDTO.builder()
+                    .niveau("SERVICE")
+                    .idService(perimetre.getIdService())
+                    .idDepartement(perimetre.getIdDepartement())
+                    .service(nom)
+                    .services(List.of())
+                    .build();
+        }
+
+        if (perimetre.estNiveauDepartement()) {
+            List<OptionDTO> services = ActiviteQuerySupport.versOptions(
+                    serviceRepository.findOptionsActivesParDepartement(
+                            perimetre.getIdDepartement()));
+            return DashboardPerimetreDTO.builder()
+                    .niveau("DEPARTEMENT")
+                    .idService(null)
+                    .idDepartement(perimetre.getIdDepartement())
+                    .service(null)
+                    .services(services)
+                    .build();
+        }
+
+        return DashboardPerimetreDTO.builder()
+                .niveau("GLOBAL")
+                .idService(null)
+                .idDepartement(null)
+                .service(null)
+                .services(List.of())
+                .build();
+    }
+
     /* ------------------------------------------------------------------ */
+
+    /**
+     * Traduit le périmètre de l'utilisateur et un éventuel service demandé
+     * en filtres SQL. Un utilisateur rattaché à un service ne peut jamais
+     * élargir son périmètre ; un chef de département ne peut interroger
+     * qu'un service de son département.
+     */
+    private Scope resoudreScope(Integer serviceIdDemande) {
+        PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
+
+        if (perimetre.estRattacheService()) {
+            return new Scope(perimetre.getIdService(), null);
+        }
+
+        if (perimetre.estNiveauDepartement()) {
+            if (serviceIdDemande != null
+                    && !serviceDuDepartement(serviceIdDemande, perimetre.getIdDepartement())) {
+                throw new ApiException(
+                        "Service hors de votre périmètre",
+                        HttpStatus.FORBIDDEN);
+            }
+            return new Scope(serviceIdDemande, perimetre.getIdDepartement());
+        }
+
+        return new Scope(serviceIdDemande, null);
+    }
+
+    private boolean serviceDuDepartement(Integer idService, Integer idDepartement) {
+        return serviceRepository.findById(idService)
+                .map(s -> s.getDepartement() != null
+                        && idDepartement.equals(s.getDepartement().getIdDepartement()))
+                .orElse(false);
+    }
+
+    private double arrondi(double valeur) {
+        return Math.round(valeur * 100.0) / 100.0;
+    }
 
     private DashboardPtaDTO versPta(DashboardPtaRow row) {
         if (row == null)
@@ -199,21 +357,6 @@ public class DashboardService {
                 .enRetard(nulSiAbsent(row.getEnRetard()))
                 .nonCommencees(nulSiAbsent(row.getNonCommencees()))
                 .avancement(nulSiAbsentDouble(row.getAvancement()))
-                .build();
-    }
-
-    private DashboardValidationDTO versValidation(DashboardValidationRow r) {
-        String demandeur = composerNom(r.getDemandeurPrenom(), r.getDemandeurNom());
-        return DashboardValidationDTO.builder()
-                .idValidation(r.getIdValidation())
-                .idActivite(r.getIdActivite())
-                .codeActivite(r.getCodeActivite())
-                .designationActivite(r.getDesignationActivite())
-                .demandeur(demandeur)
-                .etape(r.getEtapeDesignation())
-                .niveau(r.getEtapeNiveau())
-                .dateDemande(r.getDateDemande())
-                .decision(r.getDecision())
                 .build();
     }
 
@@ -238,26 +381,10 @@ public class DashboardService {
         return StatutActiviteEnum.codesTerminauxSql();
     }
 
-    private int normaliserLimite(Integer limit) {
-        if (limit == null || limit < 1)
-            return LIMITE_PRIORITES_DEFAUT;
-        return Math.min(limit, LIMITE_PRIORITES_MAX);
-    }
-
     private int normaliserFenetre(Integer jours) {
         if (jours == null || jours < 1)
             return JOURS_ECHEANCE_DEFAUT;
         return Math.min(jours, JOURS_ECHEANCE_MAX);
-    }
-
-    private String composerNom(String prenom, String nom) {
-        if (prenom == null && nom == null)
-            return null;
-        if (prenom == null)
-            return nom;
-        if (nom == null)
-            return prenom;
-        return prenom + " " + nom;
     }
 
     private long nulSiAbsent(Long v) {

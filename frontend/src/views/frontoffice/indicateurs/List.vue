@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseTable, BaseButton, BaseSelect } from '@/components/base'
@@ -12,7 +13,7 @@ const router = useRouter()
 
 const items = ref<Indicateur[]>([])
 const loading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
 
 /* Filtres */
 const type = ref<string>('all')
@@ -79,12 +80,12 @@ const itemsFiltres = computed(() => {
 
 /* -------------------- KPI -------------------- */
 
-const nbTotal = computed(() => items.value.length)
+const nbTotal = computed(() => itemsFiltres.value.length)
 const nbKpi = computed(() =>
-    items.value.filter(i => (i.typeIndicateur ?? '').toUpperCase() === 'KPI').length
+    itemsFiltres.value.filter(i => (i.typeIndicateur ?? '').toUpperCase() === 'KPI').length
 )
 const nbKri = computed(() =>
-    items.value.filter(i => (i.typeIndicateur ?? '').toUpperCase() === 'KRI').length
+    itemsFiltres.value.filter(i => (i.typeIndicateur ?? '').toUpperCase() === 'KRI').length
 )
 const nbAutres = computed(() => nbTotal.value - nbKpi.value - nbKri.value)
 
@@ -206,12 +207,6 @@ function classeType(t: string | null | undefined): string {
         </section>
 
         <!-- ============ MESSAGES ============ -->
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
         <!-- ============ FILTRES ============ -->
         <section class="filters-card" aria-labelledby="filters-title">
             <header class="filters-card__head">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BaseTable, BaseButton } from '@/components/base'
@@ -11,8 +12,8 @@ const route = useRoute()
 
 const items = ref<Departement[]>([])
 const loading = ref(false)
-const errorMessage = ref('')
-const flashMessage = ref('')
+const errorMessage = useToastMessage('error')
+const flashMessage = useToastMessage('success')
 
 const columns: TableColumn<Departement>[] = [
     { key: 'code', label: 'Code' },
@@ -60,15 +61,6 @@ onMounted(() => {
                 Ajouter un département
             </BaseButton>
         </header>
-
-        <div v-if="flashMessage" class="alert alert-success mb-0" role="status">
-            {{ flashMessage }}
-        </div>
-
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center" role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
 
         <BaseTable :items="items" :columns="columns" :loading="loading" searchable>
 

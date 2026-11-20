@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BaseButton, BaseInput, BaseSelect, BaseModal, BaseConfirm } from '@/components/base'
@@ -25,8 +26,8 @@ const poste = ref<Poste | null>(null)
 const permissions = ref<PermissionPourPoste[]>([])
 const allPermissions = ref<Permission[]>([])
 const loading = ref(false)
-const errorMessage = ref('')
-const flashMessage = ref('')
+const errorMessage = useToastMessage('error')
+const flashMessage = useToastMessage('success')
 
 /* -------------------- modal affecter / modifier -------------------- */
 
@@ -37,7 +38,7 @@ const modalForm = ref<{
     portee: PorteePermission | ''
 }>({ idPermission: '', portee: '' })
 const modalErrors = ref<Record<string, string>>({})
-const modalGlobalError = ref('')
+const modalGlobalError = useToastMessage('error')
 const modalLoading = ref(false)
 
 /* -------------------- confirm retrait -------------------- */
@@ -251,16 +252,6 @@ onMounted(charger)
             </BaseButton>
         </header>
 
-        <div v-if="flashMessage" class="alert alert-success mb-0" role="status">
-            {{ flashMessage }}
-        </div>
-
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
         <!-- Tableau -->
         <div v-if="loading" class="bo-table-wrapper">
             <div v-for="i in 4" :key="i" class="skeleton skeleton-row"></div>
@@ -312,10 +303,6 @@ onMounted(charger)
         <BaseModal v-model="modalOpen"
             :title="modalMode === 'create' ? 'Affecter une permission' : 'Modifier la permission'" size="md">
             <div class="modal-form">
-                <div v-if="modalGlobalError" class="alert alert-danger mb-0" role="alert">
-                    {{ modalGlobalError }}
-                </div>
-
                 <BaseInput :model-value="poste?.nom ?? ''" label="Poste" disabled />
 
                 <template v-if="modalMode === 'create'">

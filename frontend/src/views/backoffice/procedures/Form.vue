@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BaseInput, BaseButton } from '@/components/base'
@@ -40,11 +41,27 @@ const form = ref<{
 
 const postes = ref<Poste[]>([])
 const errors = ref<Record<string, string>>({})
-const globalError = ref('')
+const globalError = useToastMessage('error')
 const loading = ref(false)
 const submitting = ref(false)
 
 const postesActifs = computed(() => postes.value.filter(p => p.actif))
+
+/* -------------------- récapitulatif -------------------- */
+
+/** Récapitulatif live des valeurs saisies. */
+const resume = computed(() => {
+    const designation = form.value.designation.trim() || 'Nouvelle procédure'
+    const nbEtapes = form.value.etapes.length
+    const totalDecideurs = form.value.etapes.reduce(
+        (sum, e) => sum + e.idPostesDecideurs.length,
+        0,
+    )
+    const etapesIncompletes = form.value.etapes.filter(
+        e => !e.designation.trim() || e.idPostesDecideurs.length === 0,
+    ).length
+    return { designation, nbEtapes, totalDecideurs, etapesIncompletes }
+})
 
 /* -------------------- chargement -------------------- */
 
@@ -290,170 +307,246 @@ function fermerDecidersSiExterne(event: MouseEvent): void {
             </div>
         </header>
 
-        <div v-if="globalError" class="alert alert-danger mb-0" role="alert">
-            {{ globalError }}
-        </div>
+        <div class="bo-layout">
+            <div class="bo-layout__main">
+                <div class="bo-form">
+                    <BaseInput v-model="form.designation" label="Désignation"
+                        placeholder="Ex : Procédure de validation d'activité" required :error="errors.designation"
+                        :disabled="loading || submitting" />
 
-        <div class="bo-form">
-            <BaseInput v-model="form.designation" label="Désignation"
-                placeholder="Ex : Procédure de validation d'activité" required :error="errors.designation"
-                :disabled="loading || submitting" />
-
-            <BaseInput v-model="form.description" type="textarea" label="Description"
-                placeholder="Description de la procédure" :disabled="loading || submitting" />
-        </div>
-
-        <!-- Étapes de validation -->
-        <div class="bo-etapes">
-            <header class="bo-etapes__head">
-                <div>
-                    <h2 class="bo-etapes__title">Étapes de validation</h2>
-                    <p class="bo-etapes__hint">
-                        Définissez les étapes dans l'ordre. Le niveau est attribué
-                        automatiquement selon la position.
-                    </p>
+                    <BaseInput v-model="form.description" type="textarea" label="Description"
+                        placeholder="Description de la procédure" :disabled="loading || submitting" />
                 </div>
-                <BaseButton icon="bi bi-plus-lg" size="sm" :disabled="submitting" @click="ajouterEtape">
-                    Ajouter une étape
-                </BaseButton>
-            </header>
 
-            <div v-if="form.etapes.length === 0" class="bo-etapes__empty">
-                Aucune étape définie. Une procédure sans étape ne pourra pas
-                être utilisée pour valider des activités.
-            </div>
-
-            <div v-else class="bo-etapes__list">
-                <div v-for="(etape, index) in form.etapes" :key="index" class="bo-etape">
-
-                    <div class="bo-etape__head">
-                        <span class="bo-etape__niveau">Niveau {{ index + 1 }}</span>
-
-                        <div class="bo-etape__actions">
-                            <button type="button" class="table-action" title="Monter"
-                                :disabled="index === 0 || submitting" @click="deplacerEtape(index, -1)">
-                                <i class="bi bi-arrow-up"></i>
-                            </button>
-                            <button type="button" class="table-action" title="Descendre"
-                                :disabled="index === form.etapes.length - 1 || submitting"
-                                @click="deplacerEtape(index, 1)">
-                                <i class="bi bi-arrow-down"></i>
-                            </button>
-                            <button type="button" class="table-action table-action--danger" title="Retirer"
-                                :disabled="submitting" @click="retirerEtape(index)">
-                                <i class="bi bi-trash"></i>
-                            </button>
+                <!-- Étapes de validation -->
+                <div class="bo-etapes">
+                    <header class="bo-etapes__head">
+                        <div>
+                            <h2 class="bo-etapes__title">Étapes de validation</h2>
+                            <p class="bo-etapes__hint">
+                                Définissez les étapes dans l'ordre. Le niveau est attribué
+                                automatiquement selon la position.
+                            </p>
                         </div>
+                        <BaseButton icon="bi bi-plus-lg" size="sm" :disabled="submitting" @click="ajouterEtape">
+                            Ajouter une étape
+                        </BaseButton>
+                    </header>
+
+                    <div v-if="form.etapes.length === 0" class="bo-etapes__empty">
+                        Aucune étape définie. Une procédure sans étape ne pourra pas
+                        être utilisée pour valider des activités.
                     </div>
 
-                    <div class="bo-etape__body">
-                        <BaseInput v-model="etape.designation" label="Désignation"
-                            placeholder="Ex : Validation par le chef de service" required
-                            :error="errors[`etape-${index}-designation`]" :disabled="submitting" />
+                    <div v-else class="bo-etapes__list">
+                        <div v-for="(etape, index) in form.etapes" :key="index" class="bo-etape">
 
-                        <BaseInput v-model="etape.description" type="textarea" label="Description"
-                            placeholder="Optionnel" :disabled="submitting" />
+                            <div class="bo-etape__head">
+                                <span class="bo-etape__niveau">Niveau {{ index + 1 }}</span>
 
-                        <div class="bo-etape__switches">
-                            <label class="bo-check">
-                                <input type="checkbox" v-model="etape.obligatoire" :disabled="submitting">
-                                <span>Étape obligatoire</span>
-                            </label>
-                            <label class="bo-check">
-                                <input type="checkbox" v-model="etape.retour" :disabled="submitting">
-                                <span>Retour possible</span>
-                            </label>
-                        </div>
-
-                        <div class="bo-etape__decideurs">
-                            <label class="bo-etape__decideurs-label">
-                                Décideurs <span class="required">*</span>
-                            </label>
-
-                            <div class="deciders-select">
-                                <!-- Trigger -->
-                                <button :ref="(el) => setTriggerRef(index, el as Element | null)" type="button"
-                                    class="deciders-select__trigger"
-                                    :class="{ 'deciders-select__trigger--open': decidersOuvert === index }"
-                                    :disabled="submitting || postesActifs.length === 0"
-                                    @click.stop="toggleDeciders(index)">
-                                    <span v-if="etape.idPostesDecideurs.length === 0"
-                                        class="deciders-select__placeholder">
-                                        {{ postesActifs.length === 0
-                                            ? 'Aucun poste actif disponible'
-                                        : 'Sélectionner un ou plusieurs décideurs' }}
-                                    </span>
-                                    <span v-else class="deciders-select__count">
-                                        {{ etape.idPostesDecideurs.length }}
-                                        décideur{{ etape.idPostesDecideurs.length > 1 ? 's' : '' }} sélectionné{{
-                                            etape.idPostesDecideurs.length > 1 ? 's' : '' }}
-                                    </span>
-                                    <i class="bi bi-chevron-down deciders-select__caret"></i>
-                                </button>
-
-                                <!-- Dropdown : rendu dans le body via Teleport, positionné en fixed -->
-                                <Teleport to="body">
-                                    <div v-if="decidersOuvert === index"
-                                        :ref="(el) => setDropdownRef(index, el as Element | null)"
-                                        class="deciders-select__dropdown" :style="decidersStyle" @click.stop>
-                                        <div class="deciders-select__search">
-                                            <i class="bi bi-search"></i>
-                                            <input type="text" placeholder="Rechercher un poste…"
-                                                v-model="decidersRecherche[index]" />
-                                        </div>
-
-                                        <ul class="deciders-select__list">
-                                            <li v-if="postesFiltres(index).length === 0" class="deciders-select__empty">
-                                                Aucun poste ne correspond à la recherche.
-                                            </li>
-                                            <li v-for="p in postesFiltres(index)" :key="p.id"
-                                                class="deciders-select__item"
-                                                :class="{ 'deciders-select__item--selected': etape.idPostesDecideurs.includes(p.id) }"
-                                                @click="basculerDecideur(etape, p.id)">
-                                                <span class="deciders-select__check">
-                                                    <i v-if="etape.idPostesDecideurs.includes(p.id)"
-                                                        class="bi bi-check-lg"></i>
-                                                </span>
-                                                <span class="deciders-select__nom">
-                                                    {{ p.nom }}
-                                                    <span v-if="!p.isMetier" class="deciders-select__tag">support</span>
-                                                </span>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </Teleport>
+                                <div class="bo-etape__actions">
+                                    <button type="button" class="table-action" title="Monter"
+                                        :disabled="index === 0 || submitting" @click="deplacerEtape(index, -1)">
+                                        <i class="bi bi-arrow-up"></i>
+                                    </button>
+                                    <button type="button" class="table-action" title="Descendre"
+                                        :disabled="index === form.etapes.length - 1 || submitting"
+                                        @click="deplacerEtape(index, 1)">
+                                        <i class="bi bi-arrow-down"></i>
+                                    </button>
+                                    <button type="button" class="table-action table-action--danger" title="Retirer"
+                                        :disabled="submitting" @click="retirerEtape(index)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </div>
 
-                            <!-- Badges : s'affichent sous le select, un par décideur retenu -->
-                            <div v-if="etape.idPostesDecideurs.length > 0" class="deciders-badges">
-                                <span v-for="idPoste in etape.idPostesDecideurs" :key="idPoste" class="deciders-badge"
-                                    :class="{ 'deciders-badge--inactive': posteInactif(idPoste) }">
-                                    <i class="bi bi-person-badge"></i>
-                                    <span>{{ nomPoste(idPoste) }}</span>
-                                    <button type="button" class="deciders-badge__remove" :disabled="submitting"
-                                        :aria-label="`Retirer ${nomPoste(idPoste)}`"
-                                        @click="basculerDecideur(etape, idPoste)">
-                                        <i class="bi bi-x"></i>
-                                    </button>
+                            <div class="bo-etape__body">
+                                <BaseInput v-model="etape.designation" label="Désignation"
+                                    placeholder="Ex : Validation par le chef de service" required
+                                    :error="errors[`etape-${index}-designation`]" :disabled="submitting" />
+
+                                <BaseInput v-model="etape.description" type="textarea" label="Description"
+                                    placeholder="Optionnel" :disabled="submitting" />
+
+                                <div class="bo-etape__switches">
+                                    <label class="bo-check">
+                                        <input type="checkbox" v-model="etape.obligatoire" :disabled="submitting">
+                                        <span>Étape obligatoire</span>
+                                    </label>
+                                    <label class="bo-check">
+                                        <input type="checkbox" v-model="etape.retour" :disabled="submitting">
+                                        <span>Retour possible</span>
+                                    </label>
+                                </div>
+
+                                <div class="bo-etape__decideurs">
+                                    <label class="bo-etape__decideurs-label">
+                                        Décideurs <span class="required">*</span>
+                                    </label>
+
+                                    <div class="deciders-select">
+                                        <!-- Trigger -->
+                                        <button :ref="(el) => setTriggerRef(index, el as Element | null)" type="button"
+                                            class="deciders-select__trigger"
+                                            :class="{ 'deciders-select__trigger--open': decidersOuvert === index }"
+                                            :disabled="submitting || postesActifs.length === 0"
+                                            @click.stop="toggleDeciders(index)">
+                                            <span v-if="etape.idPostesDecideurs.length === 0"
+                                                class="deciders-select__placeholder">
+                                                {{ postesActifs.length === 0
+                                                    ? 'Aucun poste actif disponible'
+                                                    : 'Sélectionner un ou plusieurs décideurs' }}
+                                            </span>
+                                            <span v-else class="deciders-select__count">
+                                                {{ etape.idPostesDecideurs.length }}
+                                                décideur{{ etape.idPostesDecideurs.length > 1 ? 's' : '' }}
+                                                sélectionné{{
+                                                    etape.idPostesDecideurs.length > 1 ? 's' : '' }}
+                                            </span>
+                                            <i class="bi bi-chevron-down deciders-select__caret"></i>
+                                        </button>
+
+                                        <!-- Dropdown : rendu dans le body via Teleport, positionné en fixed -->
+                                        <Teleport to="body">
+                                            <div v-if="decidersOuvert === index"
+                                                :ref="(el) => setDropdownRef(index, el as Element | null)"
+                                                class="deciders-select__dropdown" :style="decidersStyle" @click.stop>
+                                                <div class="deciders-select__search">
+                                                    <i class="bi bi-search"></i>
+                                                    <input type="text" placeholder="Rechercher un poste…"
+                                                        v-model="decidersRecherche[index]" />
+                                                </div>
+
+                                                <ul class="deciders-select__list">
+                                                    <li v-if="postesFiltres(index).length === 0"
+                                                        class="deciders-select__empty">
+                                                        Aucun poste ne correspond à la recherche.
+                                                    </li>
+                                                    <li v-for="p in postesFiltres(index)" :key="p.id"
+                                                        class="deciders-select__item"
+                                                        :class="{ 'deciders-select__item--selected': etape.idPostesDecideurs.includes(p.id) }"
+                                                        @click="basculerDecideur(etape, p.id)">
+                                                        <span class="deciders-select__check">
+                                                            <i v-if="etape.idPostesDecideurs.includes(p.id)"
+                                                                class="bi bi-check-lg"></i>
+                                                        </span>
+                                                        <span class="deciders-select__nom">
+                                                            {{ p.nom }}
+                                                            <span v-if="!p.isMetier"
+                                                                class="deciders-select__tag">support</span>
+                                                        </span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </Teleport>
+                                    </div>
+
+                                    <!-- Badges : s'affichent sous le select, un par décideur retenu -->
+                                    <div v-if="etape.idPostesDecideurs.length > 0" class="deciders-badges">
+                                        <span v-for="idPoste in etape.idPostesDecideurs" :key="idPoste"
+                                            class="deciders-badge"
+                                            :class="{ 'deciders-badge--inactive': posteInactif(idPoste) }">
+                                            <i class="bi bi-person-badge"></i>
+                                            <span>{{ nomPoste(idPoste) }}</span>
+                                            <button type="button" class="deciders-badge__remove" :disabled="submitting"
+                                                :aria-label="`Retirer ${nomPoste(idPoste)}`"
+                                                @click="basculerDecideur(etape, idPoste)">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </span>
+                                    </div>
+
+                                    <small v-if="errors[`etape-${index}-decideurs`]" class="error-message">
+                                        {{ errors[`etape-${index}-decideurs`] }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bo-form__actions">
+                    <BaseButton variant="secondary" :disabled="submitting" @click="annuler">
+                        Annuler
+                    </BaseButton>
+                    <BaseButton :loading="submitting" @click="soumettre">
+                        {{ isEdition ? 'Enregistrer' : 'Créer' }}
+                    </BaseButton>
+                </div>
+            </div>
+
+            <!-- Panneau récapitulatif -->
+            <aside class="bo-resume" aria-label="Récapitulatif">
+                <header class="bo-resume__head">
+                    <i class="bi bi-clipboard-check"></i>
+                    <h2 class="bo-resume__title">Récapitulatif</h2>
+                </header>
+
+                <div class="bo-resume__section">
+                    <div class="bo-resume__label">Procédure</div>
+                    <div class="bo-resume__value bo-resume__value--strong">{{ resume.designation }}</div>
+                    <div v-if="form.description.trim()" class="bo-resume__desc">
+                        {{ form.description }}
+                    </div>
+                </div>
+
+                <hr class="bo-resume__sep">
+
+                <div class="bo-resume__stats">
+                    <div class="bo-resume__stat">
+                        <span class="bo-resume__stat-value">{{ resume.nbEtapes }}</span>
+                        <span class="bo-resume__stat-label">
+                            Étape{{ resume.nbEtapes > 1 ? 's' : '' }}
+                        </span>
+                    </div>
+                    <div class="bo-resume__stat">
+                        <span class="bo-resume__stat-value">{{ resume.totalDecideurs }}</span>
+                        <span class="bo-resume__stat-label">
+                            Décideur{{ resume.totalDecideurs > 1 ? 's' : '' }}
+                        </span>
+                    </div>
+                </div>
+
+                <div v-if="form.etapes.length > 0" class="bo-resume__section">
+                    <div class="bo-resume__label">Détail des étapes</div>
+                    <ol class="bo-resume__steps">
+                        <li v-for="(etape, index) in form.etapes" :key="index" class="bo-resume__step"
+                            :class="{ 'bo-resume__step--incomplete': !etape.designation.trim() || etape.idPostesDecideurs.length === 0 }">
+                            <div class="bo-resume__step-head">
+                                <span class="bo-resume__step-niveau">N{{ index + 1 }}</span>
+                                <span class="bo-resume__step-designation">
+                                    {{ etape.designation.trim() || 'Sans désignation' }}
                                 </span>
                             </div>
-
-                            <small v-if="errors[`etape-${index}-decideurs`]" class="error-message">
-                                {{ errors[`etape-${index}-decideurs`] }}
-                            </small>
-                        </div>
-                    </div>
+                            <div class="bo-resume__step-meta">
+                                <span class="bo-resume__tag" :class="{ 'bo-resume__tag--required': etape.obligatoire }">
+                                    {{ etape.obligatoire ? 'Obligatoire' : 'Optionnelle' }}
+                                </span>
+                                <span v-if="etape.retour" class="bo-resume__tag">Retour</span>
+                            </div>
+                            <div v-if="etape.idPostesDecideurs.length > 0" class="bo-resume__step-decideurs">
+                                <i class="bi bi-person-badge"></i>
+                                <span>{{etape.idPostesDecideurs.map(id => nomPoste(id)).join(', ')}}</span>
+                            </div>
+                            <div v-else class="bo-resume__step-warning">
+                                <i class="bi bi-exclamation-circle"></i> Aucun décideur
+                            </div>
+                        </li>
+                    </ol>
                 </div>
-            </div>
-        </div>
 
-        <div class="bo-form__actions">
-            <BaseButton variant="secondary" :disabled="submitting" @click="annuler">
-                Annuler
-            </BaseButton>
-            <BaseButton :loading="submitting" @click="soumettre">
-                {{ isEdition ? 'Enregistrer' : 'Créer' }}
-            </BaseButton>
+                <div v-else class="bo-resume__empty">
+                    Aucune étape définie
+                </div>
+
+                <div v-if="resume.etapesIncompletes > 0" class="bo-resume__warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    {{ resume.etapesIncompletes }}
+                    étape{{ resume.etapesIncompletes > 1 ? 's' : '' }}
+                    incomplète{{ resume.etapesIncompletes > 1 ? 's' : '' }}
+                </div>
+            </aside>
         </div>
     </div>
 </template>
@@ -486,8 +579,25 @@ function fermerDecidersSiExterne(event: MouseEvent): void {
     font-size: 0.85rem;
 }
 
+/* ============ Layout 2 colonnes ============ */
+.bo-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 1.5rem;
+    align-items: start;
+    max-width: 1144px;
+    /* 820 (form) + 300 (aside) + 24 (gap) */
+    width: 100%;
+}
+
+.bo-layout__main {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+}
+
 .bo-form {
-    max-width: 820px;
     background: var(--dts-surface);
     border: 1px solid var(--dts-border);
     border-radius: var(--dts-radius);
@@ -500,7 +610,6 @@ function fermerDecidersSiExterne(event: MouseEvent): void {
 /* --- étapes --- */
 
 .bo-etapes {
-    max-width: 820px;
     background: var(--dts-surface);
     border: 1px solid var(--dts-border);
     border-radius: var(--dts-radius);
@@ -551,7 +660,6 @@ function fermerDecidersSiExterne(event: MouseEvent): void {
     border: 1px solid var(--dts-border);
     border-radius: var(--dts-radius-sm);
     background: var(--dts-bg);
-    /* overflow: hidden; */
 }
 
 .bo-etape__head {
@@ -911,10 +1019,274 @@ function fermerDecidersSiExterne(event: MouseEvent): void {
 }
 
 .bo-form__actions {
-    max-width: 820px;
     display: flex;
     justify-content: flex-end;
     gap: 0.75rem;
+}
+
+/* ============ Panneau récapitulatif ============ */
+.bo-resume {
+    position: sticky;
+    top: 1.5rem;
+    background: var(--dts-surface);
+    border: 1px solid var(--dts-border);
+    border-radius: var(--dts-radius);
+    padding: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.bo-resume__head {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid var(--dts-border);
+}
+
+.bo-resume__head i {
+    color: var(--dts-blue);
+    font-size: 1rem;
+}
+
+.bo-resume__title {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--dts-navy);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.bo-resume__section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.bo-resume__label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--dts-muted);
+    font-weight: 700;
+}
+
+.bo-resume__value {
+    font-size: 0.88rem;
+    color: var(--dts-text);
+    word-break: break-word;
+}
+
+.bo-resume__value--strong {
+    font-weight: 600;
+    color: var(--dts-navy);
+}
+
+.bo-resume__desc {
+    font-size: 0.78rem;
+    color: var(--dts-muted);
+    line-height: 1.45;
+    margin-top: 0.15rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.bo-resume__sep {
+    border: none;
+    border-top: 1px solid var(--dts-border);
+    margin: 0;
+}
+
+/* --- Statistiques --- */
+.bo-resume__stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+}
+
+.bo-resume__stat {
+    background: var(--dts-bg);
+    border: 1px solid var(--dts-border);
+    border-radius: var(--dts-radius-sm);
+    padding: 0.6rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+}
+
+.bo-resume__stat-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--dts-navy);
+    line-height: 1;
+}
+
+.bo-resume__stat-label {
+    font-size: 0.68rem;
+    color: var(--dts-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+}
+
+/* --- Liste des étapes --- */
+.bo-resume__steps {
+    list-style: none;
+    margin: 0.15rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    max-height: 340px;
+    overflow-y: auto;
+}
+
+.bo-resume__step {
+    padding: 0.55rem 0.65rem;
+    border: 1px solid var(--dts-border);
+    border-left: 3px solid var(--dts-blue);
+    border-radius: 6px;
+    background: var(--dts-bg);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.bo-resume__step--incomplete {
+    border-left-color: var(--dts-danger);
+    background: #fdf5f5;
+}
+
+.bo-resume__step-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.bo-resume__step-niveau {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    font-weight: 700;
+    background: var(--dts-navy);
+    color: #fff;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    letter-spacing: 0.03em;
+}
+
+.bo-resume__step-designation {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--dts-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.bo-resume__step--incomplete .bo-resume__step-designation {
+    color: var(--dts-danger);
+}
+
+.bo-resume__step-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+}
+
+.bo-resume__tag {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 20px;
+    background: #eef1f5;
+    color: #5b6b7d;
+    border: 1px solid #dfe5ec;
+}
+
+.bo-resume__tag--required {
+    background: #e7f1fb;
+    color: var(--dts-blue);
+    border-color: #cde2f6;
+}
+
+.bo-resume__step-decideurs {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    color: var(--dts-text-2);
+    line-height: 1.35;
+}
+
+.bo-resume__step-decideurs i {
+    color: var(--dts-blue);
+    flex-shrink: 0;
+    margin-top: 0.05rem;
+}
+
+.bo-resume__step-warning {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.72rem;
+    color: var(--dts-danger);
+    font-weight: 500;
+}
+
+.bo-resume__empty {
+    padding: 0.85rem;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--dts-muted);
+    background: var(--dts-bg);
+    border: 1px dashed var(--dts-border-2);
+    border-radius: var(--dts-radius-sm);
+}
+
+.bo-resume__warning {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 0.7rem;
+    background: #fdf3e2;
+    border: 1px solid #f4e2c2;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    color: #9a6409;
+    font-weight: 500;
+}
+
+.bo-resume__warning i {
+    flex-shrink: 0;
+}
+
+/* ============ Responsive ============ */
+@media (max-width: 992px) {
+    .bo-layout {
+        grid-template-columns: 1fr;
+        max-width: none;
+    }
+
+    .bo-resume {
+        position: static;
+        order: 2;
+    }
+
+    .bo-layout__main {
+        order: 1;
+    }
+
+    .bo-resume__steps {
+        max-height: none;
+    }
 }
 
 @media (max-width: 576px) {

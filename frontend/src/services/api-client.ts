@@ -27,6 +27,15 @@ function getAccessToken(): string | null {
 
 export const UNAUTHORIZED_EVENT = 'saga:unauthorized'
 
+export interface ApiRequestOptions {
+    /**
+     * Appel d'authentification (login, activation, reset...).
+     *
+     * Un 401 y signifie « identifiants invalides », pas « session expirée » :
+     * on laisse remonter le message d'erreur du backend.
+     */
+    authRequest?: boolean
+}
 
 function handleAuthFailure(): void {
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
@@ -58,11 +67,13 @@ function getHeaders(
  * Traite la réponse HTTP du backend.
  */
 async function handleResponse<T>(
-    response: Response
+    response: Response,
+    options: ApiRequestOptions = {}
 ): Promise<ApiResponse<T>> {
 
-    // 1. Cas explicite : 401 → session morte
-    if (response.status === 401) {
+    // 1. Cas explicite : 401 → session morte, sauf sur un appel
+    //    d'authentification où c'est un échec d'identifiants.
+    if (response.status === 401 && !options.authRequest) {
         handleAuthFailure()
         return {
             success: false,
@@ -78,7 +89,7 @@ async function handleResponse<T>(
     try {
         result = await response.json()
     } catch {
-        if (getAccessToken() !== null) {
+        if (!options.authRequest && getAccessToken() !== null) {
             handleAuthFailure()
             return {
                 success: false,
@@ -117,7 +128,8 @@ async function handleResponse<T>(
  * Requête GET
  */
 export async function get<T>(
-    url: string
+    url: string,
+    options: ApiRequestOptions = {}
 ): Promise<ApiResponse<T>> {
 
     const response = await fetch(`${BASE_URL}${url}`, {
@@ -125,11 +137,12 @@ export async function get<T>(
         headers: getHeaders(),
     })
 
-    return handleResponse<T>(response)
+    return handleResponse<T>(response, options)
 }
 
 export async function getBlob(
-    url: string
+    url: string,
+    options: ApiRequestOptions = {}
 ): Promise<ApiResponse<Blob>> {
 
     const response = await fetch(`${BASE_URL}${url}`, {
@@ -138,7 +151,7 @@ export async function getBlob(
     })
 
     // 401 explicite
-    if (response.status === 401) {
+    if (response.status === 401 && !options.authRequest) {
         handleAuthFailure()
         return {
             success: false,
@@ -199,7 +212,8 @@ export async function getBlob(
  */
 export async function post<T>(
     url: string,
-    body: unknown
+    body: unknown,
+    options: ApiRequestOptions = {}
 ): Promise<ApiResponse<T>> {
 
     const response = await fetch(`${BASE_URL}${url}`, {
@@ -208,7 +222,7 @@ export async function post<T>(
         body: JSON.stringify(body),
     })
 
-    return handleResponse<T>(response)
+    return handleResponse<T>(response, options)
 }
 
 /**
@@ -216,7 +230,8 @@ export async function post<T>(
  */
 export async function put<T>(
     url: string,
-    body: unknown
+    body: unknown,
+    options: ApiRequestOptions = {}
 ): Promise<ApiResponse<T>> {
 
     const response = await fetch(`${BASE_URL}${url}`, {
@@ -225,7 +240,7 @@ export async function put<T>(
         body: JSON.stringify(body),
     })
 
-    return handleResponse<T>(response)
+    return handleResponse<T>(response, options)
 }
 
 /**
@@ -233,7 +248,8 @@ export async function put<T>(
  */
 export async function del<T = unknown>(
     url: string,
-    body?: unknown
+    body?: unknown,
+    options: ApiRequestOptions = {}
 ): Promise<ApiResponse<T>> {
 
     const response = await fetch(`${BASE_URL}${url}`, {
@@ -246,7 +262,7 @@ export async function del<T = unknown>(
             : undefined,
     })
 
-    return handleResponse<T>(response)
+    return handleResponse<T>(response, options)
 }
 
 /**
@@ -254,7 +270,8 @@ export async function del<T = unknown>(
  */
 export async function postForm<T>(
     url: string,
-    formData: FormData
+    formData: FormData,
+    options: ApiRequestOptions = {}
 ): Promise<ApiResponse<T>> {
 
     const response = await fetch(`${BASE_URL}${url}`, {
@@ -263,7 +280,7 @@ export async function postForm<T>(
         body: formData,
     })
 
-    return handleResponse<T>(response)
+    return handleResponse<T>(response, options)
 }
 
 /**
@@ -271,7 +288,8 @@ export async function postForm<T>(
  */
 export async function patch<T>(
     url: string,
-    body?: unknown
+    body?: unknown,
+    options: ApiRequestOptions = {}
 ): Promise<ApiResponse<T>> {
 
     const response = await fetch(`${BASE_URL}${url}`, {
@@ -280,5 +298,5 @@ export async function patch<T>(
         body: body ? JSON.stringify(body) : undefined,
     })
 
-    return handleResponse<T>(response)
+    return handleResponse<T>(response, options)
 }

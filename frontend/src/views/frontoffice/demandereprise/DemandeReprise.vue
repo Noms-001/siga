@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseButton, BaseInput } from '@/components/base'
@@ -24,8 +25,8 @@ const vue = ref<VuePrincipale>('mes-demandes')
 const sousVue = ref<SousVue>('activites')
 
 const loading = ref(false)
-const errorMessage = ref('')
-const successMessage = ref('')
+const errorMessage = useToastMessage('error')
+const successMessage = useToastMessage('success')
 
 const demandesActivites = ref<DemandeRepriseActivite[]>([])
 const demandesPlans = ref<DemandeReprisePlan[]>([])
@@ -206,17 +207,7 @@ onMounted(charger)
         </header>
 
         <!-- Message succès -->
-        <div v-if="successMessage" class="alert alert-success mb-0">
-            <i class="bi bi-check-circle-fill"></i>
-            {{ successMessage }}
-        </div>
-
         <!-- Erreur -->
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
         <!-- Onglets principaux -->
         <div class="main-tabs">
             <button :class="['main-tab', { 'main-tab--active': vue === 'mes-demandes' }]"

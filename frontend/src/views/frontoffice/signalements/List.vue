@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseTable, BaseButton, BaseSelect } from '@/components/base'
@@ -17,7 +18,7 @@ const router = useRouter()
 const items = ref<Signalement[]>([])
 const typesDisponibles = ref<string[]>([])
 const loading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
 
 const type = ref<string>('all')
 const planAction = ref<'all' | 'with' | 'without'>('all')
@@ -217,11 +218,6 @@ function nomComplet(s: Signalement): string {
         </section>
 
         <!-- ============ MESSAGES ============ -->
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center" role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
         <!-- ============ FILTRES ============ -->
         <section class="filters-card" aria-labelledby="filters-title">
             <header class="filters-card__head">

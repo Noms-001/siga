@@ -142,6 +142,22 @@ CREATE TABLE activite (
    )
 );
 
+ALTER TABLE activite ADD COLUMN IF NOT EXISTS id_procedure INTEGER;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        WHERE t.relname = 'activite'
+          AND c.conname = 'activite_id_procedure_fkey'
+    ) THEN
+        ALTER TABLE activite
+            ADD CONSTRAINT activite_id_procedure_fkey
+            FOREIGN KEY (id_procedure) REFERENCES "procedure"(id_procedure);
+    END IF;
+END $$;
+
 CREATE UNIQUE INDEX uq_activite_service_code_ci ON activite (id_service, LOWER(code));
 
 CREATE INDEX ix_activite_service

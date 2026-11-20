@@ -23,6 +23,7 @@ import mg.bank.backend.dto.activite.ActiviteListItemDTO;
 import mg.bank.backend.dto.activite.ActiviteOptionsDTO;
 import mg.bank.backend.dto.activite.ActiviteStatistiquesDTO;
 import mg.bank.backend.dto.activite.ActiviteSuiviDTO;
+import mg.bank.backend.dto.activite.ActiviteSuiviStatistiquesDTO;
 import mg.bank.backend.dto.activite.AutocompleteDTO;
 import mg.bank.backend.dto.activite.ObjectifSpecifiqueEcritureRequest;
 import mg.bank.backend.dto.activite.ResponsableSuiviDTO;
@@ -50,6 +51,7 @@ import mg.bank.backend.repository.activite.AvancementSousActiviteRepository;
 import mg.bank.backend.repository.activite.HistoriqueActiviteRepository;
 import mg.bank.backend.repository.projection.activite.ActiviteListRow;
 import mg.bank.backend.repository.projection.activite.ActiviteStatistiquesRow;
+import mg.bank.backend.repository.projection.activite.ActiviteSuiviStatistiquesRow;
 import mg.bank.backend.repository.projection.activite.AvancementSousActiviteRow;
 import mg.bank.backend.repository.projection.activite.ResponsableSuiviRow;
 import mg.bank.backend.repository.projection.activite.SousActiviteSuiviRow;
@@ -569,6 +571,42 @@ public class ActiviteService {
                                 .build();
         }
 
+        @Transactional(readOnly = true)
+        public ActiviteSuiviStatistiquesDTO statistiquesSuivi(ActiviteFiltreCriteria filtres) {
+                PerimetreUtilisateur perimetre = getPerimetre();
+                var args = ActiviteQuerySupport.arguments(filtres, perimetre);
+
+                ActiviteSuiviStatistiquesRow row = activiteRepository.statistiquesSuivi(
+                                args.pta(),
+                                args.recherche(),
+                                args.objectifId(),
+                                args.objectifRecherche(),
+                                args.servicePerimetre(),
+                                args.departementPerimetre(),
+                                args.serviceDemande(),
+                                args.prioriteId(),
+                                args.typeActiviteId(),
+                                args.siteId(),
+                                args.statutCode(),
+                                args.codesTerminaux(),
+                                args.annee(),
+                                args.moisDebut(),
+                                args.moisFin(),
+                                args.dateDebut(),
+                                args.dateFin());
+
+                return ActiviteSuiviStatistiquesDTO.builder()
+                                .totalActivites(ActiviteQuerySupport.nulSiAbsent(
+                                                row == null ? null : row.getTotalActivites()))
+                                .totalSousActivites(ActiviteQuerySupport.nulSiAbsent(
+                                                row == null ? null : row.getTotalSousActivites()))
+                                .sousActivitesTerminees(ActiviteQuerySupport.nulSiAbsent(
+                                                row == null ? null : row.getSousActivitesTerminees()))
+                                .avancementMoyen(java.util.Optional.ofNullable(
+                                                row == null ? null : row.getAvancementMoyen()).orElse(0d))
+                                .build();
+        }
+
         // ------------------------------------------------------------------
         // Referentiels de filtres
         // ------------------------------------------------------------------
@@ -598,13 +636,14 @@ public class ActiviteService {
         // ------------------------------------------------------------------
 
         @Transactional(readOnly = true)
-        public List<AutocompleteDTO> autocompleterActivites(String recherche) {
+        public List<AutocompleteDTO> autocompleterActivites(String recherche, Boolean pta) {
 
                 PerimetreUtilisateur perimetre = getPerimetre();
 
                 List<OptionRow> rows = activiteRepository.autocomplete(
                                 ActiviteQuerySupport.videSiBlanc(recherche),
                                 ActiviteQuerySupport.motif(recherche),
+                                pta,
                                 perimetre.getFiltreService(),
                                 perimetre.getFiltreDepartement(),
                                 TAILLE_AUTOCOMPLETE);
@@ -760,7 +799,7 @@ public class ActiviteService {
                                                                 .code(row.getStatutCode())
                                                                 .libelle(row.getStatutLibelle())
                                                                 .build())
-                                .avancement(row.getAvancement() == null ? 0d : row.getAvancement())
+                                .avancement(java.util.Optional.ofNullable(row.getAvancement()).orElse(0d))
                                 .sousActivites(List.of())
                                 .build();
         }
@@ -780,7 +819,7 @@ public class ActiviteService {
                                 .findDerniersPourSousActivites(idsSous).stream()
                                 .collect(Collectors.toMap(
                                                 AvancementSousActiviteRow::getIdSousActivite,
-                                                r -> r.getValeur() == null ? 0d : r.getValeur(),
+                                                r -> java.util.Optional.ofNullable(r.getValeur()).orElse(0d),
                                                 (a, b) -> a));
 
                 return sousActivites.stream()

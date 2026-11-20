@@ -1,14 +1,17 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseButton } from '@/components/base'
-import { getDashboardIndicateurs } from '@/services/indicateurFront'
-import type { DashboardIndicateur } from '@/types/backoffice/indicateur'
+import SaisieValeurModal from '@/components/SaisieValeurModal.vue'
+import { getDashboardIndicateurs, saisirValeurIndicateur } from '@/services/indicateurFront'
+import type { DashboardIndicateur, IndicateurAvecAtteinte } from '@/types/backoffice/indicateur'
 
 const router = useRouter()
 const data = ref<DashboardIndicateur | null>(null)
 const loading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
+const saisieSuccess = useToastMessage('success')
 
 const dateDuJour = computed(() =>
     new Intl.DateTimeFormat('fr-FR', {
@@ -30,6 +33,58 @@ async function charger(): Promise<void> {
 
 function voirIndicateur(id: number): void {
     router.push({ name: 'indicateur-detail', params: { id } })
+}
+
+/* -------------------- saisie de valeur -------------------- */
+
+type SaisieCible = {
+    id: number
+    typeIndicateur: string | null
+    uniteMesure: string | null
+    valeurCible: number | null
+}
+
+const saisieOuverte = ref(false)
+const saisieCible = ref<SaisieCible | null>(null)
+
+function ouvrirSaisie(ind: IndicateurAvecAtteinte): void {
+    saisieSuccess.value = ''
+    saisieCible.value = {
+        id: ind.id,
+        typeIndicateur: ind.typeIndicateur,
+        uniteMesure: ind.uniteMesure,
+        valeurCible: ind.valeurCible,
+    }
+    saisieOuverte.value = true
+}
+
+function ouvrirSaisieRetard(r: DashboardIndicateur['enRetard'][number]): void {
+    saisieSuccess.value = ''
+    saisieCible.value = {
+        id: r.idIndicateur,
+        typeIndicateur: r.typeIndicateur,
+        uniteMesure: null,
+        valeurCible: null,
+    }
+    saisieOuverte.value = true
+}
+
+async function surSaisie(payload: {
+    valeur: number
+    periodeDebut: string
+    periodeFin: string
+    commentaire: string | null
+}): Promise<void> {
+    if (!saisieCible.value) return
+    const res = await saisirValeurIndicateur(saisieCible.value.id, payload)
+    if (!res.success) {
+        errorMessage.value = res.error
+        return
+    }
+    saisieOuverte.value = false
+    saisieSuccess.value = `Valeur de ${payload.valeur} enregistrée.`
+    await charger()
+    setTimeout(() => (saisieSuccess.value = ''), 4000)
 }
 
 function formaterValeur(v: number | null, unite: string | null | undefined): string {
@@ -91,12 +146,7 @@ onMounted(charger)
             </div>
         </header>
 
-        <div v-if="errorMessage" class="alert alert-danger d-flex justify-content-between align-items-center">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
-        <div v-else-if="loading" class="loading-state">
+        <div v-if="loading" class="loading-state">
             <div class="skeleton skeleton-cards"></div>
             <div class="skeleton skeleton-cards"></div>
         </div>
@@ -165,6 +215,12 @@ onMounted(charger)
                                 Dernière : {{ formaterDate(r.dernierePeriodeFin) }}
                             </span>
                         </div>
+                        <div class="retard-item__actions">
+                            <BaseButton size="sm" variant="primary" icon="bi bi-pencil-square"
+                                @click.stop="ouvrirSaisieRetard(r)">
+                                Saisir la valeur
+                            </BaseButton>
+                        </div>
                     </li>
                 </ul>
             </section>
@@ -195,6 +251,7 @@ onMounted(charger)
                                 <th>Valeur</th>
                                 <th>Écart</th>
                                 <th>Statut</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -226,6 +283,12 @@ onMounted(charger)
                                         {{ libelleStatut(ind.statut) }}
                                     </span>
                                 </td>
+                                <td class="col-action">
+                                    <BaseButton size="sm" variant="primary" icon="bi bi-pencil-square"
+                                        @click.stop="ouvrirSaisie(ind)">
+                                        Saisir
+                                    </BaseButton>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -233,6 +296,10 @@ onMounted(charger)
             </section>
         </template>
     </div>
+
+    <SaisieValeurModal v-model="saisieOuverte" :unite-mesure="saisieCible?.uniteMesure"
+        :valeur-cible="saisieCible?.valeurCible" :type-indicateur="saisieCible?.typeIndicateur"
+        @valide="surSaisie" />
 </template>
 
 <style scoped>
@@ -418,6 +485,12 @@ onMounted(charger)
     color: #8a95a8;
 }
 
+.retard-item__actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.35rem;
+}
+
 .retard-badge {
     background: #fde9e9;
     color: #b03030;
@@ -501,6 +574,11 @@ onMounted(charger)
 .col-val {
     font-weight: 700;
     color: #1a2a6c;
+}
+
+.col-action {
+    text-align: right;
+    white-space: nowrap;
 }
 
 .text-ok {

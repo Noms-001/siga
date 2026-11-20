@@ -803,57 +803,6 @@ SELECT cron.schedule(
         $$SELECT verifier_retour_en_cours_activites();
 $$
 );
--- =============================================================================
--- 4. DÉMONSTRATION IMMÉDIATE (une seule fois, à l'installation)
--- =============================================================================
--- Insère une valeur 999 pour déclencher le trigger d'indicateur,
--- et appelle les 3 fonctions pour générer les notifications SA + plans,
--- sans attendre le cron de 05h30.
-DO $$ BEGIN IF EXISTS (
-    SELECT 1
-    FROM indicateur
-    WHERE code = 'TIND-01'
-) THEN
-INSERT INTO valeur_indicateur (
-        valeur,
-        periode_debut,
-        periode_fin,
-        id_utilisateur,
-        id_indicateur
-    )
-SELECT 999,
-    NOW() - INTERVAL '1 day',
-    NOW(),
-    u.id_utilisateur,
-    i.id_indicateur
-FROM utilisateur u,
-    indicateur i
-WHERE u.email = 'toky.andriambololona@example.mg'
-    AND i.code = 'TIND-01';
-RAISE NOTICE 'Démo trigger : valeur 999 insérée pour TIND-01 (2 notifications attendues).';
-END IF;
-END $$;
-SELECT verifier_notifications_sous_activites();
-SELECT verifier_notifications_plans_action();
-SELECT verifier_retour_en_cours_activites();
--- =============================================================================
--- 5. VÉRIFICATIONS (résultats attendus ci-dessous)
--- =============================================================================
--- Attendu : 14 notifications
---   - 2 du trigger indicateur (valeur 999 → Toky + Haja)
---   - 1 SA échéance proche (TSA-A1-01)
---   - 1 SA démarrage retard (TSA-A1-02)
---   - 1 SA en retard (TSA-A1-03)
---   - 1 plan échéance proche (TPA-01)
---   - 1 plan en retard (TPA-02)
---   - 2 alertes hiérarchiques (Chef service + Chef département)
---   - 1 plan démarrage retard (TPA-03)
---   + 2 (valeur 5 + 150 chargées par data.sql n'ont PAS déclenché car trigger absent)
---   - 1 ligne EN_RETARD ajoutée pour TSA-A1-03 et TPA-02 (dans avancement)
-SELECT titre,
-    resource,
-    id_reference,
-    LEFT(message, 60) || '…' AS apercu
-FROM notification
-WHERE date_creation > NOW() - INTERVAL '10 minutes'
-ORDER BY date_creation DESC;
+-- Les scripts de démarrage n'insèrent pas de fixtures ni ne déclenchent
+-- artificiellement les notifications. Les fonctions ci-dessus sont utilisées
+-- par les triggers et les tâches planifiées sur les données réellement saisies.

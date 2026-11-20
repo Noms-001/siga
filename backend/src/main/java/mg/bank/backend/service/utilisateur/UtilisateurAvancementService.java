@@ -26,29 +26,10 @@ import mg.bank.backend.repository.projection.activite.UtilisateurActiviteAnneeRo
 import mg.bank.backend.repository.projection.planaction.UtilisateurPlanActionAnneeRow;
 import mg.bank.backend.repository.utilisateur.UtilisateurRepository;
 
-/**
- * Avancement d'un utilisateur sur une annee : liste des activites et
- * plans d'action auxquels il est affecte, avec leur avancement courant.
- *
- * <p>Regles :</p>
- * <ul>
- *   <li>tous les roles sont inclus (RESPONSABLE, SUPPLEANT, PARTICIPANT) ;</li>
- *   <li>seules les affectations actives sont prises en compte
- *       (date_desaffectation IS NULL) ;</li>
- *   <li>une entite touche l'annee si dateDebutPrevue <= 31/12/N et
- *       (dateFinPrevue IS NULL ou dateFinPrevue >= 01/01/N) ;</li>
- *   <li>l'avancement moyen est calcule sur TOUTES les entites (tous
- *       roles confondus) ;</li>
- *   <li>joursDeRetard : 0 si terminee a temps, date_fin_reelle -
- *       date_fin_prevue si terminee en retard, CURRENT_DATE -
- *       date_fin_prevue si non terminee apres l'echeance.</li>
- * </ul>
- */
 @Service
 @RequiredArgsConstructor
 public class UtilisateurAvancementService {
 
-    /** Statuts terminaux qui ne declenchent pas de retard. */
     private static final Set<String> STATUTS_TERMINAUX =
             Set.of("TERMINEE", "ANNULEE", "REJETEE");
 

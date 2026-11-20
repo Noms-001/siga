@@ -7,7 +7,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -21,6 +20,7 @@ import mg.bank.backend.dto.planaction.SuiviGlobalPlanActionDTO;
 import mg.bank.backend.repository.planaction.PlanActionRepository;
 import mg.bank.backend.repository.projection.planaction.PlanActionSuiviRow;
 import mg.bank.backend.repository.projection.planaction.PlanActionTypeOrigineRow;
+import mg.bank.backend.service.common.PeriodeSupport.Periode;
 
 
 @Service
@@ -38,11 +38,12 @@ public class SuiviGlobalPlanActionService {
     private final PlanActionRepository planActionRepository;
 
     @Transactional(readOnly = true)
-    public SuiviGlobalPlanActionDTO suiviGlobal() {
+    public SuiviGlobalPlanActionDTO suiviGlobal(Periode periode) {
 
         // 1. Lire tous les plans actifs (statuts non BROUILLON/ANNULEE)
         String statutsCsv = String.join(",", STATUTS_ACTIFS);
-        List<PlanActionSuiviRow> plans = planActionRepository.findPlansPourSuivi(statutsCsv);
+        List<PlanActionSuiviRow> plans = planActionRepository.findPlansPourSuivi(
+                statutsCsv, periode.debut(), periode.fin(), periode.reference());
 
         if (plans.isEmpty()) {
             return SuiviGlobalPlanActionDTO.builder()
@@ -56,7 +57,7 @@ public class SuiviGlobalPlanActionService {
                     .build();
         }
 
-        LocalDate aujourdHui = LocalDate.now();
+        LocalDate aujourdHui = periode.reference();
 
         // 2. Repartition des statuts
         Set<Integer> idsPlans = plans.stream()
@@ -89,16 +90,15 @@ public class SuiviGlobalPlanActionService {
             }
         }
 
-        // 3. Répartition par type d'origine
+        // 3. Répartition par origine principale (ou, à défaut, la première
+        // origine liée selon son identifiant). Chaque plan ne compte qu'une fois.
         List<PlanActionSuiviRow> finalPlans = plans;
-        Map<Integer, Set<String>> typesParPlan = new HashMap<>();
+        Map<Integer, String> typeParPlan = new HashMap<>();
         if (!idsPlans.isEmpty()) {
             List<PlanActionTypeOrigineRow> typesRows = planActionRepository
                     .findTypesOriginePourPlans(new ArrayList<>(idsPlans));
             for (PlanActionTypeOrigineRow r : typesRows) {
-                typesParPlan
-                        .computeIfAbsent(r.getIdPlanAction(), k -> new HashSet<>())
-                        .add(r.getTypeOrigine());
+                typeParPlan.put(r.getIdPlanAction(), r.getTypeOrigine());
             }
         }
 
@@ -106,8 +106,8 @@ public class SuiviGlobalPlanActionService {
         Map<String, Integer> compteurParType = new HashMap<>();
 
         for (PlanActionSuiviRow p : finalPlans) {
-            Set<String> types = typesParPlan.getOrDefault(p.getId(), Set.of());
-            for (String type : types) {
+                        String type = typeParPlan.get(p.getId());
+                        if (type != null) {
                 compteurParType.merge(type, 1, Integer::sum);
                 avancementsParType
                         .computeIfAbsent(type, k -> new ArrayList<>())

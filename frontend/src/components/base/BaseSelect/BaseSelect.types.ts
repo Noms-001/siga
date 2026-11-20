@@ -37,5 +37,16 @@ export interface BaseSelectProps {
 
     autocomplete?: boolean
 
+    /** Les options sont déjà filtrées par le serveur : pas de filtrage local. */
+    remote?: boolean
+
+    /** Efface la valeur sélectionnée dès que l'utilisateur modifie le texte. */
+    clearOnInput?: boolean
+
     allowCustom?: boolean
+
+    icon?: string
+    iconRight?: string
+
+    clearable?: boolean   // NEW — affiche un bouton × pour vider
 }

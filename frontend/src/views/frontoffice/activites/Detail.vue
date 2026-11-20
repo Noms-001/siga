@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -68,7 +69,7 @@ const idActivite = computed(() => Number(route.params.id))
 
 const detail = ref<ActiviteDetail | null>(null)
 const chargement = ref(false)
-const erreur = ref<string | null>(null)
+const erreur = useToastMessage('error')
 
 /** Onglet actif — les données sont déjà chargées, le switch est instantané. */
 const ongletActif = ref<Onglet>('details')
@@ -412,12 +413,6 @@ onMounted(() => {
         </header>
 
         <!-- ============ ERREUR ============ -->
-        <div v-if="erreur" class="alert alert-danger d-flex align-items-center gap-2" role="alert">
-            <i class="bi bi-exclamation-triangle"></i>
-            <span>{{ erreur }}</span>
-            <button type="button" class="btn-close ms-auto" @click="erreur = null"></button>
-        </div>
-
         <!-- ============ CHARGEMENT ============ -->
         <div v-if="chargement" class="detail-state">
             <div class="spinner-border text-primary" role="status"></div>

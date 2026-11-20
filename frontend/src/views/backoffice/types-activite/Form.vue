@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BaseInput, BaseButton } from '@/components/base'
@@ -31,7 +32,7 @@ const form = ref<{
 
 const services = ref<Service[]>([])
 const errors = ref<Record<string, string>>({})
-const globalError = ref('')
+const globalError = useToastMessage('error')
 const loading = ref(false)
 const submitting = ref(false)
 
@@ -147,10 +148,6 @@ onMounted(charger)
                 </p>
             </div>
         </header>
-
-        <div v-if="globalError" class="alert alert-danger mb-0" role="alert">
-            {{ globalError }}
-        </div>
 
         <div class="bo-form">
             <BaseInput v-model="form.designation" label="Désignation"

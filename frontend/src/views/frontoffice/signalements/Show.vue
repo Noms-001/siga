@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton/BaseButton.vue'
@@ -10,7 +11,7 @@ const router = useRouter()
 const id = Number(route.params.id)
 
 const loading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
 
 const item = ref<SignalementDetail | null>(null)
 
@@ -106,13 +107,8 @@ onMounted(charger)
         </header>
 
         <!-- ============ ERREUR ============ -->
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center" role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
         <!-- ============ CHARGEMENT ============ -->
-        <div v-else-if="loading" class="loading-state">
+        <div v-if="loading" class="loading-state">
             <div class="hero-skeleton">
                 <div class="skeleton skeleton--badge"></div>
                 <div class="skeleton skeleton--title"></div>

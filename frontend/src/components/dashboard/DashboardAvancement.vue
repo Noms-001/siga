@@ -10,7 +10,7 @@ defineProps<{
 <template>
     <section class="av-global">
         <header class="av-global__head">
-            <h2 class="av-global__title">Avancement global</h2>
+            <h2 class="av-global__title">Avancement moyen des activités</h2>
             <span class="av-global__percent">
                 <template v-if="loading">…</template>
                 <template v-else-if="avancement">

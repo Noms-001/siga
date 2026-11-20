@@ -18,6 +18,7 @@ import mg.bank.backend.repository.SqlFragments;
 import mg.bank.backend.repository.projection.activite.ActiviteDetailRow;
 import mg.bank.backend.repository.projection.activite.ActiviteListRow;
 import mg.bank.backend.repository.projection.activite.ActiviteStatistiquesRow;
+import mg.bank.backend.repository.projection.activite.ActiviteSuiviStatistiquesRow;
 import mg.bank.backend.repository.projection.activite.AvancementDetailRow;
 import mg.bank.backend.repository.projection.activite.FichierDetailRow;
 import mg.bank.backend.repository.projection.activite.FichierTelechargementRow;
@@ -44,7 +45,10 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
        String SQL_NON_COMMENCEE = "'" + StatutsActivite.NON_COMMENCEE + "'";
        String SQL_SUSPENDUE = "'" + StatutsActivite.SUSPENDUE + "'";
 
-       String SQL_NON_PUBLIEES = "'" + StatutsActivite.EN_ATTENTE_VALIDATION + "', '"
+       // La liste publique masque les brouillons et les états du circuit de validation.
+       // Le dashboard les distingue : il exclut les brouillons mais conserve l'attente de validation.
+       String SQL_NON_PUBLIEES = "'" + StatutsActivite.BROUILLON + "', '"
+                     + StatutsActivite.EN_ATTENTE_VALIDATION + "', '"
                      + StatutsActivite.VALIDEE + "', '"
                      + StatutsActivite.REJETE + "'";
 
@@ -89,7 +93,6 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
        String FILTRES = """
                      WHERE 1 = 1
 
-                     -- PTA : un objectif specifique distingue PTA et NON PTA
                      AND (:pta IS NULL
                             OR (CAST(:pta AS BOOLEAN) AND act.id_objectif_specifique IS NOT NULL)
                             OR (NOT CAST(:pta AS BOOLEAN) AND act.id_objectif_specifique IS NULL))
@@ -139,15 +142,29 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      + """
                                    )))))
 
+                            
+                                   AND (sta.code IS NULL
+                                          OR sta.code NOT IN ("""
+                     + SQL_NON_PUBLIEES
+                     + """
+                                   ))
+
                                    AND (:annee IS NULL
-                                          OR EXTRACT(YEAR FROM act.date_debut_prevue) = :annee)
+                                          OR (act.date_debut_prevue <= MAKE_DATE(:annee, 12, 31)
+                                              AND COALESCE(act.date_fin_prevue, act.date_debut_prevue)
+                                                  >= MAKE_DATE(:annee, 1, 1)))
                                    AND (:moisDebut IS NULL
-                                          OR EXTRACT(MONTH FROM act.date_debut_prevue) BETWEEN :moisDebut AND :moisFin)
+                                          OR (act.date_debut_prevue <= (
+                                                  MAKE_DATE(COALESCE(:annee, EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER), :moisFin, 1)
+                                                  + INTERVAL '1 month - 1 day')::DATE
+                                              AND COALESCE(act.date_fin_prevue, act.date_debut_prevue)
+                                                  >= MAKE_DATE(COALESCE(:annee, EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER), :moisDebut, 1)))
 
                                    AND (CAST(:dateDebut AS DATE) IS NULL
-                                          OR act.date_debut_prevue >= CAST(:dateDebut AS DATE))
+                                          OR act.date_fin_prevue IS NULL
+                                          OR act.date_fin_prevue >= CAST(:dateDebut AS DATE))
                                    AND (CAST(:dateFin AS DATE) IS NULL
-                                          OR act.date_fin_prevue <= CAST(:dateFin AS DATE))
+                                          OR act.date_debut_prevue <= CAST(:dateFin AS DATE))
                                    """;
 
        @Query(value = """
@@ -255,6 +272,52 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("dateDebut") java.time.LocalDate dateDebut,
                      @Param("dateFin") java.time.LocalDate dateFin);
 
+          /** Agrégats du suivi calculés sur tout le résultat filtré, sans pagination. */
+          @Query(value = """
+                                    SELECT COUNT(*) AS totalActivites,
+                                                 COALESCE(AVG(COALESCE(av.avancement, 0)), 0) AS avancementMoyen,
+                                                 COALESCE(SUM(sous.total), 0) AS totalSousActivites,
+                                                 COALESCE(SUM(sous.terminees), 0) AS sousActivitesTerminees
+                                    """
+                                    + SELECT_BASE
+                                    + """
+                                    LEFT JOIN LATERAL (
+                                           SELECT COUNT(*) AS total,
+                                                        COUNT(*) FILTER (
+                                                               WHERE COALESCE(dernier.valeur_pourcentage, 0) = 100
+                                                        ) AS terminees
+                                           FROM sous_activite sa
+                                           LEFT JOIN LATERAL (
+                                                  SELECT av2.valeur_pourcentage
+                                                  FROM avancement_sous_activite av2
+                                                  WHERE av2.id_sous_activite = sa.id_sous_activite
+                                                  ORDER BY av2.date_changement DESC,
+                                                                 av2.id_historique_sous_activite DESC
+                                                  LIMIT 1
+                                           ) dernier ON TRUE
+                                           WHERE sa.id_activite = act.id_activite
+                                    ) sous ON TRUE
+                                    """
+                                    + FILTRES, nativeQuery = true)
+          ActiviteSuiviStatistiquesRow statistiquesSuivi(
+                                    @Param("pta") Boolean pta,
+                                    @Param("recherche") String recherche,
+                                    @Param("objectifId") Integer objectifId,
+                                    @Param("objectifRecherche") String objectifRecherche,
+                                    @Param("servicePerimetre") Integer servicePerimetre,
+                                    @Param("departementPerimetre") Integer departementPerimetre,
+                                    @Param("serviceDemande") Integer serviceDemande,
+                                    @Param("prioriteId") Integer prioriteId,
+                                    @Param("typeActiviteId") Integer typeActiviteId,
+                                    @Param("siteId") Integer siteId,
+                                    @Param("statutCode") String statutCode,
+                                    @Param("codesTerminaux") String codesTerminaux,
+                                    @Param("annee") Integer annee,
+                                    @Param("moisDebut") Integer moisDebut,
+                                    @Param("moisFin") Integer moisFin,
+                                    @Param("dateDebut") java.time.LocalDate dateDebut,
+                                    @Param("dateFin") java.time.LocalDate dateFin);
+
        @Query(value = """
                      SELECT act.id_activite AS id,
                             act.code        AS code,
@@ -267,6 +330,9 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                             OR act.code ILIKE :motif
                             OR act.reference ILIKE :motif
                             OR act.designation ILIKE :motif)
+                                                   AND (:pta IS NULL
+                                                                OR (CAST(:pta AS BOOLEAN) AND act.id_objectif_specifique IS NOT NULL)
+                                                                OR (NOT CAST(:pta AS BOOLEAN) AND act.id_objectif_specifique IS NULL))
                        AND (:servicePerimetre IS NULL
                             OR act.id_service = :servicePerimetre)
                        AND (:departementPerimetre IS NULL
@@ -296,6 +362,7 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
        List<OptionRow> autocomplete(
                      @Param("recherche") String recherche,
                      @Param("motif") String motif,
+                     @Param("pta") Boolean pta,
                      @Param("servicePerimetre") Integer servicePerimetre,
                      @Param("departementPerimetre") Integer departementPerimetre,
                      @Param("limite") int limite);
@@ -888,9 +955,9 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
        List<ResponsableSuiviRow> findResponsablesActifsPourActivites(@Param("ids") List<Integer> ids);
 
        @Query(value = """
-                     SELECT AVG(dernier.valeur_pourcentage) AS avancement
+                     SELECT COALESCE(AVG(COALESCE(dernier.valeur_pourcentage, 0)), 0) AS avancement
                      FROM sous_activite sa
-                     JOIN LATERAL (
+                     LEFT JOIN LATERAL (
                          SELECT av.valeur_pourcentage
                          FROM avancement_sous_activite av
                          WHERE av.id_sous_activite = sa.id_sous_activite

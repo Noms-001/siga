@@ -65,6 +65,14 @@ export interface ActiviteStatistiques {
     suspendues: number
 }
 
+/** Agrégats calculés sur tout le résultat filtré, indépendamment de la page. */
+export interface ActiviteSuiviStatistiques {
+    totalActivites: number
+    totalSousActivites: number
+    sousActivitesTerminees: number
+    avancementMoyen: number
+}
+
 export interface ReferenceOption {
     id: number
     code?: string | null

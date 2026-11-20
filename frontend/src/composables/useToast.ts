@@ -1,4 +1,6 @@
-import type { ToastInstance } from "@/components/base/BaseToast"
+import { ref, watch, type Ref } from 'vue'
+
+import type { ToastInstance, ToastType } from "@/components/base/BaseToast"
 
 let toastInstance: ToastInstance | null = null
 
@@ -65,4 +67,30 @@ export const useToast = () => {
         showWarning,
         setToastInstance
     }
+}
+
+/**
+ * Ref de message qui affiche automatiquement son contenu dans un toast.
+ *
+ * Permet de remplacer un bandeau `alert` par une notification sans changer
+ * la logique métier : les affectations existantes continuent d'alimenter la
+ * ref, seul l'affichage change.
+ */
+export const useToastMessage = (
+    type: ToastType,
+    initial: string | null = null
+): Ref<string | null> => {
+    const message = ref<string | null>(initial)
+    const { showSuccess, showError, showInfo, showWarning } = useToast()
+
+    watch(message, (valeur) => {
+        if (!valeur) return
+
+        if (type === 'success') showSuccess(valeur)
+        else if (type === 'error') showError(valeur)
+        else if (type === 'warning') showWarning(valeur)
+        else showInfo(valeur)
+    })
+
+    return message
 }

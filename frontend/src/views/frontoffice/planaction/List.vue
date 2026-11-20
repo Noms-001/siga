@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseButton, BaseInput, BaseSelect } from '@/components/base'
-import { listerPlans, listerMesBrouillons } from '@/services/planaction'
+import { listerPlans, listerMesBrouillons, listerAValider, listerADemarrer, soumettreValidationPlan, validerPlan } from '@/services/planaction'
 import { STATUTS_PLAN, TYPES_ORIGINE } from '@/types/planaction'
 import type { PlanActionFiltres, PlanActionListItem } from '@/types/planaction'
 
@@ -12,14 +13,14 @@ const router = useRouter()
 
 const plans = ref<PlanActionListItem[]>([])
 const loading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
 
 const page = ref(0)
 const size = ref(20)
 const totalElements = ref(0)
 const totalPages = ref(0)
 
-const vue = ref<'tous' | 'brouillons'>('tous')
+const vue = ref<'tous' | 'brouillons' | 'a-valider' | 'a-demarrer'>('tous')
 
 /* -------------------- filtres -------------------- */
 
@@ -71,7 +72,11 @@ async function charger(): Promise<void> {
 
     const res = vue.value === 'brouillons'
         ? await listerMesBrouillons(page.value, size.value)
-        : await listerPlans(params)
+        : vue.value === 'a-valider'
+            ? await listerAValider(page.value, size.value)
+            : vue.value === 'a-demarrer'
+                ? await listerADemarrer(page.value, size.value)
+                : await listerPlans(params)
 
     loading.value = false
     if (!res.success) {
@@ -90,9 +95,39 @@ function voirDetail(id: number): void {
     router.push({ name: 'plan-action-detail', params: { id } })
 }
 
+async function soumettrePlan(id: number, event?: Event): Promise<void> {
+    if (event) event.stopPropagation()
+    try {
+        const res = await soumettreValidationPlan(id)
+        if (!res.success) {
+            errorMessage.value = res.error
+            return
+        }
+        await charger()
+    } catch (e) {
+        errorMessage.value = 'Erreur lors de la soumission.'
+    }
+}
+
 function creer(): void {
     router.push({ name: 'plan-action-create' })
 }
+async function validerPlanAction(id: number, rejeter: boolean, event?: Event): Promise<void> {
+    if (event) event.stopPropagation()
+    try {
+        const res = await validerPlan(id, rejeter)
+        if (!res.success) {
+            errorMessage.value = res.error
+            return
+        }
+        await charger()
+    } catch (e) {
+        errorMessage.value = 'Erreur lors de la validation.'
+    }
+}
+
+
+
 
 function reinitialiser(): void {
     filtres.value = { statut: '', search: '', annee: undefined, dateDebut: undefined, dateFin: undefined, typeOrigine: '', }
@@ -120,6 +155,8 @@ function classeStatut(statutCode: string | null): string {
     if (statutCode === 'EN_RETARD') return 'badge-statut--en-retard'
     if (statutCode === 'TERMINEE') return 'badge-statut--termine'
     if (statutCode === 'BROUILLON') return 'badge-statut--brouillon'
+    if (statutCode === 'EN_ATTENTE_VALIDATION') return 'badge-statut--brouillon'
+    if (statutCode === 'VALIDEE') return 'badge-statut--termine'
     return ''
 }
 
@@ -179,10 +216,6 @@ onMounted(charger)
                 </p>
             </div>
             <div class="welcome-row__right">
-                <BaseButton variant="secondary" icon="bi bi-graph-up"
-                    @click="router.push({ name: 'plans-action-suivi' })">
-                    Suivi global
-                </BaseButton>
                 <BaseButton variant="primary" icon="bi bi-plus-lg" @click="creer">
                     Nouveau plan
                 </BaseButton>
@@ -200,6 +233,16 @@ onMounted(charger)
                 <i class="bi bi-pencil-square"></i>
                 Mes brouillons
             </button>
+            <button :class="['vue-tab', { 'vue-tab--active': vue === 'a-valider' }]" role="tab"
+                @click="vue = 'a-valider'">
+                <i class="bi bi-shield-check"></i>
+                À valider
+            </button>
+            <button :class="['vue-tab', { 'vue-tab--active': vue === 'a-demarrer' }]" role="tab"
+                @click="vue = 'a-demarrer'">
+                <i class="bi bi-play-circle"></i>
+                À démarrer
+            </button>
         </div>
 
         <!-- FILTRES -->
@@ -216,12 +259,6 @@ onMounted(charger)
         </section>
 
         <!-- ERREUR -->
-        <div v-if="errorMessage" class="alert alert-danger d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
         <!-- CHARGEMENT -->
         <div v-else-if="loading" class="loading-state">
             <div v-for="i in 5" :key="i" class="skeleton skeleton-row"></div>
@@ -233,6 +270,12 @@ onMounted(charger)
             <h2>Aucun plan d'action</h2>
             <p v-if="vue === 'brouillons'">
                 Vous n'avez aucun brouillon en cours.
+            </p>
+            <p v-else-if="vue === 'a-valider'">
+                Aucun plan en attente de validation.
+            </p>
+            <p v-else-if="vue === 'a-demarrer'">
+                Aucun plan prêt à démarrer.
             </p>
             <p v-else>
                 Aucun plan ne correspond aux filtres sélectionnés.
@@ -284,8 +327,22 @@ onMounted(charger)
                                 {{ formaterDate(plan.dateFinPrevue) }}
                             </span>
                         </td>
-                        <td class="plans-table__actions">
-                            <i class="bi bi-chevron-right"></i>
+                        <td class="plans-table__actions" @click.stop>
+                            <button v-if="vue === 'brouillons'" type="button" class="btn-action btn-action--success"
+                                @click="soumettrePlan(plan.id, $event)">
+                                Soumettre
+                            </button>
+                            <template v-else-if="vue === 'a-valider'">
+                                <button type="button" class="btn-action btn-action--success"
+                                    @click="validerPlanAction(plan.id, false, $event)">
+                                    Valider
+                                </button>
+                                <button type="button" class="btn-action btn-action--danger"
+                                    @click="validerPlanAction(plan.id, true, $event)">
+                                    Rejeter
+                                </button>
+                            </template>
+                            <i v-else class="bi bi-chevron-right"></i>
                         </td>
                     </tr>
                 </tbody>
@@ -408,6 +465,30 @@ onMounted(charger)
     border-bottom: 1px solid #e6ebf3;
     white-space: nowrap;
 }
+
+.btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.32rem 0.65rem;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+    white-space: nowrap;
+    background: #edf1fd;
+    color: #1a2a6c;
+    border-color: #c8d6fb;
+    margin: 0 0.15rem;
+}
+.btn-action:hover { background: #dde4ff; border-color: #4a6cf7; }
+.btn-action--success { background: #e4f7f0; color: #138a68; border-color: #b7dfc1; }
+.btn-action--success:hover { background: #cfeee1; border-color: #55d6ad; }
+.btn-action--danger { background: #fff0f0; color: #d84e5b; border-color: #f6cfcc; }
+.btn-action--danger:hover { background: #fdd; border-color: #f59aa0; }
 
 .plans-table tbody td {
     padding: 0.85rem 1.25rem;

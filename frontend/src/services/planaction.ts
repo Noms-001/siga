@@ -1,4 +1,5 @@
 import { get, post, type ApiResponse } from '@/services/api-client'
+import type { PeriodeDashboard } from '@/types/dashboard'
 import type {
     PageResponse,
     PlanActionFiltres,
@@ -72,6 +73,48 @@ export function creerPlan(
     return post<PlanActionEcritureResponse>(BASE, payload)
 }
 
-export function getSuiviGlobalPlanAction(): Promise<ApiResponse<SuiviGlobalPlanAction>> {
-    return get<SuiviGlobalPlanAction>(`${BASE}/suivi-global`)
+export function listerAValider(
+    page = 0,
+    size = 20
+): Promise<ApiResponse<PageResponse<PlanActionListItem>>> {
+    return get<PageResponse<PlanActionListItem>>(
+        `${BASE}/a-valider${query({ page, size }) as string}`
+    )
+}
+
+export function listerADemarrer(
+    page = 0,
+    size = 20
+): Promise<ApiResponse<PageResponse<PlanActionListItem>>> {
+    return get<PageResponse<PlanActionListItem>>(
+        `${BASE}/a-demarrer${query({ page, size }) as string}`
+    )
+}
+
+export function soumettreValidationPlan(
+    id: number,
+    commentaire?: string | null
+): Promise<ApiResponse<PlanActionDetail>> {
+    const qs = commentaire ? `?commentaire=${encodeURIComponent(commentaire)}` : ''
+    return post<PlanActionDetail>(`${BASE}/${id}/soumettre-validation${qs}`, {})
+}
+
+export function validerPlan(
+    id: number,
+    rejeter: boolean,
+    commentaire?: string | null
+): Promise<ApiResponse<PlanActionDetail>> {
+    const params = new URLSearchParams()
+    params.set('rejeter', String(rejeter))
+    if (commentaire) params.set('commentaire', commentaire)
+    return post<PlanActionDetail>(`${BASE}/${id}/valider?${params.toString()}`, {})
+}
+
+export function getSuiviGlobalPlanAction(
+    periode: PeriodeDashboard
+): Promise<ApiResponse<SuiviGlobalPlanAction>> {
+    const qs = new URLSearchParams()
+    qs.set('dateDebut', periode.debut)
+    qs.set('dateFin', periode.fin)
+    return get<SuiviGlobalPlanAction>(`${BASE}/suivi-global?${qs.toString()}`)
 }

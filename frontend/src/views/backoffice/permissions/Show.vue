@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BaseButton from '@/components/base/BaseButton/BaseButton.vue'
@@ -14,7 +15,7 @@ const id = Number(route.params.id)
 
 const item = ref<PermissionDetail | null>(null)
 const loading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
 
 async function charger(): Promise<void> {
     loading.value = true
@@ -46,14 +47,7 @@ onMounted(charger)
             </div>
         </header>
 
-        <div v-if="errorMessage"
-            class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
-        <div v-else-if="loading" class="bo-detail">
+        <div v-if="loading" class="bo-detail">
             <div class="skeleton"></div>
             <div class="skeleton short"></div>
             <div class="skeleton"></div>

@@ -1,53 +1,49 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import BaseSelect from '@/components/base/BaseSelect/BaseSelect.vue'
 import DashboardKpiCards from '@/components/dashboard/DashboardKpiCards.vue'
 import DashboardAvancement from '@/components/dashboard/DashboardAvancement.vue'
 import DashboardStatuts from '@/components/dashboard/DashboardStatuts.vue'
+import DashboardStatutsPriorites from '@/components/dashboard/DashboardStatutsPriorites.vue'
 import DashboardServices from '@/components/dashboard/DashboardServices.vue'
 import DashboardPta from '@/components/dashboard/DashboardPta.vue'
-import DashboardPriorites from '@/components/dashboard/DashboardPriorites.vue'
-import DashboardValidations from '@/components/dashboard/DashboardValidations.vue'
 import DashboardEcheances from '@/components/dashboard/DashboardEcheances.vue'
-import DashboardRisquesIncidents from '@/components/dashboard/DashboardRisquesIncidents.vue'
+import DashboardPlansAction from '@/components/dashboard/DashboardPlansAction.vue'
+import DashboardPlansActionOrigine from '@/components/dashboard/DashboardPlansActionOrigine.vue'
+import DashboardTypesActivite from '@/components/dashboard/DashboardTypesActivite.vue'
+import DashboardPeriodeFilter from '@/components/dashboard/DashboardPeriodeFilter.vue'
+import { useDashboardPeriode } from '@/composables/useDashboardPeriode'
 import {
     getDashboardAvancement,
     getDashboardEcheances,
     getDashboardKpi,
-    getDashboardPriorites,
+    getDashboardPerimetre,
+    getDashboardPlanActionOrigine,
     getDashboardPta,
-    getDashboardRisquesIncidents,
     getDashboardServices,
     getDashboardStatuts,
-    getDashboardValidations,
+    getDashboardStatutsPriorites,
+    getDashboardTypesActivite,
 } from '@/services/dashboard'
 import type {
     DashboardAvancement as Avancement,
     DashboardEcheances as EcheancesData,
     DashboardKpi,
-    DashboardPriorite,
+    DashboardPerimetre,
+    DashboardPlanActionOrigine as PlanActionOrigine,
     DashboardPtaComparaison,
-    DashboardRisquesIncidents as RisquesIncidentsData,
     DashboardService,
     DashboardStatut,
-    DashboardValidation,
+    DashboardStatutPriorite,
+    DashboardTypeActivite,
 } from '@/types/dashboard'
-import { getCurrentYear } from '@/utils/date'
+import { getSuiviGlobalPlanAction } from '@/services/planaction'
+import type { SuiviGlobalPlanAction } from '@/types/planaction'
 import { useRouter } from 'vue-router'
 
-/* -------------------- année -------------------- */
-
-/**
- * Année par défaut : 2027.
- *
- * Le projet travaille actuellement principalement sur cette année. La
- * valeur n'est PAS une constante figée : l'utilisateur peut la changer,
- * et le sélecteur propose une plage autour.
- */
+/* -------------------- filtre temporel global -------------------- */
 
 const router = useRouter()
 
-/* Date du jour en français, en majuscules : « MERCREDI 21 OCTOBRE 2026 » */
 const dateDuJour = computed(() =>
     new Intl.DateTimeFormat('fr-FR', {
         weekday: 'long',
@@ -59,22 +55,48 @@ const dateDuJour = computed(() =>
         .toUpperCase()
 )
 
-/* Navigation vers la création d'activité */
 const nouvelleActivite = () => {
     router.push('/activites/nouvelle')
 }
 
-const annee = ref<number>(getCurrentYear())
+const {
+    mode,
+    annee,
+    mois,
+    trimestre,
+    dateDebut,
+    dateFin,
+    annees,
+    moisOptions,
+    trimestres,
+    erreur: periodeErreur,
+    periode,
+} = useDashboardPeriode()
 
-const anneesDisponibles = computed(() => {
-    const base = getCurrentYear()
-    const plage = [base - 2, base - 1, base, base + 1, base + 2]
-    return plage.map(y => ({ value: y, label: String(y) }))
-})
+/* -------------------- périmètre et filtre service -------------------- */
+
+const perimetre = ref<DashboardPerimetre | null>(null)
+const serviceId = ref(0)
+const pret = ref(false)
+
+const filtreServiceVisible = computed(
+    () => perimetre.value?.niveau === 'DEPARTEMENT'
+)
+const servicesPerimetre = computed(() => perimetre.value?.services ?? [])
+const serviceIdParam = computed(() =>
+    serviceId.value > 0 ? serviceId.value : undefined
+)
+
+async function chargerPerimetre(): Promise<void> {
+    const res = await getDashboardPerimetre()
+    if (!res.success) return
+    perimetre.value = res.data
+    serviceId.value = res.data.niveau === 'SERVICE'
+        ? (res.data.idService ?? 0)
+        : 0
+}
 
 /* -------------------- état par section -------------------- */
-/* Chaque section a son propre loading/error : une API en échec ne casse
-   pas les autres blocs. */
 
 const kpi = ref<DashboardKpi | null>(null)
 const kpiLoading = ref(false)
@@ -88,6 +110,10 @@ const statuts = ref<DashboardStatut[]>([])
 const statutsLoading = ref(false)
 const statutsError = ref('')
 
+const statutsPriorites = ref<DashboardStatutPriorite[]>([])
+const statutsPrioritesLoading = ref(false)
+const statutsPrioritesError = ref('')
+
 const services = ref<DashboardService[]>([])
 const servicesLoading = ref(false)
 const servicesError = ref('')
@@ -96,132 +122,205 @@ const comparaisonPta = ref<DashboardPtaComparaison | null>(null)
 const ptaLoading = ref(false)
 const ptaError = ref('')
 
-const priorites = ref<DashboardPriorite[]>([])
-const prioritesLoading = ref(false)
-const prioritesError = ref('')
-
-const validations = ref<DashboardValidation[]>([])
-const validationsLoading = ref(false)
-const validationsError = ref('')
-
 const echeances = ref<EcheancesData | null>(null)
 const echeancesLoading = ref(false)
 const echeancesError = ref('')
 
-// …
+const suiviPlans = ref<SuiviGlobalPlanAction | null>(null)
+const suiviPlansLoading = ref(false)
+const suiviPlansError = ref('')
 
-const risques = ref<RisquesIncidentsData | null>(null)
-const risquesLoading = ref(false)
-const risquesError = ref('')
+const typesActivite = ref<DashboardTypeActivite[]>([])
+const typesActiviteLoading = ref(false)
+const typesActiviteError = ref('')
+
+const plansOrigine = ref<PlanActionOrigine[]>([])
+const plansOrigineLoading = ref(false)
+const plansOrigineError = ref('')
+
+/**
+ * Jeton de génération : une réponse arrivée après un changement de
+ * période est ignorée, pour ne jamais afficher des données obsolètes.
+ */
+let generation = 0
+
+/** Jeton propre au graphique « types » : le filtre service peut changer
+ *  plus vite que la période, il faut ignorer les réponses obsolètes. */
+let typesRequeteId = 0
+
+/** Jeton propre au graphique statut × priorité (filtre service). */
+let statutsPrioritesRequeteId = 0
 
 /* -------------------- chargements -------------------- */
 
 async function chargerKpi(): Promise<void> {
+    const p = periode.value
+    if (!p) return
+    const gen = generation
     kpiLoading.value = true
     kpiError.value = ''
-    const res = await getDashboardKpi(annee.value)
+    const res = await getDashboardKpi(p)
+    if (gen !== generation) return
     kpiLoading.value = false
     if (!res.success) { kpiError.value = res.error; return }
     kpi.value = res.data
 }
 
 async function chargerAvancement(): Promise<void> {
+    const p = periode.value
+    if (!p) return
+    const gen = generation
     avancementLoading.value = true
     avancementError.value = ''
-    const res = await getDashboardAvancement(annee.value)
+    const res = await getDashboardAvancement(p)
+    if (gen !== generation) return
     avancementLoading.value = false
     if (!res.success) { avancementError.value = res.error; return }
     avancement.value = res.data
 }
 
 async function chargerStatuts(): Promise<void> {
+    const p = periode.value
+    if (!p) return
+    const gen = generation
     statutsLoading.value = true
     statutsError.value = ''
-    const res = await getDashboardStatuts(annee.value)
+    const res = await getDashboardStatuts(p)
+    if (gen !== generation) return
     statutsLoading.value = false
     if (!res.success) { statutsError.value = res.error; return }
     statuts.value = res.data
 }
 
+async function chargerStatutsPriorites(): Promise<void> {
+    const p = periode.value
+    if (!p) return
+    const gen = generation
+    const id = ++statutsPrioritesRequeteId
+    statutsPrioritesLoading.value = true
+    statutsPrioritesError.value = ''
+    const res = await getDashboardStatutsPriorites(p, serviceIdParam.value)
+    if (gen !== generation || id !== statutsPrioritesRequeteId) return
+    statutsPrioritesLoading.value = false
+    if (!res.success) { statutsPrioritesError.value = res.error; return }
+    statutsPriorites.value = res.data
+}
+
 async function chargerServices(): Promise<void> {
+    const p = periode.value
+    if (!p) return
+    const gen = generation
     servicesLoading.value = true
     servicesError.value = ''
-    const res = await getDashboardServices(annee.value)
+    const res = await getDashboardServices(p)
+    if (gen !== generation) return
     servicesLoading.value = false
     if (!res.success) { servicesError.value = res.error; return }
     services.value = res.data
 }
 
 async function chargerPta(): Promise<void> {
+    const p = periode.value
+    if (!p) return
+    const gen = generation
     ptaLoading.value = true
     ptaError.value = ''
-    const res = await getDashboardPta(annee.value)
+    const res = await getDashboardPta(p)
+    if (gen !== generation) return
     ptaLoading.value = false
     if (!res.success) { ptaError.value = res.error; return }
     comparaisonPta.value = res.data
 }
 
-async function chargerPriorites(): Promise<void> {
-    prioritesLoading.value = true
-    prioritesError.value = ''
-    const res = await getDashboardPriorites(annee.value, 10)
-    prioritesLoading.value = false
-    if (!res.success) { prioritesError.value = res.error; return }
-    priorites.value = res.data
-}
-
-async function chargerValidations(): Promise<void> {
-    validationsLoading.value = true
-    validationsError.value = ''
-    const res = await getDashboardValidations(annee.value)
-    validationsLoading.value = false
-    if (!res.success) { validationsError.value = res.error; return }
-    validations.value = res.data
-}
-
 async function chargerEcheances(): Promise<void> {
+    const p = periode.value
+    if (!p) return
+    const gen = generation
     echeancesLoading.value = true
     echeancesError.value = ''
-    const res = await getDashboardEcheances(annee.value, 7)
+    const res = await getDashboardEcheances(p, 7)
+    if (gen !== generation) return
     echeancesLoading.value = false
     if (!res.success) { echeancesError.value = res.error; return }
     echeances.value = res.data
 }
 
-async function chargerRisques(): Promise<void> {
-    risquesLoading.value = true
-    risquesError.value = ''
-    const res = await getDashboardRisquesIncidents(annee.value)
-    risquesLoading.value = false
-    if (!res.success) { risquesError.value = res.error; return }
-    risques.value = res.data
+async function chargerSuiviPlans(): Promise<void> {
+    const p = periode.value
+    if (!p) return
+    const gen = generation
+    suiviPlansLoading.value = true
+    suiviPlansError.value = ''
+    const res = await getSuiviGlobalPlanAction(p)
+    if (gen !== generation) return
+    suiviPlansLoading.value = false
+    if (!res.success) { suiviPlansError.value = res.error; return }
+    suiviPlans.value = res.data
+}
+
+async function chargerTypesActivite(): Promise<void> {
+    const p = periode.value
+    if (!p) return
+    const gen = generation
+    const id = ++typesRequeteId
+    typesActiviteLoading.value = true
+    typesActiviteError.value = ''
+    const res = await getDashboardTypesActivite(p, serviceIdParam.value)
+    if (gen !== generation || id !== typesRequeteId) return
+    typesActiviteLoading.value = false
+    if (!res.success) { typesActiviteError.value = res.error; return }
+    typesActivite.value = res.data
+}
+
+async function chargerPlansOrigine(): Promise<void> {
+    const p = periode.value
+    if (!p) return
+    const gen = generation
+    plansOrigineLoading.value = true
+    plansOrigineError.value = ''
+    const res = await getDashboardPlanActionOrigine(p)
+    if (gen !== generation) return
+    plansOrigineLoading.value = false
+    if (!res.success) { plansOrigineError.value = res.error; return }
+    plansOrigine.value = res.data
 }
 
 /**
- * Recharge toutes les sections en parallèle.
- *
- * Aucun await global : chaque section gère son propre état, et le
- * rechargement d'une année n'attend pas qu'une API lente bloque les
- * autres. Les appels partent tous en même temps.
+ * Recharge toutes les sections en parallèle — aucun await global,
+ * chaque section gère son propre état.
  */
 function chargerTout(): void {
+    generation++
+    if (!periode.value) return
     void chargerKpi()
     void chargerAvancement()
     void chargerStatuts()
+    void chargerStatutsPriorites()
     void chargerServices()
     void chargerPta()
-    void chargerPriorites()
-    void chargerValidations()
     void chargerEcheances()
-    void chargerRisques()
+    void chargerSuiviPlans()
+    void chargerTypesActivite()
+    void chargerPlansOrigine()
 }
 
 /* -------------------- cycle de vie -------------------- */
 
-onMounted(chargerTout)
-
-watch(annee, () => {
+onMounted(async () => {
+    await chargerPerimetre()
     chargerTout()
+    pret.value = true
+})
+
+watch(periode, () => {
+    chargerTout()
+})
+
+watch(serviceId, () => {
+    if (pret.value) {
+        void chargerTypesActivite()
+        void chargerStatutsPriorites()
+    }
 })
 </script>
 
@@ -235,7 +334,7 @@ watch(annee, () => {
                     {{ dateDuJour }}
                 </div>
                 <h1>
-                    Dashboard 
+                    Dashboard
                     <span class="wave" aria-hidden="true">✳</span>
                 </h1>
                 <span class="title-divider" aria-hidden="true"></span>
@@ -245,17 +344,20 @@ watch(annee, () => {
             </div>
 
             <div class="welcome-row__right">
-                <div class="dash__annee">
-                    <label class="dash__annee-label">Année</label>
-                    <BaseSelect v-model="annee" size="sm" :options="anneesDisponibles" />
-                </div>
-
                 <button type="button" class="button primary" @click="nouvelleActivite">
                     <span class="button-plus" aria-hidden="true">＋</span>
                     <span>Nouvelle activité</span>
                 </button>
             </div>
         </header>
+
+        <!-- Filtre temporel global -->
+        <section class="dash__section">
+            <DashboardPeriodeFilter v-model:mode="mode" v-model:annee="annee" v-model:mois="mois"
+                v-model:trimestre="trimestre" v-model:date-debut="dateDebut" v-model:date-fin="dateFin"
+                :annees="annees" :mois-options="moisOptions" :trimestres="trimestres"
+                :erreur="periodeErreur" />
+        </section>
 
         <!-- KPI -->
         <section class="dash__section">
@@ -266,7 +368,7 @@ watch(annee, () => {
             <DashboardKpiCards v-else :kpi="kpi" :loading="kpiLoading" />
         </section>
 
-        <!-- Avancement + statuts -->
+        <!-- Avancement + statuts (camembert) -->
         <section class="dash__grid-2">
             <div>
                 <div v-if="avancementError" class="dash__error" role="alert">
@@ -283,6 +385,28 @@ watch(annee, () => {
                 </div>
                 <DashboardStatuts v-else :statuts="statuts" :loading="statutsLoading" />
             </div>
+        </section>
+
+        <!-- Répartition des activités par statut et priorité -->
+        <section class="dash__section">
+            <div v-if="statutsPrioritesError" class="dash__error" role="alert">
+                <span>{{ statutsPrioritesError }}</span>
+                <button type="button" @click="chargerStatutsPriorites">Réessayer</button>
+            </div>
+            <DashboardStatutsPriorites v-else :data="statutsPriorites"
+                :loading="statutsPrioritesLoading" />
+        </section>
+
+        <!-- Avancement par type d'activité -->
+        <section class="dash__section">
+            <div v-if="typesActiviteError" class="dash__error" role="alert">
+                <span>{{ typesActiviteError }}</span>
+                <button type="button" @click="chargerTypesActivite">Réessayer</button>
+            </div>
+            <DashboardTypesActivite v-else :types="typesActivite" :loading="typesActiviteLoading"
+                :services="servicesPerimetre" :service-id="serviceId"
+                :filtre-service-visible="filtreServiceVisible"
+                @update:service-id="serviceId = $event" />
         </section>
 
         <!-- Services -->
@@ -303,24 +427,6 @@ watch(annee, () => {
             <DashboardPta v-else :comparaison="comparaisonPta" :loading="ptaLoading" />
         </section>
 
-        <!-- Priorités + échéances -->
-        <section class="dash__grid-2 d-flex flex-column">
-            <div>
-                <div v-if="prioritesError" class="dash__error" role="alert">
-                    <span>{{ prioritesError }}</span>
-                    <button type="button" @click="chargerPriorites">Réessayer</button>
-                </div>
-                <DashboardPriorites v-else :priorites="priorites" :loading="prioritesLoading" />
-            </div>
-            <div>
-                <div v-if="validationsError" class="dash__error" role="alert">
-                    <span>{{ validationsError }}</span>
-                    <button type="button" @click="chargerValidations">Réessayer</button>
-                </div>
-                <DashboardValidations v-else :validations="validations" :loading="validationsLoading" />
-            </div>
-        </section>
-
         <!-- Échéances -->
         <section class="dash__section">
             <div v-if="echeancesError" class="dash__error" role="alert">
@@ -330,13 +436,23 @@ watch(annee, () => {
             <DashboardEcheances v-else :echeances="echeances" :loading="echeancesLoading" />
         </section>
 
-        <!-- Risques / incidents -->
-        <section v-if="risquesError || (risques?.plansAction?.total ?? 0) > 0 || risquesLoading" class="dash__section">
-            <div v-if="risquesError" class="dash__error" role="alert">
-                <span>{{ risquesError }}</span>
-                <button type="button" @click="chargerRisques">Réessayer</button>
+        <!-- Suivi des plans d'action -->
+        <section v-if="suiviPlansError || (suiviPlans?.resume.total ?? 0) > 0 || suiviPlansLoading"
+            class="dash__section">
+            <div v-if="suiviPlansError" class="dash__error" role="alert">
+                <span>{{ suiviPlansError }}</span>
+                <button type="button" @click="chargerSuiviPlans">Réessayer</button>
             </div>
-            <DashboardRisquesIncidents v-else :data="risques" :loading="risquesLoading" />
+            <DashboardPlansAction v-else :suivi="suiviPlans" :loading="suiviPlansLoading" />
+        </section>
+
+        <!-- Avancement des plans d'action par origine -->
+        <section class="dash__section">
+            <div v-if="plansOrigineError" class="dash__error" role="alert">
+                <span>{{ plansOrigineError }}</span>
+                <button type="button" @click="chargerPlansOrigine">Réessayer</button>
+            </div>
+            <DashboardPlansActionOrigine v-else :data="plansOrigine" :loading="plansOrigineLoading" />
         </section>
     </div>
 </template>
@@ -366,58 +482,52 @@ watch(annee, () => {
     box-shadow: 0 6px 16px rgba(26, 42, 108, .25);
     transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
 }
+
 .button.primary:hover {
     transform: translateY(-1px);
     box-shadow: 0 10px 22px rgba(26, 42, 108, .30);
     filter: brightness(1.05);
 }
+
 .button.primary:active {
     transform: translateY(0);
     box-shadow: 0 4px 10px rgba(26, 42, 108, .25);
 }
+
 .button.primary .button-plus {
     font-size: 16px;
     line-height: 1;
     color: #f0c75e;
 }
 
-/* Ajustements année à côté du bouton */
-.dash__annee {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 160px;
-}
-.dash__annee-label {
-    font-size: 0.78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--dts-muted, #6b7280);
-}
-
 @media (max-width: 576px) {
-    .welcome-row { align-items: flex-start; }
-    .welcome-row__right { width: 100%; justify-content: space-between; }
-    .welcome-row h1 { font-size: 22px; letter-spacing: -0.6px; }
-    .wave { font-size: 17px; vertical-align: 1px; }
-    .title-divider { width: 180px; }
-    .button.primary { flex: 1; justify-content: center; }
-}
+    .welcome-row {
+        align-items: flex-start;
+    }
 
-.dash__annee {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 160px;
-}
+    .welcome-row__right {
+        width: 100%;
+        justify-content: space-between;
+    }
 
-.dash__annee-label {
-    font-size: 0.78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--dts-muted);
+    .welcome-row h1 {
+        font-size: 22px;
+        letter-spacing: -0.6px;
+    }
+
+    .wave {
+        font-size: 17px;
+        vertical-align: 1px;
+    }
+
+    .title-divider {
+        width: 180px;
+    }
+
+    .button.primary {
+        flex: 1;
+        justify-content: center;
+    }
 }
 
 .dash__section {
@@ -430,6 +540,7 @@ watch(annee, () => {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
+    align-items: stretch;
 }
 
 .dash__error {
@@ -461,9 +572,7 @@ watch(annee, () => {
 }
 
 @media (max-width: 992px) {
-
-    .dash__grid-2,
-    .dash__grid-2--large-left {
+    .dash__grid-2 {
         grid-template-columns: 1fr;
     }
 }
@@ -471,10 +580,6 @@ watch(annee, () => {
 @media (max-width: 576px) {
     .dash {
         padding: 1rem;
-    }
-
-    .dash__title {
-        font-size: 1.25rem;
     }
 }
 </style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseInput, BaseSelect, BaseButton, BaseConfirm } from '@/components/base'
@@ -20,7 +21,7 @@ const form = ref<SignalementRequest>({
 })
 
 const errors = ref<Record<string, string>>({})
-const globalError = ref('')
+const globalError = useToastMessage('error')
 const loading = ref(false)
 const submitting = ref(false)
 
@@ -207,11 +208,6 @@ onMounted(() => {
         </header>
 
         <!-- ============ MESSAGE GLOBAL ============ -->
-        <div v-if="globalError" class="alert alert-danger mb-0" role="alert">
-            <i class="bi bi-exclamation-triangle-fill"></i>
-            {{ globalError }}
-        </div>
-
         <!-- ============ FORMULAIRE ============ -->
         <form class="form-layout" novalidate @submit.prevent="demanderConfirmation">
             <!-- ============ COLONNE PRINCIPALE ============ -->

@@ -76,12 +76,6 @@
                         </RouterLink>
                     </div>
 
-                    <!-- Message d'erreur général -->
-                    <div v-if="loginError" class="alert alert--danger" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <span>{{ loginError }}</span>
-                    </div>
-
                     <!-- Bouton de connexion -->
                     <button
                         type="submit"
@@ -110,6 +104,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BaseInput } from '@/components/base'
 import { useAuthStore } from '@/stores/auth'
+import { useToastMessage } from '@/composables/useToast'
 
 const router = useRouter()
 const route = useRoute()
@@ -119,7 +114,7 @@ const email = ref('')
 const password = ref('')
 const emailError = ref('')
 const passwordError = ref('')
-const loginError = ref('')
+const loginError = useToastMessage('error')
 const loading = ref(false)
 
 const currentYear = computed(() => new Date().getFullYear())

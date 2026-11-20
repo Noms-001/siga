@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BaseTable, BaseButton, BaseSelect, BaseConfirm } from '@/components/base'
@@ -22,8 +23,8 @@ const items = ref<Utilisateur[]>([])
 const departements = ref<Departement[]>([])
 const services = ref<Service[]>([])
 const loading = ref(false)
-const errorMessage = ref('')
-const flashMessage = ref('')
+const errorMessage = useToastMessage('error')
+const flashMessage = useToastMessage('success')
 
 const statut = ref<'all' | 'true' | 'false'>('all')
 const idDepartement = ref<number | 'all'>('all')
@@ -190,16 +191,6 @@ onMounted(() => {
                 Ajouter un utilisateur
             </BaseButton>
         </header>
-
-        <div v-if="flashMessage" class="alert alert-success mb-0" role="status">
-            {{ flashMessage }}
-        </div>
-
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
 
         <div class="bo-filters">
             <BaseSelect v-model="idDepartement" label="Département" size="sm" placeholder="Tous"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref, watch } from 'vue'
 import { BaseTable, BaseButton, BaseSelect, BaseInput, BaseModal, BaseConfirm } from '@/components/base'
 import type { TableColumn } from '@/components/base/BaseTable/BaseTable.types'
@@ -19,8 +20,8 @@ import {
 
 const items = ref<Parametre[]>([])
 const loading = ref(false)
-const errorMessage = ref('')
-const flashMessage = ref('')
+const errorMessage = useToastMessage('error')
+const flashMessage = useToastMessage('success')
 
 const categoriesDisponibles = ref<string[]>([])
 
@@ -32,7 +33,7 @@ const categorie = ref<string>('all')
 
 const editModalOpen = ref(false)
 const editLoading = ref(false)
-const editGlobalError = ref('')
+const editGlobalError = useToastMessage('error')
 const editErrors = ref<Record<string, string>>({})
 const parametreEnEdition = ref<Parametre | null>(null)
 
@@ -318,16 +319,6 @@ onMounted(() => {
             </div>
         </header>
 
-        <div v-if="flashMessage" class="alert alert-success mb-0" role="status">
-            {{ flashMessage }}
-        </div>
-
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
         <div class="bo-filters">
             <BaseSelect v-model="categorie" label="Catégorie" placeholder="Toutes" size="sm"
                 :options="categorieOptions" />
@@ -388,10 +379,6 @@ onMounted(() => {
         <!-- Modal modifier la valeur -->
         <BaseModal v-model="editModalOpen" title="Modifier le paramètre" size="md" :loading="editLoading">
             <div v-if="parametreEnEdition" class="modal-form">
-                <div v-if="editGlobalError" class="alert alert-danger mb-0" role="alert">
-                    {{ editGlobalError }}
-                </div>
-
                 <BaseInput :model-value="parametreEnEdition.code" label="Code" disabled />
 
                 <BaseInput :model-value="parametreEnEdition.designation" label="Désignation" disabled />

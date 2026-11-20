@@ -55,6 +55,11 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 component: () => import('@/views/frontoffice/Dashboard.vue'),
             },
             {
+                path: 'membres/suivi',
+                name: 'membres-suivi',
+                component: () => import('@/views/frontoffice/membres/Suivi.vue'),
+            },
+            {
                 path: 'profile',
                 name: 'profile',
                 component: () => import('@/views/frontoffice/Profile.vue'),
@@ -124,7 +129,6 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 name: 'activites-suivi',
                 component: () => import('@/views/frontoffice/activites/Suivi.vue'),
             },
-
             {
                 path: 'indicateurs',
                 name: 'indicateurs',
@@ -176,12 +180,6 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 name: 'plan-action-detail',
                 component: () => import('@/views/frontoffice/planaction/Show.vue'),
                 meta: { requiresAuth: true, titre: 'Détail du plan d\'action' },
-            },
-            {
-                path: '/plans-action/suivi',
-                name: 'plans-action-suivi',
-                component: () => import('@/views/frontoffice/planaction/Suivi.vue'),
-                meta: { requiresAuth: true, titre: 'Suivi des plans d\'action' },
             },
             {
                 path: '/demandes-reprise',

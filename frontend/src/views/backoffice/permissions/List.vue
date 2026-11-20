@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseTable, BaseButton, BaseSelect } from '@/components/base'
@@ -13,7 +14,7 @@ const router = useRouter()
 
 const items = ref<Permission[]>([])
 const loading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
 
 const filtresDisponibles = ref<PermissionFiltres>({ ressources: [], actions: [] })
 
@@ -103,12 +104,6 @@ onMounted(() => {
                 </p>
             </div>
         </header>
-
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
 
         <div class="bo-filters">
             <BaseSelect v-model="ressource" label="Ressource" placeholder="Toutes" size="sm"

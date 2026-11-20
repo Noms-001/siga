@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useToastMessage } from '@/composables/useToast'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { BaseButton } from '@/components/base'
@@ -13,7 +14,7 @@ const id = Number(route.params.id)
 
 const item = ref<Indicateur | null>(null)
 const loading = ref(false)
-const errorMessage = ref('')
+const errorMessage = useToastMessage('error')
 
 async function charger(): Promise<void> {
     loading.value = true
@@ -28,7 +29,7 @@ async function charger(): Promise<void> {
 }
 
 const modalSaisieOuverte = ref(false)
-const saisieSuccess = ref('')
+const saisieSuccess = useToastMessage('success')
 
 function ouvrirSaisie(): void {
     saisieSuccess.value = ''
@@ -116,7 +117,7 @@ const aDesTextes = computed(() => {
 
 const valeurs = ref<ValeurIndicateur[]>([])
 const valeursLoading = ref(false)
-const valeursError = ref('')
+const valeursError = useToastMessage('error')
 
 const valeurCourante = computed<ValeurIndicateur | null>(() => {
     return valeurs.value[0] ?? null
@@ -190,19 +191,8 @@ function formaterDate(iso: string | null | undefined): string {
         </header>
 
         <!-- ============ ERREUR ============ -->
-        <div v-if="errorMessage" class="alert alert-danger mb-0 d-flex justify-content-between align-items-center"
-            role="alert">
-            <span>{{ errorMessage }}</span>
-            <BaseButton size="sm" variant="secondary" @click="charger">Réessayer</BaseButton>
-        </div>
-
-        <div v-if="saisieSuccess" class="alert alert-success mb-0" role="status">
-            <i class="bi bi-check-circle-fill"></i>
-            {{ saisieSuccess }}
-        </div>
-
         <!-- ============ CHARGEMENT ============ -->
-        <div v-else-if="loading" class="loading-state">
+        <div v-if="loading" class="loading-state">
             <div class="hero-skeleton">
                 <div class="skeleton skeleton--label"></div>
                 <div class="skeleton skeleton--value"></div>
@@ -412,13 +402,7 @@ function formaterDate(iso: string | null | undefined): string {
                     <span class="content-card__count">{{ valeurs.length }}</span>
                 </header>
 
-                <div v-if="valeursError"
-                    class="alert alert-danger m-3 d-flex justify-content-between align-items-center" role="alert">
-                    <span>{{ valeursError }}</span>
-                    <BaseButton size="sm" variant="secondary" @click="chargerValeurs">Réessayer</BaseButton>
-                </div>
-
-                <div v-else-if="historique.length === 0" class="content-card__empty">
+                <div v-if="historique.length === 0" class="content-card__empty">
                     <i class="bi bi-clock-history" aria-hidden="true"></i>
                     <p>Aucun historique antérieur — la valeur courante est le premier relevé.</p>
                 </div>

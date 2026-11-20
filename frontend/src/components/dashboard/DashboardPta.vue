@@ -15,7 +15,7 @@ function pct(s: DashboardPtaSection | undefined | null): number {
 <template>
     <section class="pta">
         <header class="pta__head">
-            <h2 class="pta__title">PTA / NON-PTA</h2>
+            <h2 class="pta__title">PTA / COURANTE</h2>
         </header>
 
         <div v-if="loading" class="pta__loading">
@@ -49,7 +49,7 @@ function pct(s: DashboardPtaSection | undefined | null): number {
 
             <article class="pta-card pta-card--non-pta">
                 <header class="pta-card__head">
-                    <span class="pta-card__tag">NON-PTA</span>
+                    <span class="pta-card__tag">COURANTE</span>
                     <span class="pta-card__avancement">{{ pct(comparaison?.nonPta) }} %</span>
                 </header>
                 <div class="pta-card__total">

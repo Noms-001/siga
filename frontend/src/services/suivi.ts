@@ -2,6 +2,7 @@ import { get, post, type ApiResponse } from '@/services/api-client'
 import type {
     ActiviteOptions,
     ActiviteStatistiques,
+    ActiviteSuiviStatistiques,
     ActiviteSuivi,
     AvancementRequest,
     AvancementResponse,
@@ -42,6 +43,14 @@ export function listerSuivi(
 
 export function statistiquesSuivi(
     params: Omit<ListeSuiviParams, 'page' | 'size'> = {}
+): Promise<ApiResponse<ActiviteSuiviStatistiques>> {
+    return get<ActiviteSuiviStatistiques>(
+        `/activites/suivi/statistiques${buildQuery(params)}`
+    )
+}
+
+export function statistiquesActivites(
+    params: Omit<ListeSuiviParams, 'page' | 'size'> = {}
 ): Promise<ApiResponse<ActiviteStatistiques>> {
     return get<ActiviteStatistiques>(
         `/activites/statistiques${buildQuery(params)}`
@@ -60,10 +69,11 @@ export interface AutocompleteItem {
 }
 
 export function autocompleteActivites(
-    q: string
+    q: string,
+    pta: boolean
 ): Promise<ApiResponse<AutocompleteItem[]>> {
     return get<AutocompleteItem[]>(
-        `/activites/autocomplete${buildQuery({ q })}`
+        `/activites/autocomplete${buildQuery({ q, pta })}`
     )
 }
 
