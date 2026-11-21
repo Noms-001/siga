@@ -33,7 +33,7 @@ describe('normalizeImportDate', () => {
         '1/2/2027',
         'not a date',
     ])('rejects invalid or ambiguous date %s', (input) => {
-        expect(() => normalizeImportDate(input)).toThrow()
+        expect(() => normalizeImportDate(input)).toThrow(/date|limites|ambigu/)
     })
 
     it('serializes planned, actual, and sub-activity dates in the final API shape as ISO strings', () => {

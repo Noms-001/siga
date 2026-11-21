@@ -1,4 +1,4 @@
-import type { PropType, Ref } from 'vue'
+import type { Ref } from 'vue'
 
 export type InputSize = 'sm' | 'md' | 'lg'
 

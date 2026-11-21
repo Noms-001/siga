@@ -1,5 +1,5 @@
 import { get, post, put, patch, type ApiResponse } from '@/services/api-client'
-import type { Procedure, ProcedureRequest, EtapeValidation } from '@/types/backoffice/procedure'
+import type { Procedure, ProcedureRequest } from '@/types/backoffice/procedure'
 
 const BASE = '/backoffice/procedures'
 

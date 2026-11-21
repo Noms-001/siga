@@ -20,6 +20,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.dto.common.PageResponse;
+import mg.bank.backend.dto.common.PlanActionExportFiltres;
+import mg.bank.backend.dto.export.PlanActionExportResponse;
 import mg.bank.backend.dto.planaction.AvancementPlanActionDetailDTO;
 import mg.bank.backend.dto.planaction.AvancementSaisieRequest;
 import mg.bank.backend.dto.planaction.PlanActionDetailDTO;
@@ -28,6 +30,7 @@ import mg.bank.backend.dto.planaction.PlanActionEcritureResponse;
 import mg.bank.backend.dto.planaction.PlanActionListItemDTO;
 import mg.bank.backend.dto.planaction.SuiviGlobalPlanActionDTO;
 import mg.bank.backend.service.common.PeriodeSupport;
+import mg.bank.backend.service.planaction.PlanActionExportService;
 import mg.bank.backend.service.planaction.PlanActionService;
 import mg.bank.backend.service.planaction.SuiviGlobalPlanActionService;
 
@@ -38,6 +41,7 @@ public class PlanActionController {
 
         private final PlanActionService planActionService;
         private final SuiviGlobalPlanActionService suiviGlobalPlanActionService;
+        private final PlanActionExportService planActionExportService;
 
         @GetMapping
         public ResponseEntity<ApiResponse<PageResponse<PlanActionListItemDTO>>> lister(
@@ -58,6 +62,33 @@ public class PlanActionController {
                                                 pagination.getPageNumber(),
                                                 pagination.getPageSize(),
                                                 pagination.getSort())));
+        }
+
+        @GetMapping("/export")
+        public ResponseEntity<ApiResponse<PlanActionExportResponse>> exporter(
+                        @RequestParam(required = false) String statut,
+                        @RequestParam(required = false) String search,
+                        @RequestParam(required = false) Integer annee,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateDebut,
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFin,
+                        @RequestParam(required = false) Integer origineId,
+                        @RequestParam(required = false) String typeOrigine,
+                        @RequestParam(required = false) Integer responsableId,
+                        @RequestParam(required = false) Integer serviceId) {
+
+                PlanActionExportFiltres filtres = PlanActionExportFiltres.builder()
+                                .statut(statut)
+                                .search(search)
+                                .annee(annee)
+                                .dateDebut(dateDebut)
+                                .dateFin(dateFin)
+                                .origineId(origineId)
+                                .typeOrigine(typeOrigine)
+                                .responsableId(responsableId)
+                                .serviceId(serviceId)
+                                .build();
+
+                return ResponseEntity.ok(ApiResponse.success(planActionExportService.exporter(filtres)));
         }
 
         @GetMapping("/mes-brouillons")

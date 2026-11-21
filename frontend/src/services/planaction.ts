@@ -1,5 +1,6 @@
 import { get, post, type ApiResponse } from '@/services/api-client'
 import type { PeriodeDashboard } from '@/types/dashboard'
+import type { PlanActionExportResponse } from '@/types/exportPlanAction'
 import type {
     PageResponse,
     PlanActionFiltres,
@@ -33,6 +34,12 @@ export function listerPlans(
     params: ListePlansParams = {}
 ): Promise<ApiResponse<PageResponse<PlanActionListItem>>> {
     return get<PageResponse<PlanActionListItem>>(`${BASE}${query(params)}`)
+}
+
+export function exporterPlansAction(
+    filtres: PlanActionFiltres = {}
+): Promise<ApiResponse<PlanActionExportResponse>> {
+    return get<PlanActionExportResponse>(`${BASE}/export${query(filtres)}`)
 }
 
 export function listerMesBrouillons(

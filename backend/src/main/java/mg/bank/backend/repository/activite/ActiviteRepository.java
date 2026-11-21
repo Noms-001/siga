@@ -22,12 +22,16 @@ import mg.bank.backend.repository.projection.activite.ActiviteSuiviStatistiquesR
 import mg.bank.backend.repository.projection.activite.AvancementDetailRow;
 import mg.bank.backend.repository.projection.activite.FichierDetailRow;
 import mg.bank.backend.repository.projection.activite.FichierTelechargementRow;
+import mg.bank.backend.repository.projection.activite.ActiviteExportRow;
 import mg.bank.backend.repository.projection.activite.HistoriqueActiviteRow;
 import mg.bank.backend.repository.projection.activite.LivrableDetailRow;
+import mg.bank.backend.repository.projection.activite.ResponsableExportRow;
 import mg.bank.backend.repository.projection.activite.ResponsableSuiviRow;
 import mg.bank.backend.repository.projection.activite.ResultatIntermediaireRow;
 import mg.bank.backend.repository.projection.activite.SousActiviteDetailRow;
+import mg.bank.backend.repository.projection.activite.SousActiviteExportRow;
 import mg.bank.backend.repository.projection.activite.SousActiviteSuiviRow;
+import mg.bank.backend.repository.projection.activite.SuiviExportRow;
 import mg.bank.backend.repository.projection.activite.UtilisateurActiviteAnneeRow;
 import mg.bank.backend.repository.projection.affectation.AffectationDetailRow;
 import mg.bank.backend.repository.projection.common.OptionRow;
@@ -1156,6 +1160,159 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("dateDebut") java.time.LocalDate dateDebut,
                      @Param("dateFin") java.time.LocalDate dateFin,
                      Pageable pageable);
+
+       String SELECT_BASE_EXPORT = """
+                     FROM activite act
+                     LEFT JOIN service srv
+                            ON srv.id_service = act.id_service
+                     LEFT JOIN objectif_specifique os
+                            ON os.id_objectif_specifique = act.id_objectif_specifique
+                     LEFT JOIN type_activite ta
+                            ON ta.id_type_activite = act.id_type_activite
+                     LEFT JOIN site st
+                            ON st.id_site = act.id_site
+                     LEFT JOIN priorite pr
+                            ON pr.id_priorite = act.id_priorite
+                     LEFT JOIN "procedure" proc
+                            ON proc.id_procedure = act.id_procedure
+                     """
+                     + SqlFragments.STATUT_COURANT
+                     + SqlFragments.AVANCEMENT_ACTIVITE_COURANT;
+
+       @Query(value = """
+                     SELECT act.id_activite                       AS id,
+                            act.code                              AS code,
+                            act.reference                         AS reference,
+                            act.designation                       AS designation,
+                            (act.id_objectif_specifique IS NOT NULL) AS pta,
+                            os.code                               AS objectifCode,
+                            os.designation                        AS objectifDesignation,
+                            proc.designation                      AS procedureLibelle,
+                            act.date_debut_prevue                 AS dateDebutPrevue,
+                            act.date_fin_prevue                   AS dateFinPrevue,
+                            sta.code                              AS statutCode,
+                            sta.libelle                           AS statutLibelle,
+                            srv.id_service                        AS serviceId,
+                            srv.nom                               AS serviceNom,
+                            pr.libelle                            AS prioriteLibelle,
+                            COALESCE(av.avancement, 0)            AS avancement
+                     """
+                     + SELECT_BASE_EXPORT
+                     + FILTRES
+                     + """
+                                   ORDER BY srv.nom, act.code
+                                   """, nativeQuery = true)
+       List<ActiviteExportRow> findActivitesPourExport(
+                     @Param("pta") Boolean pta,
+                     @Param("recherche") String recherche,
+                     @Param("objectifId") Integer objectifId,
+                     @Param("objectifRecherche") String objectifRecherche,
+                     @Param("servicePerimetre") Integer servicePerimetre,
+                     @Param("departementPerimetre") Integer departementPerimetre,
+                     @Param("serviceDemande") Integer serviceDemande,
+                     @Param("prioriteId") Integer prioriteId,
+                     @Param("typeActiviteId") Integer typeActiviteId,
+                     @Param("siteId") Integer siteId,
+                     @Param("statutCode") String statutCode,
+                     @Param("codesTerminaux") String codesTerminaux,
+                     @Param("annee") Integer annee,
+                     @Param("moisDebut") Integer moisDebut,
+                     @Param("moisFin") Integer moisFin,
+                     @Param("dateDebut") java.time.LocalDate dateDebut,
+                     @Param("dateFin") java.time.LocalDate dateFin);
+
+       @Query(value = """
+                     SELECT sa.id_activite          AS idActivite,
+                            sa.id_sous_activite     AS idSousActivite,
+                            sa.code                 AS code,
+                            sa.designation          AS designation,
+                            sa.date_debut_prevue    AS dateDebutPrevue,
+                            sa.date_fin_prevue      AS dateFinPrevue,
+                            sta.code                AS statutCode,
+                            sta.libelle             AS statutLibelle,
+                            COALESCE(dernier.valeur_pourcentage, 0) AS avancement
+                     FROM sous_activite sa
+                     LEFT JOIN LATERAL (
+                         SELECT av.valeur_pourcentage, av.id_statut
+                         FROM avancement_sous_activite av
+                         WHERE av.id_sous_activite = sa.id_sous_activite
+                           AND NOT EXISTS (
+                               SELECT 1 FROM avancement_sous_activite av2
+                               WHERE av2.id_sous_activite = av.id_sous_activite
+                                 AND (av2.date_changement, av2.id_historique_sous_activite)
+                                     > (av.date_changement, av.id_historique_sous_activite))
+                     ) dernier ON TRUE
+                     LEFT JOIN statut sta
+                            ON sta.id_statut = dernier.id_statut
+                     WHERE sa.id_activite IN (:ids)
+                     ORDER BY sa.id_activite, sa.date_debut_prevue, sa.code
+                     """, nativeQuery = true)
+       List<SousActiviteExportRow> findSousActivitesPourExport(@Param("ids") List<Integer> ids);
+
+       @Query(value = """
+                     SELECT sa.id_activite              AS idActivite,
+                            av.id_sous_activite         AS idSousActivite,
+                            sa.code                     AS codeSousActivite,
+                            sa.designation              AS designationSousActivite,
+                            av.date_changement          AS dateChangement,
+                            u.nom                       AS utilisateurNom,
+                            u.prenom                    AS utilisateurPrenom,
+                            av.valeur_pourcentage::float AS valeurPourcentage,
+                            av.commentaire              AS commentaire,
+                            rep.motif                   AS motif,
+                            sta.code                    AS statutCode,
+                            sta.libelle                 AS statutLibelle
+                     FROM avancement_sous_activite av
+                     JOIN sous_activite sa
+                            ON sa.id_sous_activite = av.id_sous_activite
+                     LEFT JOIN utilisateur u
+                            ON u.id_utilisateur = av.id_utilisateur
+                     LEFT JOIN statut sta
+                            ON sta.id_statut = av.id_statut
+                     LEFT JOIN LATERAL (
+                         SELECT dr.motif
+                         FROM demande_reprise_activite dr
+                         WHERE dr.id_activite = sa.id_activite
+                         ORDER BY dr.date_demande DESC, dr.id_demande_reprise_activite DESC
+                         LIMIT 1
+                     ) rep ON TRUE
+                     WHERE sa.id_activite IN (:ids)
+                     ORDER BY sa.id_activite, av.id_sous_activite,
+                              av.date_changement DESC, av.id_historique_sous_activite DESC
+                     """, nativeQuery = true)
+       List<SuiviExportRow> findSuivisPourExport(@Param("ids") List<Integer> ids);
+
+       @Query(value = """
+                     SELECT DISTINCT aa.id_activite      AS idActivite,
+                            CAST(NULL AS INTEGER)        AS idSousActivite,
+                            u.id_utilisateur             AS idUtilisateur,
+                            u.nom                        AS nom,
+                            u.prenom                     AS prenom
+                     FROM affectation_activite aa
+                     JOIN utilisateur u
+                            ON u.id_utilisateur = aa.id_utilisateur
+                     WHERE aa.id_activite IN (:ids)
+                       AND aa.date_desaffectation IS NULL
+                     ORDER BY aa.id_activite, u.nom, u.prenom
+                     """, nativeQuery = true)
+       List<ResponsableExportRow> findResponsablesActivitesPourExport(@Param("ids") List<Integer> ids);
+
+       @Query(value = """
+                     SELECT DISTINCT sa.id_activite        AS idActivite,
+                            sa.id_sous_activite           AS idSousActivite,
+                            u.id_utilisateur              AS idUtilisateur,
+                            u.nom                         AS nom,
+                            u.prenom                      AS prenom
+                     FROM sous_activite sa
+                     JOIN affectation_sous_activite aff
+                            ON aff.id_sous_activite = sa.id_sous_activite
+                     JOIN utilisateur u
+                            ON u.id_utilisateur = aff.id_utilisateur
+                     WHERE sa.id_activite IN (:ids)
+                       AND aff.date_desaffectation IS NULL
+                     ORDER BY sa.id_activite, sa.id_sous_activite, u.nom, u.prenom
+                     """, nativeQuery = true)
+       List<ResponsableExportRow> findResponsablesSousActivitesPourExport(@Param("ids") List<Integer> ids);
 
        @Modifying
        @Query(value = """

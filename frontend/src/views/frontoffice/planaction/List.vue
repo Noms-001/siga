@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { useToastMessage } from '@/composables/useToast'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { BaseButton, BaseInput, BaseSelect } from '@/components/base'
-import { listerPlans, listerMesBrouillons, listerAValider, listerADemarrer, soumettreValidationPlan, validerPlan } from '@/services/planaction'
+import { exporterPlansAction, listerPlans, listerMesBrouillons, listerAValider, listerADemarrer, soumettreValidationPlan, validerPlan } from '@/services/planaction'
 import { STATUTS_PLAN, TYPES_ORIGINE } from '@/types/planaction'
 import type { PlanActionFiltres, PlanActionListItem } from '@/types/planaction'
+
+defineOptions({ name: 'PlanActionList' })
 
 const router = useRouter()
 
@@ -14,6 +16,11 @@ const router = useRouter()
 const plans = ref<PlanActionListItem[]>([])
 const loading = ref(false)
 const errorMessage = useToastMessage('error')
+const successMessage = useToastMessage('success')
+const warningMessage = useToastMessage('warning')
+
+const exportEnCours = ref(false)
+const exportMenuOuvert = ref(false)
 
 const page = ref(0)
 const size = ref(20)
@@ -104,7 +111,7 @@ async function soumettrePlan(id: number, event?: Event): Promise<void> {
             return
         }
         await charger()
-    } catch (e) {
+    } catch {
         errorMessage.value = 'Erreur lors de la soumission.'
     }
 }
@@ -112,6 +119,60 @@ async function soumettrePlan(id: number, event?: Event): Promise<void> {
 function creer(): void {
     router.push({ name: 'plan-action-create' })
 }
+
+function basculerMenuExport(): void {
+    if (exportEnCours.value) return
+    exportMenuOuvert.value = !exportMenuOuvert.value
+}
+
+function onDocumentClick(event: MouseEvent): void {
+    const cible = event.target as HTMLElement | null
+    if (!cible?.closest('.export-menu')) {
+        exportMenuOuvert.value = false
+    }
+}
+
+function parametresExport(): PlanActionFiltres {
+    const filtresExport: PlanActionFiltres = { ...filtres.value }
+    if (vue.value === 'brouillons') filtresExport.statut = 'BROUILLON'
+    if (vue.value === 'a-valider') filtresExport.statut = 'EN_ATTENTE_VALIDATION'
+    if (vue.value === 'a-demarrer') filtresExport.statut = 'NON_COMMENCEE'
+    return filtresExport
+}
+
+async function lancerExport(format: 'excel' | 'pdf'): Promise<void> {
+    exportMenuOuvert.value = false
+    if (exportEnCours.value) return
+    exportEnCours.value = true
+
+    try {
+        const reponse = await exporterPlansAction(parametresExport())
+        if (!reponse.success) {
+            errorMessage.value = reponse.error
+            return
+        }
+
+        const donnees = reponse.data
+        if (donnees.plans.length === 0) {
+            warningMessage.value = 'Aucun plan d’action ne correspond aux filtres sélectionnés.'
+            return
+        }
+
+        const { exporterExcelPlans, exporterPdfPlans } = await import('@/utils/exportPlansAction')
+        if (format === 'excel') {
+            exporterExcelPlans(donnees)
+            successMessage.value = 'Le fichier Excel a été généré.'
+        } else {
+            exporterPdfPlans(donnees)
+            successMessage.value = 'Le ou les fichiers PDF ont été générés.'
+        }
+    } catch {
+        errorMessage.value = 'Export impossible. Réessayez dans un instant.'
+    } finally {
+        exportEnCours.value = false
+    }
+}
+
 async function validerPlanAction(id: number, rejeter: boolean, event?: Event): Promise<void> {
     if (event) event.stopPropagation()
     try {
@@ -121,7 +182,7 @@ async function validerPlanAction(id: number, rejeter: boolean, event?: Event): P
             return
         }
         await charger()
-    } catch (e) {
+    } catch {
         errorMessage.value = 'Erreur lors de la validation.'
     }
 }
@@ -166,22 +227,6 @@ function estEnRetard(p: PlanActionListItem): boolean {
     return new Date(p.dateFinPrevue) < new Date()
 }
 
-const pagesVisibles = computed<(number | '...')[]>(() => {
-    const total = totalPages.value
-    const current = page.value
-    if (total <= 7) {
-        return Array.from({ length: total }, (_, i) => i)
-    }
-    const pages: (number | '...')[] = [0]
-    if (current > 3) pages.push('...')
-    for (let i = Math.max(1, current - 1); i <= Math.min(total - 2, current + 1); i++) {
-        pages.push(i)
-    }
-    if (current < total - 4) pages.push('...')
-    pages.push(total - 1)
-    return pages
-})
-
 const debutAffichage = computed(() => totalElements.value === 0 ? 0 : page.value * size.value + 1)
 const finAffichage = computed(() => Math.min((page.value + 1) * size.value, totalElements.value))
 
@@ -197,7 +242,14 @@ watch(vue, () => {
     charger()
 })
 
-onMounted(charger)
+onMounted(() => {
+    charger()
+    document.addEventListener('click', onDocumentClick)
+})
+
+onBeforeUnmount(() => {
+    document.removeEventListener('click', onDocumentClick)
+})
 </script>
 
 <template>
@@ -216,6 +268,30 @@ onMounted(charger)
                 </p>
             </div>
             <div class="welcome-row__right">
+                <div class="export-menu">
+                    <BaseButton variant="secondary" :loading="exportEnCours" @click="basculerMenuExport">
+                        <i class="bi bi-download"></i>
+                        Exporter
+                        <i class="bi bi-chevron-down export-menu__chev"
+                            :class="{ 'export-menu__chev--open': exportMenuOuvert }"></i>
+                    </BaseButton>
+
+                    <ul v-if="exportMenuOuvert" class="export-menu__liste">
+                        <li>
+                            <button type="button" class="export-menu__item" @click="lancerExport('excel')">
+                                <i class="bi bi-file-earmark-excel"></i>
+                                <span><strong>Excel</strong><small>Classeur .xlsx (3 feuilles)</small></span>
+                            </button>
+                        </li>
+                        <li>
+                            <button type="button" class="export-menu__item" @click="lancerExport('pdf')">
+                                <i class="bi bi-file-earmark-pdf"></i>
+                                <span><strong>PDF</strong><small>Rapport .pdf</small></span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
                 <BaseButton variant="primary" icon="bi bi-plus-lg" @click="creer">
                     Nouveau plan
                 </BaseButton>
@@ -258,9 +334,8 @@ onMounted(charger)
             </BaseButton>
         </section>
 
-        <!-- ERREUR -->
         <!-- CHARGEMENT -->
-        <div v-else-if="loading" class="loading-state">
+        <div v-if="loading" class="loading-state">
             <div v-for="i in 5" :key="i" class="skeleton skeleton-row"></div>
         </div>
 
@@ -352,7 +427,7 @@ onMounted(charger)
         <!-- PAGINATION -->
         <footer v-if="totalPages > 1" class="pagination">
             <span class="pagination__info">
-                {{ totalElements }} plan{{ totalElements > 1 ? 's' : '' }} — page {{ page + 1 }} / {{ totalPages }}
+                {{ debutAffichage }}–{{ finAffichage }} sur {{ totalElements }} plan{{ totalElements > 1 ? 's' : '' }}
             </span>
             <div class="pagination__controls">
                 <BaseButton variant="secondary" size="sm" :disabled="page === 0" @click="changerPage(page - 1)">
@@ -697,6 +772,67 @@ onMounted(charger)
 }
 
 /* Responsive */
+.export-menu {
+    position: relative;
+}
+
+.export-menu__chev {
+    margin-left: 4px;
+    transition: transform 0.15s ease;
+}
+
+.export-menu__chev--open {
+    transform: rotate(180deg);
+}
+
+.export-menu__liste {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 30;
+    width: 250px;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #e4e9f2;
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(15, 35, 70, 0.14);
+}
+
+.export-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    color: #1f2937;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    cursor: pointer;
+}
+
+.export-menu__item:hover {
+    background: #f3f6fa;
+}
+
+.export-menu__item i {
+    font-size: 18px;
+    color: #2b6cb0;
+}
+
+.export-menu__item span {
+    display: flex;
+    flex-direction: column;
+}
+
+.export-menu__item small {
+    color: #7b8798;
+    font-size: 11px;
+}
+
 @media (max-width: 991.98px) {
     .pa-page {
         padding-left: 24px;

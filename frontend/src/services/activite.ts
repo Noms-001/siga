@@ -1,9 +1,9 @@
 import { getCurrentYear } from '@/utils/date'
 import { del, get, getBlob, patch, post, postForm, put } from './api-client'
 import type { ApiResponse } from './api-client'
+import type { ActiviteExportResponse } from '@/types/exportActivite'
 import {
     BROUILLON,
-    EN_ATTENTE_VALIDATION,
     type ActiviteAutocomplete,
     type ActiviteDetail,
     type ActiviteEcriture,
@@ -31,7 +31,7 @@ import {
 export const ANNEE_DEFAUT = getCurrentYear()
 
 
-function construireParamsFiltres(
+export function construireParamsFiltres(
     filtres: ActiviteFiltres,
     vue: VueActivite,
     statut: string | null
@@ -108,6 +108,16 @@ export async function listerActivites(
     params.set('size', String(size))
 
     return get<PageResult<ActiviteListItem>>(`/activites?${params.toString()}`)
+}
+
+export async function exporterActivites(
+    filtres: ActiviteFiltres,
+    vue: VueActivite,
+    statut: string | null
+) {
+    const params = construireParamsFiltres(filtres, vue, statut)
+
+    return get<ActiviteExportResponse>(`/activites/export?${params.toString()}`)
 }
 
 export async function listerActivitesBrouillon(

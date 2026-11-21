@@ -50,12 +50,14 @@ import mg.bank.backend.dto.common.ActiviteFiltreCriteria;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.dto.common.PageResponse;
 import mg.bank.backend.dto.common.ReferenceDTO;
+import mg.bank.backend.dto.export.ActiviteExportResponse;
 import mg.bank.backend.dto.validation.ValidationActiviteResponse;
 import mg.bank.backend.model.activite.Activite;
 import mg.bank.backend.model.validation.EtapeValidation;
 import mg.bank.backend.model.validation.ValidationActivite;
 import mg.bank.backend.service.activite.ActiviteDetailService;
 import mg.bank.backend.service.activite.ActiviteEcritureService;
+import mg.bank.backend.service.activite.ActiviteExportService;
 import mg.bank.backend.service.activite.ActiviteService;
 import mg.bank.backend.service.activite.ActiviteWorkflowService;
 import mg.bank.backend.service.activite.LivrableEcritureService;
@@ -69,6 +71,8 @@ import mg.bank.backend.utils.FileNames;
 public class ActiviteController {
 
         private final ActiviteService activiteService;
+
+        private final ActiviteExportService activiteExportService;
 
         private final ActiviteDetailService activiteDetailService;
 
@@ -113,6 +117,31 @@ public class ActiviteController {
                                 pagination.getSort());
 
                 return ResponseEntity.ok(ApiResponse.success(resultat));
+        }
+
+        @GetMapping("/export")
+        public ResponseEntity<ApiResponse<ActiviteExportResponse>> exporter(
+                        @RequestParam(required = false) Boolean pta,
+                        @RequestParam(required = false) String search,
+                        @RequestParam(required = false) Integer objectifSpecifiqueId,
+                        @RequestParam(required = false) String objectifSearch,
+                        @RequestParam(required = false) Integer serviceId,
+                        @RequestParam(required = false) Integer prioriteId,
+                        @RequestParam(required = false) Integer typeActiviteId,
+                        @RequestParam(required = false) Integer siteId,
+                        @RequestParam(required = false) String statut,
+                        @RequestParam(required = false) Integer annee,
+                        @RequestParam(required = false) Integer trimestre,
+                        @RequestParam(required = false) LocalDate dateDebut,
+                        @RequestParam(required = false) LocalDate dateFin) {
+
+                ActiviteFiltreCriteria filtres = filtres(
+                                pta, search, objectifSpecifiqueId, objectifSearch, serviceId,
+                                prioriteId, typeActiviteId, siteId, statut, annee, trimestre,
+                                dateDebut, dateFin);
+
+                return ResponseEntity.ok(ApiResponse.success(
+                                activiteExportService.exporter(filtres)));
         }
 
         /**

@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import type { ToastInstance, ToastItem, ToastType } from './BaseToast.types'
+import type { ToastItem, ToastType } from './BaseToast.types'
 
 const toasts = ref<ToastItem[]>([])
 let nextId = 0

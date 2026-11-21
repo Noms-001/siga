@@ -1,14 +1,14 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import type { BaseTableProps, TableColumn } from './BaseTable.types'
 
-export function useBaseTable(props: BaseTableProps<any>, emit: any) {
+export function useBaseTable(props: BaseTableProps<any>, _emit: any) {
     const search = ref('')
     const currentPage = ref(1)
     const sortKey = ref('')
     const sortDirection = ref<'asc' | 'desc'>('asc')
 
     const normalizedColumns = computed<TableColumn[]>(() => {
-        return (props.columns as any[]).map((col, i) => {
+        return (props.columns as any[]).map((col, _i) => {
             if (typeof col === 'string') {
                 return { key: col, label: col }
             }

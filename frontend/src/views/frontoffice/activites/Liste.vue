@@ -29,6 +29,7 @@ import {
     type VueActivite,
 } from '@/types/activite'
 import { formatDateSeule } from '@/utils/date'
+import type { ActiviteExportResponse } from '@/types/exportActivite'
 
 // ------------------------------------------------------------------
 // Constantes de presentation
@@ -96,6 +97,11 @@ const totalElements = ref(0)
 const chargement = ref(false)
 const chargementStats = ref(false)
 const erreur = useToastMessage('error')
+const succes = useToastMessage('success')
+const avertissement = useToastMessage('warning')
+
+const exportEnCours = ref(false)
+const exportMenuOuvert = ref(false)
 
 const router = useRouter()
 const confirmation = useConfirmation()
@@ -373,6 +379,51 @@ function ouvrirCreation() {
     router.push({ name: 'activites-nouvelle' })
 }
 
+function basculerMenuExport() {
+    if (exportEnCours.value) return
+    exportMenuOuvert.value = !exportMenuOuvert.value
+}
+
+async function lancerExport(format: 'excel' | 'pdf') {
+    exportMenuOuvert.value = false
+
+    if (exportEnCours.value) return
+
+    exportEnCours.value = true
+
+    try {
+        const reponse = await activiteService.exporterActivites(
+            { ...filtres }, vue.value, statutActif.value,
+        )
+
+        if (!reponse.success) {
+            erreur.value = reponse.error
+            return
+        }
+
+        const donnees: ActiviteExportResponse = reponse.data
+
+        if (donnees.activites.length === 0) {
+            avertissement.value = 'Aucune activité ne correspond aux filtres sélectionnés.'
+            return
+        }
+
+        const { exporterExcel, exporterPdf } = await import('@/utils/exportActivites')
+
+        if (format === 'excel') {
+            exporterExcel(donnees)
+            succes.value = 'Le fichier Excel a été généré.'
+        } else {
+            exporterPdf(donnees)
+            succes.value = 'Le ou les fichiers PDF ont été générés.'
+        }
+    } catch {
+        erreur.value = 'Export impossible. Réessayez dans un instant.'
+    } finally {
+        exportEnCours.value = false
+    }
+}
+
 function basculerStatut(cle: CarteStatut) {
     const code = CODES_CARTES[cle]
     statutActif.value = statutActif.value === code ? null : code
@@ -576,6 +627,10 @@ function onDocumentClick(e: MouseEvent) {
     if (!cible?.closest('.priorite-cell') && !cible?.closest('.priorite-dropdown')) {
         prioriteEnEdition.value = null
     }
+
+    if (!cible?.closest('.export-menu')) {
+        exportMenuOuvert.value = false
+    }
 }
 
 onMounted(async () => {
@@ -627,6 +682,37 @@ watch(
             </div>
 
             <div class="welcome-row__right">
+                <div class="export-menu">
+                    <BaseButton variant="secondary" :loading="exportEnCours" :disabled="chargement"
+                        @click="basculerMenuExport">
+                        <i class="bi bi-download"></i>
+                        Exporter
+                        <i class="bi bi-chevron-down export-menu__chev"
+                            :class="{ 'export-menu__chev--open': exportMenuOuvert }"></i>
+                    </BaseButton>
+
+                    <ul v-if="exportMenuOuvert" class="export-menu__liste">
+                        <li>
+                            <button type="button" class="export-menu__item" @click="lancerExport('excel')">
+                                <i class="bi bi-file-earmark-excel"></i>
+                                <span>
+                                    <strong>Excel</strong>
+                                    <small>Classeur .xlsx (3 feuilles)</small>
+                                </span>
+                            </button>
+                        </li>
+                        <li>
+                            <button type="button" class="export-menu__item" @click="lancerExport('pdf')">
+                                <i class="bi bi-file-earmark-pdf"></i>
+                                <span>
+                                    <strong>PDF</strong>
+                                    <small>Rapport .pdf</small>
+                                </span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+
                 <BaseButton variant="primary" @click="ouvrirCreation">
                     <i class="bi bi-plus-lg"></i>
                     Ajouter une activité
@@ -1016,6 +1102,73 @@ watch(
         radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .055) 0, transparent 38%),
         radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .065) 0, transparent 36%),
         #f5f7fa;
+}
+
+.export-menu {
+    position: relative;
+}
+
+.export-menu__chev {
+    font-size: 0.72rem;
+    transition: transform .2s ease;
+}
+
+.export-menu__chev--open {
+    transform: rotate(180deg);
+}
+
+.export-menu__liste {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 1100;
+    min-width: 240px;
+    margin: 0;
+    padding: 0.4rem;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #e6ebf3;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(26, 42, 108, .16);
+}
+
+.export-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    width: 100%;
+    padding: 0.6rem 0.7rem;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #15233c;
+    text-align: left;
+    cursor: pointer;
+    transition: background .15s ease;
+}
+
+.export-menu__item:hover {
+    background: #f4f7ff;
+}
+
+.export-menu__item i {
+    font-size: 1.2rem;
+    color: #1a2a6c;
+}
+
+.export-menu__item span {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.export-menu__item strong {
+    font-size: 0.85rem;
+}
+
+.export-menu__item small {
+    color: #6b7280;
+    font-size: 0.72rem;
 }
 
 .vue-switch {
