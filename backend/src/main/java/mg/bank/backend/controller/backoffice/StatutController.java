@@ -13,6 +13,9 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.backoffice.StatutResponse;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.referentiel.StatutService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/backoffice/statuts")
@@ -21,6 +24,7 @@ public class StatutController {
 
     private final StatutService statutService;
 
+    @RequirePermission(ressource = PermissionResource.STATUT, action = PermissionAction.CONSULTER)
     @GetMapping
     public ResponseEntity<ApiResponse<List<StatutResponse>>> lister(
             @RequestParam(name = "inclureInactifs", defaultValue = "false") boolean inclureInactifs) {
@@ -28,6 +32,7 @@ public class StatutController {
                 ApiResponse.success(statutService.lister(inclureInactifs)));
     }
 
+    @RequirePermission(ressource = PermissionResource.STATUT, action = PermissionAction.CONSULTER)
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<StatutResponse>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(

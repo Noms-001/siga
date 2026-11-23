@@ -29,6 +29,7 @@ import mg.bank.backend.repository.projection.affectation.DemandeRepriseRow;
 import mg.bank.backend.repository.projection.common.StatutCourantRow;
 import mg.bank.backend.repository.utilisateur.RoleRepository;
 import mg.bank.backend.repository.utilisateur.UtilisateurRepository;
+import mg.bank.backend.service.common.PorteeService;
 import mg.bank.backend.service.common.PriorityService;
 import mg.bank.backend.service.utilisateur.CurrentUserService;
 import mg.bank.backend.utils.ReferenceMapper;
@@ -53,6 +54,7 @@ public class DemandeRepriseService {
 
         private final PriorityService priorityService;
         private final CurrentUserService currentUserService;
+        private final PorteeService porteeService;
 
         // ------------------------------------------------------------------
         // F1 — Créer une demande
@@ -69,6 +71,7 @@ public class DemandeRepriseService {
                                         HttpStatus.FORBIDDEN);
                 }
 
+                porteeService.exigerActivite(idActivite);
                 Activite activite = activiteRepository.findById(idActivite)
                                 .orElseThrow(() -> new ApiException(
                                                 "Activité introuvable.", HttpStatus.NOT_FOUND));
@@ -140,9 +143,7 @@ public class DemandeRepriseService {
 
         @Transactional(readOnly = true)
         public List<DemandeRepriseDTO> historiqueActivite(Integer idActivite) {
-                if (!activiteRepository.existsById(idActivite)) {
-                        throw new ApiException("Activité introuvable.", HttpStatus.NOT_FOUND);
-                }
+                porteeService.exigerActivite(idActivite);
                 return demandeRepository.findHistoriqueActivite(idActivite)
                                 .stream().map(this::versDto).toList();
         }
@@ -296,16 +297,18 @@ public class DemandeRepriseService {
         // ------------------------------------------------------------------
 
         private DemandeRepriseActivite chargerDemandeEnAttente(Integer idDemande) {
-                return demandeRepository
+                DemandeRepriseActivite demande = demandeRepository
                                 .findByIdDemandeRepriseActiviteAndStatut(idDemande, DemandeRepriseStatuts.EN_ATTENTE)
                                 .orElseThrow(() -> new ApiException(
                                                 "Demande introuvable ou déjà traitée.",
                                                 HttpStatus.NOT_FOUND));
+                porteeService.exigerActivite(demande.getActivite().getIdActivite());
+                return demande;
         }
 
         private void verifierStatutAffectable(Integer idActivite) {
                 StatutCourantRow statut = activiteRepository.findStatutCourant(
-                                idActivite, null, null)
+                                idActivite, null, null, null)
                                 .orElseThrow(() -> new ApiException(
                                                 "Activité introuvable.", HttpStatus.NOT_FOUND));
                 if (!STATUT_ACTIVITE_NON_COMMENCEE.equals(statut.getStatutCode())) {

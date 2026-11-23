@@ -36,22 +36,23 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
                """, nativeQuery = true)
      int dernierNumeroPourAnnee(@Param("annee") int annee);
 
-     @Query(value = """
-                SELECT pa.id_plan_action          AS id,
-                       pa.code                     AS code,
-                       pa.designation              AS designation,
-                       pa.date_debut_prevue        AS dateDebutPrevue,
-                       pa.date_fin_prevue          AS dateFinPrevue,
-                       pa.date_debut_reelle        AS dateDebutReelle,
-                       pa.date_fin_reelle          AS dateFinReelle,
-                       sta.id_statut               AS statutId,
-                       sta.code                    AS statutCode,
-                       sta.libelle                 AS statutLibelle,
-                       COALESCE(av.valeur_pourcentage, 0) AS avancement,
-                       u.id_utilisateur            AS responsableId,
-                       u.nom                       AS responsableNom,
-                       u.prenom                    AS responsablePrenom
+     @Query(value = SqlFragments.PLAN_SCOPE + """
+               SELECT pa.id_plan_action          AS id,
+                      pa.code                     AS code,
+                      pa.designation              AS designation,
+                      pa.date_debut_prevue        AS dateDebutPrevue,
+                      pa.date_fin_prevue          AS dateFinPrevue,
+                      pa.date_debut_reelle        AS dateDebutReelle,
+                      pa.date_fin_reelle          AS dateFinReelle,
+                      sta.id_statut               AS statutId,
+                      sta.code                    AS statutCode,
+                      sta.libelle                 AS statutLibelle,
+                      COALESCE(av.valeur_pourcentage, 0) AS avancement,
+                      u.id_utilisateur            AS responsableId,
+                      u.nom                       AS responsableNom,
+                      u.prenom                    AS responsablePrenom
                 FROM plan_action pa
+                LEFT JOIN plan_scope ps ON ps.id_plan_action = pa.id_plan_action
                """
                + SqlFragments.AVANCEMENT_PLAN_ACTION_DERNIER
                + """
@@ -71,36 +72,41 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
                                           AND (aff2.date_affectation, aff2.id_affectation_plan_action)
                                               < (aff.date_affectation, aff.id_affectation_plan_action))
                               ) resp ON TRUE
-                                                  LEFT JOIN utilisateur u ON u.id_utilisateur = resp.id_utilisateur
-                                                  WHERE (:statutCode IS NULL
-                                                         OR sta.code = :statutCode)
-                                                    AND (:statutsParDefautCsv IS NULL
-                                                         OR sta.code = ANY(string_to_array(:statutsParDefautCsv, ',')))
-                                                    AND (:motif IS NULL
-                                                         OR pa.code ILIKE :motif
-                                                         OR pa.designation ILIKE :motif)
-                                                    AND (:annee IS NULL
-                                                         OR EXTRACT(YEAR FROM pa.date_debut_prevue) = :annee)
-                                                    AND (:dateDebut IS NULL OR pa.date_debut_prevue >= :dateDebut)
-                                                    AND (:dateFin IS NULL OR pa.date_fin_prevue <= :dateFin)
-                                                    AND (:origineId IS NULL
-                                                         OR EXISTS (
-                                                             SELECT 1 FROM plan_action_origine pao
-                                                             WHERE pao.id_plan_action = pa.id_plan_action
-                                                               AND pao.id_origine = :origineId
-                                                         ))
-                                                    AND (:typeOrigine IS NULL
-                                                         OR EXISTS (
-                                                             SELECT 1 FROM plan_action_origine pao_t
-                                                             JOIN origine o_t ON o_t.id_origine = pao_t.id_origine
-                                                             WHERE pao_t.id_plan_action = pa.id_plan_action
-                                                               AND o_t.type_origine = :typeOrigine
-                                                         ))
-                                                    AND (:responsableId IS NULL
-                                                         OR resp.id_utilisateur = :responsableId)
-                                                  """, countQuery = """
+                         LEFT JOIN utilisateur u ON u.id_utilisateur = resp.id_utilisateur
+                         """
+               + SqlFragments.FILTRES_PORTEE_PLAN
+               + SqlFragments.PORTEE_UTILISATEUR_PLAN
+               + """
+                         AND (:statutCode IS NULL
+                              OR sta.code = :statutCode)
+                         AND (:statutsParDefautCsv IS NULL
+                              OR sta.code = ANY(string_to_array(:statutsParDefautCsv, ',')))
+                         AND (:motif IS NULL
+                              OR pa.code ILIKE :motif
+                              OR pa.designation ILIKE :motif)
+                         AND (:annee IS NULL
+                              OR EXTRACT(YEAR FROM pa.date_debut_prevue) = :annee)
+                         AND (:dateDebut IS NULL OR pa.date_debut_prevue >= :dateDebut)
+                         AND (:dateFin IS NULL OR pa.date_fin_prevue <= :dateFin)
+                         AND (:origineId IS NULL
+                              OR EXISTS (
+                                  SELECT 1 FROM plan_action_origine pao
+                                  WHERE pao.id_plan_action = pa.id_plan_action
+                                    AND pao.id_origine = :origineId
+                              ))
+                         AND (:typeOrigine IS NULL
+                              OR EXISTS (
+                                  SELECT 1 FROM plan_action_origine pao_t
+                                  JOIN origine o_t ON o_t.id_origine = pao_t.id_origine
+                                  WHERE pao_t.id_plan_action = pa.id_plan_action
+                                    AND o_t.type_origine = :typeOrigine
+                              ))
+                         AND (:responsableId IS NULL
+                              OR resp.id_utilisateur = :responsableId)
+                         """, countQuery = SqlFragments.PLAN_SCOPE + """
                          SELECT COUNT(*)
                          FROM plan_action pa
+                         LEFT JOIN plan_scope ps ON ps.id_plan_action = pa.id_plan_action
                          """
                          + SqlFragments.AVANCEMENT_PLAN_ACTION_DERNIER
                          + """
@@ -114,31 +120,35 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
                                        ORDER BY aff.date_affectation ASC
                                        LIMIT 1
                                    ) resp ON TRUE
-                                   WHERE (:statutCode IS NULL OR sta.code = :statutCode)
-                                     AND (:statutsParDefautCsv IS NULL
-                                          OR sta.code = ANY(string_to_array(:statutsParDefautCsv, ',')))
-                                     AND (:motif IS NULL
-                                          OR pa.code ILIKE :motif
-                                          OR pa.designation ILIKE :motif)
-                                     AND (:annee IS NULL
-                                          OR EXTRACT(YEAR FROM pa.date_debut_prevue) = :annee)
-                                     AND (:dateDebut IS NULL OR pa.date_debut_prevue >= :dateDebut)
-                                     AND (:dateFin IS NULL OR pa.date_fin_prevue <= :dateFin)
-                                     AND (:origineId IS NULL
-                                          OR EXISTS (
-                                              SELECT 1 FROM plan_action_origine pao
-                                              WHERE pao.id_plan_action = pa.id_plan_action
-                                                AND pao.id_origine = :origineId
-                                          ))
-                                     AND (:typeOrigine IS NULL
-                                          OR EXISTS (
-                                              SELECT 1 FROM plan_action_origine pao_t
-                                              JOIN origine o_t ON o_t.id_origine = pao_t.id_origine
-                                              WHERE pao_t.id_plan_action = pa.id_plan_action
-                                                AND o_t.type_origine = :typeOrigine
-                                          ))
-                                     AND (:responsableId IS NULL
-                                          OR resp.id_utilisateur = :responsableId)
+                                   """
+                         + SqlFragments.FILTRES_PORTEE_PLAN
+                         + SqlFragments.PORTEE_UTILISATEUR_PLAN
+                         + """
+                                   AND (:statutCode IS NULL OR sta.code = :statutCode)
+                                   AND (:statutsParDefautCsv IS NULL
+                                        OR sta.code = ANY(string_to_array(:statutsParDefautCsv, ',')))
+                                   AND (:motif IS NULL
+                                        OR pa.code ILIKE :motif
+                                        OR pa.designation ILIKE :motif)
+                                   AND (:annee IS NULL
+                                        OR EXTRACT(YEAR FROM pa.date_debut_prevue) = :annee)
+                                   AND (:dateDebut IS NULL OR pa.date_debut_prevue >= :dateDebut)
+                                   AND (:dateFin IS NULL OR pa.date_fin_prevue <= :dateFin)
+                                   AND (:origineId IS NULL
+                                        OR EXISTS (
+                                            SELECT 1 FROM plan_action_origine pao
+                                            WHERE pao.id_plan_action = pa.id_plan_action
+                                              AND pao.id_origine = :origineId
+                                        ))
+                                   AND (:typeOrigine IS NULL
+                                        OR EXISTS (
+                                            SELECT 1 FROM plan_action_origine pao_t
+                                            JOIN origine o_t ON o_t.id_origine = pao_t.id_origine
+                                            WHERE pao_t.id_plan_action = pa.id_plan_action
+                                              AND o_t.type_origine = :typeOrigine
+                                        ))
+                                   AND (:responsableId IS NULL
+                                        OR resp.id_utilisateur = :responsableId)
                                    """, nativeQuery = true)
      Page<PlanActionListRow> findPlans(
                @Param("statutCode") String statutCode,
@@ -150,6 +160,9 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
                @Param("origineId") Integer origineId,
                @Param("typeOrigine") String typeOrigine,
                @Param("responsableId") Integer responsableId,
+               @Param("servicePerimetre") Integer servicePerimetre,
+               @Param("departementPerimetre") Integer departementPerimetre,
+               @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
                Pageable pageable);
 
      /**
@@ -252,7 +265,7 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
                @Param("debutAnnee") java.time.LocalDate debutAnnee,
                @Param("finAnnee") java.time.LocalDate finAnnee);
 
-     @Query(value = """
+     @Query(value = SqlFragments.PLAN_SCOPE + """
                SELECT pa.id_plan_action          AS id,
                       pa.code                     AS code,
                       pa.designation              AS designation,
@@ -268,6 +281,7 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
                       u.nom                       AS responsableNom,
                       u.prenom                    AS responsablePrenom
                FROM plan_action pa
+               LEFT JOIN plan_scope ps ON ps.id_plan_action = pa.id_plan_action
                """
                + SqlFragments.AVANCEMENT_PLAN_ACTION_DERNIER
                + """
@@ -282,11 +296,19 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
                              LIMIT 1
                          ) resp ON TRUE
                          LEFT JOIN utilisateur u ON u.id_utilisateur = resp.id_utilisateur
-                         WHERE pa.id_plan_action = :id
+                         """
+               + SqlFragments.FILTRES_PORTEE_PLAN
+               + SqlFragments.PORTEE_UTILISATEUR_PLAN
+               + """
+                         AND pa.id_plan_action = :id
                          """, nativeQuery = true)
-     Optional<PlanActionListRow> findByIdWithDetails(@Param("id") Integer id);
+     Optional<PlanActionListRow> findByIdWithDetails(
+               @Param("id") Integer id,
+               @Param("servicePerimetre") Integer servicePerimetre,
+               @Param("departementPerimetre") Integer departementPerimetre,
+               @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
-     @Query(value = """
+     @Query(value = SqlFragments.PLAN_SCOPE + """
                 SELECT pa.id_plan_action          AS id,
                        pa.code                     AS code,
                        pa.designation              AS designation,
@@ -297,6 +319,7 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
                        u.nom                       AS responsableNom,
                        u.prenom                    AS responsablePrenom
                 FROM plan_action pa
+                LEFT JOIN plan_scope ps ON ps.id_plan_action = pa.id_plan_action
                 """
                 + SqlFragments.AVANCEMENT_PLAN_ACTION_A_DATE
                 + """
@@ -311,16 +334,23 @@ public interface PlanActionRepository extends JpaRepository<PlanAction, Integer>
                                    LIMIT 1
                                ) resp ON TRUE
                           LEFT JOIN utilisateur u ON u.id_utilisateur = resp.id_utilisateur
-                          WHERE (:statutsParDefautCsv IS NULL
-                                 OR sta.code = ANY(string_to_array(:statutsParDefautCsv, ',')))
-                            AND pa.date_debut_prevue <= CAST(:dateFin AS date)
-                            AND pa.date_fin_prevue >= CAST(:dateDebut AS date)
+                          """
+                + SqlFragments.FILTRES_PORTEE_PLAN
+                + SqlFragments.PORTEE_UTILISATEUR_PLAN
+                + """
+                          AND (:statutsParDefautCsv IS NULL
+                               OR sta.code = ANY(string_to_array(:statutsParDefautCsv, ',')))
+                          AND pa.date_debut_prevue <= CAST(:dateFin AS date)
+                          AND pa.date_fin_prevue >= CAST(:dateDebut AS date)
                           """, nativeQuery = true)
      List<PlanActionSuiviRow> findPlansPourSuivi(
                 @Param("statutsParDefautCsv") String statutsParDefautCsv,
                 @Param("dateDebut") java.time.LocalDate dateDebut,
                 @Param("dateFin") java.time.LocalDate dateFin,
-                @Param("dateReference") java.time.LocalDate dateReference);
+                @Param("dateReference") java.time.LocalDate dateReference,
+                @Param("servicePerimetre") Integer servicePerimetre,
+                @Param("departementPerimetre") Integer departementPerimetre,
+                @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
 
      /**

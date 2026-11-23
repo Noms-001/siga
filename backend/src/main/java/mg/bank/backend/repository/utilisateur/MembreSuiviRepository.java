@@ -40,9 +40,12 @@ public class MembreSuiviRepository {
                         WHERE act.date_debut_prevue <= :dateFin
                           AND COALESCE(act.date_fin_prevue, act.date_debut_prevue) >= :dateDebut
                                             AND (sta.code IS NULL OR sta.code NOT IN ('EN_ATTENTE_VALIDATION', 'VALIDEE', 'REJETE'))
-                          AND (CAST(:idDepartement AS integer) IS NULL OR srv.id_departement = :idDepartement)
-                          AND (CAST(:idService     AS integer) IS NULL OR srv.id_service     = :idService)
-                    ), plan_services AS (
+                           AND (CAST(:idDepartement AS integer) IS NULL OR srv.id_departement = :idDepartement)
+                           AND (CAST(:idService     AS integer) IS NULL OR srv.id_service     = :idService)
+                     """
+            + SqlFragments.PORTEE_UTILISATEUR
+            + """
+                     ), plan_services AS (
                         SELECT DISTINCT pao.id_plan_action,
                                srv.id_service,
                                srv.nom AS nom_service,
@@ -79,13 +82,17 @@ public class MembreSuiviRepository {
                         JOIN plan_map pm ON pm.id_plan_action = pa.id_plan_action
                         """
             + SqlFragments.AVANCEMENT_PLAN_ACTION_DERNIER + """
-                        WHERE pm.nombre_departements = 1
-                          AND pm.id_departement_unique = :idDepartement
-                          AND (CAST(:idService AS integer) IS NULL
-                               OR (pm.nombre_services = 1 AND pm.id_service_unique = :idService))
-                          AND pa.date_debut_prevue <= :dateFin
-                          AND pa.date_fin_prevue >= :dateDebut
-                    )
+                         WHERE (CAST(:idDepartement AS integer) IS NULL
+                                OR (pm.nombre_departements = 1
+                                    AND pm.id_departement_unique = :idDepartement))
+                           AND (CAST(:idService AS integer) IS NULL
+                                OR (pm.nombre_services = 1 AND pm.id_service_unique = :idService))
+                           AND pa.date_debut_prevue <= :dateFin
+                           AND pa.date_fin_prevue >= :dateDebut
+                     """
+            + SqlFragments.PORTEE_UTILISATEUR_PLAN
+            + """
+                     )
                     """;
 
     private static final String TERMINAL_ACTIVITY_SQL = "('TERMINEE', 'ANNULEE', 'REPORTEE')";
@@ -161,9 +168,9 @@ public class MembreSuiviRepository {
                     SELECT u.id_utilisateur
                     FROM utilisateur u
                     WHERE u.actif = TRUE
-                      AND u.id_departement = :idDepartement
+                      AND (CAST(:idDepartement AS integer) IS NULL OR u.id_departement = :idDepartement)
                       AND (CAST(:idService AS integer) IS NULL OR u.id_service = :idService)
-                )
+                 )
                 SELECT u.id_utilisateur AS id_utilisateur,
                        u.nom AS nom,
                        u.prenom AS prenom,
@@ -304,10 +311,13 @@ public class MembreSuiviRepository {
                 )
                 SELECT COUNT(*) FROM plan_action pa
                 JOIN plan_map pm ON pm.id_plan_action = pa.id_plan_action
-                WHERE pm.nombre_departements = 1
-                  AND pm.id_departement = :idDepartement
+                WHERE (CAST(:idDepartement AS integer) IS NULL
+                       OR (pm.nombre_departements = 1 AND pm.id_departement = :idDepartement))
                   AND pm.nombre_services > 1
                   AND pa.date_debut_prevue <= :dateFin AND pa.date_fin_prevue >= :dateDebut
+                """
+                + SqlFragments.PORTEE_UTILISATEUR_PLAN
+                + """
                 """;
         Number count = jdbc.queryForObject(sql, params, Number.class);
         return count == null ? 0 : count.longValue();
@@ -360,7 +370,10 @@ public class MembreSuiviRepository {
                       AND COALESCE(act.date_fin_prevue, act.date_debut_prevue) >= :dateDebut
                       AND (CAST(:idDepartement AS integer) IS NULL OR srv.id_departement = :idDepartement)
                       AND (CAST(:idService     AS integer) IS NULL OR srv.id_service     = :idService)
-                ), plan_services AS (
+                 """
+                + SqlFragments.PORTEE_UTILISATEUR
+                + """
+                 ), plan_services AS (
                     SELECT DISTINCT pao.id_plan_action, srv.id_service, srv.id_departement
                     FROM plan_action_origine pao
                     JOIN origine o ON o.id_origine = pao.id_origine
@@ -376,11 +389,15 @@ public class MembreSuiviRepository {
                 ), plans_scope AS (
                     SELECT pa.id_plan_action FROM plan_action pa
                     JOIN plan_map pm ON pm.id_plan_action = pa.id_plan_action
-                    WHERE pm.nombre_departements = 1 AND pm.id_departement_unique = :idDepartement
+                    WHERE (CAST(:idDepartement AS integer) IS NULL
+                           OR (pm.nombre_departements = 1 AND pm.id_departement_unique = :idDepartement))
                       AND (CAST(:idService AS integer) IS NULL
                            OR (pm.nombre_services = 1 AND pm.id_service_unique = :idService))
                       AND pa.date_debut_prevue <= :dateFin AND pa.date_fin_prevue >= :dateDebut
-                ), activity_month AS (
+                 """
+                + SqlFragments.PORTEE_UTILISATEUR_PLAN
+                + """
+                 ), activity_month AS (
                     SELECT m.debut_mois, a.categorie,
                            AVG(COALESCE(progress.avancement, 0)) AS avancement,
                            COUNT(*) FILTER (WHERE progress.a_historique) AS historique_count

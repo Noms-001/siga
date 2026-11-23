@@ -201,6 +201,7 @@ public class SuiviIndicateurService {
 
         if (activiteRepository.findActiviteDetail(
                 idActivite, servicePerimetre, departementPerimetre,
+                perimetre.getIdUtilisateurPortee(),
                 String.join(",", mg.bank.backend.enums.StatutActiviteEnum.codesTerminaux()))
                 .isEmpty()) {
             throw activiteService.refusOuAbsence(idActivite);
@@ -227,6 +228,7 @@ public class SuiviIndicateurService {
         // Le libelle de l'activite pour le front.
         var detail = activiteRepository.findActiviteDetail(
                 idActivite, servicePerimetre, departementPerimetre,
+                perimetre.getIdUtilisateurPortee(),
                 String.join(",", mg.bank.backend.enums.StatutActiviteEnum.codesTerminaux()))
                 .orElseThrow(() -> activiteService.refusOuAbsence(idActivite));
 
@@ -252,7 +254,8 @@ public class SuiviIndicateurService {
         Integer departementPerimetre = perimetre.getFiltreDepartement();
 
         long n = indicateurRepository.compterDansPerimetre(
-                idIndicateur, servicePerimetre, departementPerimetre);
+                idIndicateur, servicePerimetre, departementPerimetre,
+                perimetre.getIdUtilisateurPortee());
         if (n == 0) {
             // On ne revele pas l'existence de l'indicateur si hors perimetre.
             throw new ApiException(
@@ -575,7 +578,7 @@ public class SuiviIndicateurService {
         Integer departementPerimetre = perimetre.getFiltreDepartement();
 
         List<Indicateur> candidats = indicateurRepository.findActifsAvecFrequenceDansPerimetre(
-                servicePerimetre, departementPerimetre);
+                servicePerimetre, departementPerimetre, perimetre.getIdUtilisateurPortee());
 
         if (candidats.isEmpty()) {
             return List.of();
@@ -886,10 +889,11 @@ public class SuiviIndicateurService {
         Integer departementPerimetre = perimetre.estNiveauDepartement() ? perimetre.getIdDepartement() : null;
 
         List<Indicateur> tous = indicateurRepository
-                .findActifsAvecFrequenceDansPerimetre(servicePerimetre, departementPerimetre);
+                .findActifsAvecFrequenceDansPerimetre(
+                        servicePerimetre, departementPerimetre, perimetre.getIdUtilisateurPortee());
 
         // Fallback : si aucun indicateur n'a de frequence, prendre tous les actifs
-        if (tous.isEmpty()) {
+        if (tous.isEmpty() && perimetre.estPorteeTous()) {
             tous = indicateurRepository.findByActifTrue();
         }
 

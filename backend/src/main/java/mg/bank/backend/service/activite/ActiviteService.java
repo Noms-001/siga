@@ -66,6 +66,7 @@ import mg.bank.backend.repository.referentiel.StatutRepository;
 import mg.bank.backend.repository.referentiel.TypeActiviteRepository;
 import mg.bank.backend.repository.validation.ValidationActiviteRepository;
 import mg.bank.backend.service.common.ActiviteQuerySupport;
+import mg.bank.backend.service.common.PorteeService;
 import mg.bank.backend.service.notification.NotificationService;
 import mg.bank.backend.service.utilisateur.CurrentUserService;
 import mg.bank.backend.service.validation.EtapeValidationService;
@@ -93,6 +94,7 @@ public class ActiviteService {
         private final EtapeValidationService etapeValidationService;
         private final AvancementSousActiviteRepository avancementSousActiviteRepository;
         private final NotificationService notificationService;
+        private final PorteeService porteeService;
 
         // ------------------------------------------------------------------
         // Perimetre
@@ -119,7 +121,7 @@ public class ActiviteService {
                 boolean dansPerimetre = activiteRepository.findStatutCourant(
                                 idActivite,
                                 perimetre.getFiltreService(),
-                                perimetre.getFiltreDepartement())
+                                perimetre.getFiltreDepartement(), perimetre.getIdUtilisateurPortee())
                                 .isPresent();
                 if (!dansPerimetre) {
                         throw refusOuAbsence(idActivite);
@@ -172,14 +174,7 @@ public class ActiviteService {
                 }
                 for (ValidationActivite v : enAttente) {
                         EtapeValidation etape = etapesParId.get(v.getEtapeValidation().getIdEtapeValidation());
-                        if (etape != null &&
-                                        (utilisateur.getService() == null
-                                                        || v.getActivite().getService().getIdService().equals(
-                                                                        utilisateur.getService().getIdService()))
-                                        && (utilisateur.getDepartement() == null ||
-                                                        v.getActivite().getService().getDepartement().getIdDepartement()
-                                                                        .equals(utilisateur.getDepartement()
-                                                                                        .getIdDepartement()))) {
+                        if (etape != null && porteeService.activiteAccessible(v.getActivite().getIdActivite())) {
                                 resultat.get(etape).add(v.getActivite());
                         }
                 }
@@ -233,6 +228,7 @@ public class ActiviteService {
 
         @Transactional
         public ValidationActivite soumettre(Integer idActivite, Boolean retour, String commentaire) {
+                porteeService.exigerActivite(idActivite);
                 Activite activite = activiteRepository.findById(idActivite)
                                 .orElseThrow(() -> new ApiException(
                                                 "Activite introuvable", HttpStatus.NOT_FOUND));
@@ -293,6 +289,7 @@ public class ActiviteService {
 
         @Transactional
         public ValidationActivite valider(Integer idActivite, Boolean rejeter, String commentaire) {
+                porteeService.exigerActivite(idActivite);
                 Activite activite = activiteRepository.findById(idActivite)
                                 .orElseThrow(() -> new ApiException(
                                                 "Activite introuvable", HttpStatus.NOT_FOUND));
@@ -514,7 +511,7 @@ public class ActiviteService {
                                 args.objectifId(),
                                 args.objectifRecherche(),
                                 args.servicePerimetre(),
-                                args.departementPerimetre(),
+                                args.departementPerimetre(), args.idUtilisateurPortee(),
                                 args.serviceDemande(),
                                 args.prioriteId(),
                                 args.typeActiviteId(),
@@ -545,7 +542,7 @@ public class ActiviteService {
                                 args.objectifId(),
                                 args.objectifRecherche(),
                                 args.servicePerimetre(),
-                                args.departementPerimetre(),
+                                args.departementPerimetre(), args.idUtilisateurPortee(),
                                 args.serviceDemande(),
                                 args.prioriteId(),
                                 args.typeActiviteId(),
@@ -582,7 +579,7 @@ public class ActiviteService {
                                 args.objectifId(),
                                 args.objectifRecherche(),
                                 args.servicePerimetre(),
-                                args.departementPerimetre(),
+                                args.departementPerimetre(), args.idUtilisateurPortee(),
                                 args.serviceDemande(),
                                 args.prioriteId(),
                                 args.typeActiviteId(),
@@ -646,6 +643,7 @@ public class ActiviteService {
                                 pta,
                                 perimetre.getFiltreService(),
                                 perimetre.getFiltreDepartement(),
+                                perimetre.getIdUtilisateurPortee(),
                                 TAILLE_AUTOCOMPLETE);
 
                 if (rows == null) {
@@ -871,7 +869,7 @@ public class ActiviteService {
                 Page<ActiviteListRow> lignes = activiteRepository.findActivitesADemarrer(
                                 args.pta(), args.recherche(), args.objectifId(),
                                 args.objectifRecherche(), args.servicePerimetre(),
-                                args.departementPerimetre(), args.serviceDemande(),
+                                args.departementPerimetre(), args.idUtilisateurPortee(), args.serviceDemande(),
                                 args.prioriteId(), args.typeActiviteId(), args.siteId(),
                                 null, args.codesTerminaux(), args.annee(),
                                 args.moisDebut(), args.moisFin(), args.dateDebut(), args.dateFin(),
@@ -885,7 +883,7 @@ public class ActiviteService {
                 PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
 
                 StatutCourantRow statut = activiteRepository.findStatutCourant(
-                                idActivite, perimetre.getFiltreService(), perimetre.getFiltreDepartement())
+                                idActivite, perimetre.getFiltreService(), perimetre.getFiltreDepartement(), perimetre.getIdUtilisateurPortee())
                                 .orElseThrow(() -> refusOuAbsence(idActivite));
 
                 if (!StatutsActivite.BROUILLON.equals(statut.getStatutCode())) {

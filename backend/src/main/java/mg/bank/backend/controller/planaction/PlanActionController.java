@@ -33,6 +33,9 @@ import mg.bank.backend.service.common.PeriodeSupport;
 import mg.bank.backend.service.planaction.PlanActionExportService;
 import mg.bank.backend.service.planaction.PlanActionService;
 import mg.bank.backend.service.planaction.SuiviGlobalPlanActionService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/plans-action")
@@ -43,6 +46,7 @@ public class PlanActionController {
         private final SuiviGlobalPlanActionService suiviGlobalPlanActionService;
         private final PlanActionExportService planActionExportService;
 
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.CONSULTER)
         @GetMapping
         public ResponseEntity<ApiResponse<PageResponse<PlanActionListItemDTO>>> lister(
                         @RequestParam(required = false) String statut,
@@ -64,6 +68,7 @@ public class PlanActionController {
                                                 pagination.getSort())));
         }
 
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.EXPORTER)
         @GetMapping("/export")
         public ResponseEntity<ApiResponse<PlanActionExportResponse>> exporter(
                         @RequestParam(required = false) String statut,
@@ -91,6 +96,7 @@ public class PlanActionController {
                 return ResponseEntity.ok(ApiResponse.success(planActionExportService.exporter(filtres)));
         }
 
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.CONSULTER)
         @GetMapping("/mes-brouillons")
         public ResponseEntity<ApiResponse<PageResponse<PlanActionListItemDTO>>> mesBrouillons(
                         @PageableDefault(size = 20) Pageable pagination) {
@@ -100,6 +106,8 @@ public class PlanActionController {
                                                 pagination.getPageSize(),
                                                 pagination.getSort())));
         }
+        @RequirePermission(ressource = PermissionResource.VALIDATION_PLAN_ACTION, action = PermissionAction.CONSULTER)
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.CONSULTER)
         @GetMapping("/a-valider")
         public ResponseEntity<ApiResponse<PageResponse<PlanActionListItemDTO>>> aValider(
                         @PageableDefault(size = 20) Pageable pagination) {
@@ -110,6 +118,7 @@ public class PlanActionController {
                                                 pagination.getSort())));
         }
 
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.CONSULTER)
         @GetMapping("/a-demarrer")
         public ResponseEntity<ApiResponse<PageResponse<PlanActionListItemDTO>>> aDemarrer(
                         @PageableDefault(size = 20) Pageable pagination) {
@@ -120,6 +129,7 @@ public class PlanActionController {
                                                 pagination.getSort())));
         }
 
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.MODIFIER)
         @PostMapping("/{id}/soumettre-validation")
         public ResponseEntity<ApiResponse<PlanActionDetailDTO>> soumettreValidation(
                         @PathVariable Integer id,
@@ -128,6 +138,8 @@ public class PlanActionController {
                                 planActionService.soumettre(id, commentaire)));
         }
 
+        @RequirePermission(ressource = PermissionResource.VALIDATION_PLAN_ACTION, action = PermissionAction.VALIDER)
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.VALIDER)
         @PostMapping("/{id}/valider")
         public ResponseEntity<ApiResponse<PlanActionDetailDTO>> valider(
                         @PathVariable Integer id,
@@ -138,6 +150,7 @@ public class PlanActionController {
         }
 
 
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.CREER)
         @PostMapping
         public ResponseEntity<ApiResponse<PlanActionEcritureResponse>> creer(
                         @Valid @RequestBody PlanActionEcritureRequest request) {
@@ -145,6 +158,7 @@ public class PlanActionController {
                                 .body(ApiResponse.success(planActionService.creer(request)));
         }
 
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.CONSULTER)
         @GetMapping("/{id}")
         public ResponseEntity<ApiResponse<PlanActionDetailDTO>> detail(
                         @PathVariable Integer id) {
@@ -152,6 +166,8 @@ public class PlanActionController {
                                 planActionService.detail(id)));
         }
 
+        @RequirePermission(ressource = PermissionResource.AVANCEMENT_PLAN_ACTION, action = PermissionAction.CONSULTER)
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.CONSULTER)
         @GetMapping("/{id}/avancements")
         public ResponseEntity<ApiResponse<List<AvancementPlanActionDetailDTO>>> listerAvancements(
                         @PathVariable Integer id) {
@@ -159,6 +175,8 @@ public class PlanActionController {
                                 planActionService.listerAvancements(id)));
         }
 
+        @RequirePermission(ressource = PermissionResource.AVANCEMENT_PLAN_ACTION, action = PermissionAction.CONSULTER)
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.CONSULTER)
         @GetMapping("/{id}/avancement-courant")
         public ResponseEntity<ApiResponse<AvancementPlanActionDetailDTO>> avancementCourant(
                         @PathVariable Integer id) {
@@ -166,6 +184,8 @@ public class PlanActionController {
                                 planActionService.avancementCourant(id)));
         }
 
+        @RequirePermission(ressource = PermissionResource.AVANCEMENT_PLAN_ACTION, action = PermissionAction.CREER)
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.MODIFIER)
         @PostMapping("/{id}/avancements")
         public ResponseEntity<ApiResponse<AvancementPlanActionDetailDTO>> saisirAvancement(
                         @PathVariable Integer id,
@@ -175,6 +195,7 @@ public class PlanActionController {
                                                 planActionService.saisirAvancement(id, request)));
         }
 
+        @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.CONSULTER)
         @GetMapping("/suivi-global")
         public ResponseEntity<ApiResponse<SuiviGlobalPlanActionDTO>> suiviGlobal(
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateDebut,

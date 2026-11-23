@@ -129,6 +129,7 @@ public class AffectationService {
                                                                                 : filtres.getObjectifSearch()),
                                                 servicePerimetre,
                                                 departementPerimetre,
+                                                perimetre.getIdUtilisateurPortee(),
                                                 serviceDemande,
                                                 filtres == null ? null : filtres.getPrioriteId(),
                                                 filtres == null ? null : filtres.getTypeActiviteId(),
@@ -369,7 +370,8 @@ public class AffectationService {
                 Integer departementPerimetre = perimetre.getFiltreDepartement();
 
                 if (activiteRepository.findActiviteDetail(
-                                idActivite, servicePerimetre, departementPerimetre, codesTerminaux()).isEmpty()) {
+                                idActivite, servicePerimetre, departementPerimetre,
+                                perimetre.getIdUtilisateurPortee(), codesTerminaux()).isEmpty()) {
                         throw activiteService.refusOuAbsence(idActivite);
                 }
                 return activiteRepository.findById(idActivite)
@@ -382,7 +384,8 @@ public class AffectationService {
                 Integer departementPerimetre = perimetre.getFiltreDepartement();
 
                 if (activiteRepository.findSousActivite(
-                                idActivite, idSousActivite, servicePerimetre, departementPerimetre).isEmpty()) {
+                                idActivite, idSousActivite, servicePerimetre, departementPerimetre,
+                                perimetre.getIdUtilisateurPortee()).isEmpty()) {
                         throw activiteService.refusOuAbsence(idActivite);
                 }
                 return sousActiviteRepository.findById(idSousActivite)
@@ -446,7 +449,7 @@ public class AffectationService {
                 return activiteRepository.findStatutCourant(
                                 idActivite,
                                 perimetre.getFiltreService(),
-                                perimetre.getFiltreDepartement())
+                                perimetre.getFiltreDepartement(), perimetre.getIdUtilisateurPortee())
                                 .orElseThrow(() -> activiteService.refusOuAbsence(idActivite));
         }
 

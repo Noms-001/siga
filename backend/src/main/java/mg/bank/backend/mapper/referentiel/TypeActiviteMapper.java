@@ -2,6 +2,7 @@ package mg.bank.backend.mapper.referentiel;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Predicate;
 
 import mg.bank.backend.dto.backoffice.ServiceSummaryResponse;
 import mg.bank.backend.dto.backoffice.TypeActiviteResponse;
@@ -13,10 +14,17 @@ public final class TypeActiviteMapper {
         }
 
         public static TypeActiviteResponse toResponse(TypeActivite t) {
+                return toResponse(t, service -> true);
+        }
+
+        public static TypeActiviteResponse toResponse(
+                        TypeActivite t,
+                        Predicate<mg.bank.backend.model.referentiel.Service> filtre) {
                 if (t == null)
                         return null;
 
                 List<ServiceSummaryResponse> services = t.getServices().stream()
+                                .filter(filtre)
                                 .map(ServiceMapper::toSummary)
                                 .sorted(Comparator.comparing(ServiceSummaryResponse::getNom,
                                                 Comparator.nullsLast(String::compareToIgnoreCase)))

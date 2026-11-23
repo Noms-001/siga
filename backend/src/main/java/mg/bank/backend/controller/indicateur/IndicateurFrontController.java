@@ -13,6 +13,9 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.backoffice.IndicateurResponse;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.indicateur.IndicateurService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 /**
  * Consultation des indicateurs côté Frontoffice.
@@ -36,6 +39,7 @@ public class IndicateurFrontController {
 
     private final IndicateurService indicateurService;
 
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
     @GetMapping
     public ResponseEntity<ApiResponse<List<IndicateurResponse>>> lister(
             @RequestParam(name = "actif", defaultValue = "true") Boolean actif,
@@ -45,6 +49,7 @@ public class IndicateurFrontController {
                 ApiResponse.success(indicateurService.lister(actif, type, search)));
     }
 
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<IndicateurResponse>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(

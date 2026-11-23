@@ -70,6 +70,7 @@ public class PlanActionExportService {
         List<PlanActionExportRow> lignes = planActionExportRepository.findPlansPourExport(
                 servicePerimetre,
                 departementPerimetre,
+                perimetre.getIdUtilisateurPortee(),
                 perimetre.estRattacheService() ? null : serviceDemande,
                 statutCode,
                 statutsParDefaut,

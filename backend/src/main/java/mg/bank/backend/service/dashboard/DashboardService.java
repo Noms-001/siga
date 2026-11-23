@@ -59,7 +59,7 @@ public class DashboardService {
     private final ServiceRepository serviceRepository;
 
     /** Filtres de perimetre transmis aux requetes SQL. */
-    private record Scope(Integer service, Integer departement) {
+    private record Scope(Integer service, Integer departement, Integer idUtilisateurPortee) {
     }
 
     /* ------------------------------------------------------------------ */
@@ -69,7 +69,7 @@ public class DashboardService {
         Scope scope = resoudreScope(serviceId);
         DashboardKpiRow row = dashboardRepository.kpi(
                 periode.debut(), periode.fin(), periode.reference(),
-                scope.service(), scope.departement(), codesTerminaux());
+                scope.service(), scope.departement(), scope.idUtilisateurPortee(), codesTerminaux());
         if (row == null) {
             return DashboardKpiDTO.builder().build();
         }
@@ -92,7 +92,7 @@ public class DashboardService {
         Scope scope = resoudreScope(serviceId);
         DashboardAvancementRow row = dashboardRepository.avancement(
                 periode.debut(), periode.fin(), periode.reference(),
-                scope.service(), scope.departement());
+                scope.service(), scope.departement(), scope.idUtilisateurPortee());
         if (row == null) {
             return DashboardAvancementDTO.builder().build();
         }
@@ -109,7 +109,7 @@ public class DashboardService {
         Scope scope = resoudreScope(serviceId);
         return dashboardRepository.statuts(
                 periode.debut(), periode.fin(), periode.reference(),
-                scope.service(), scope.departement()).stream()
+                scope.service(), scope.departement(), scope.idUtilisateurPortee()).stream()
                 .map(r -> DashboardStatutDTO.builder()
                         .statut(r.getStatut())
                         .libelle(r.getLibelle())
@@ -123,7 +123,7 @@ public class DashboardService {
         Scope scope = resoudreScope(serviceId);
         return dashboardRepository.statutsPriorites(
                 periode.debut(), periode.fin(), periode.reference(),
-                scope.service(), scope.departement()).stream()
+                scope.service(), scope.departement(), scope.idUtilisateurPortee()).stream()
                 .map(r -> DashboardStatutPrioriteDTO.builder()
                         .statut(r.getStatut())
                         .statutLibelle(r.getStatutLibelle())
@@ -139,7 +139,7 @@ public class DashboardService {
         Scope scope = resoudreScope(serviceId);
         return dashboardRepository.services(
                 periode.debut(), periode.fin(), periode.reference(),
-                scope.service(), scope.departement(), codesTerminaux()).stream()
+                scope.service(), scope.departement(), scope.idUtilisateurPortee(), codesTerminaux()).stream()
                 .map(r -> DashboardServiceDTO.builder()
                         .idService(r.getIdService())
                         .service(r.getService())
@@ -158,7 +158,7 @@ public class DashboardService {
         Scope scope = resoudreScope(serviceId);
         return dashboardRepository.typesActivite(
                 periode.debut(), periode.fin(), periode.reference(),
-                scope.service(), scope.departement()).stream()
+                scope.service(), scope.departement(), scope.idUtilisateurPortee()).stream()
                 .map(r -> DashboardTypeActiviteDTO.builder()
                         .idTypeActivite(r.getIdTypeActivite())
                         .typeActivite(r.getTypeActivite())
@@ -175,7 +175,7 @@ public class DashboardService {
 
         List<DashboardEcheanceRow> toutes = dashboardRepository.echeances(
                 periode.debut(), periode.fin(), periode.reference(),
-                scope.service(), scope.departement(), codesTerminaux(), fenetre);
+                scope.service(), scope.departement(), scope.idUtilisateurPortee(), codesTerminaux(), fenetre);
 
         List<DashboardEcheanceDTO> enRetard = toutes.stream()
                 .filter(r -> r.getJours() != null && r.getJours() > 0) // ← strictement
@@ -199,16 +199,18 @@ public class DashboardService {
         return DashboardPtaComparaisonDTO.builder()
                 .pta(versPta(dashboardRepository.pta(
                         periode.debut(), periode.fin(), periode.reference(),
-                        scope.service(), scope.departement(), true, codesTerminaux())))
+                        scope.service(), scope.departement(), scope.idUtilisateurPortee(), true, codesTerminaux())))
                 .nonPta(versPta(dashboardRepository.pta(
                         periode.debut(), periode.fin(), periode.reference(),
-                        scope.service(), scope.departement(), false, codesTerminaux())))
+                        scope.service(), scope.departement(), scope.idUtilisateurPortee(), false, codesTerminaux())))
                 .build();
     }
 
     @Transactional(readOnly = true)
     public DashboardRisquesIncidentsDTO risquesIncidents(Integer annee) {
-        DashboardPlanActionRow row = dashboardRepository.plansAction(annee);
+        Scope scope = resoudreScope(null);
+        DashboardPlanActionRow row = dashboardRepository.plansAction(
+                annee, scope.service(), scope.departement(), scope.idUtilisateurPortee());
         DashboardPlansActionDTO plans = row == null
                 ? DashboardPlansActionDTO.builder().build()
                 : DashboardPlansActionDTO.builder()
@@ -231,17 +233,16 @@ public class DashboardService {
 
     /**
      * Avancement moyen des plans d'action par origine sur la période.
-     *
-     * Les plans d'action ne portent pas de service : cet indicateur reste
-     * global (non restreint au périmètre), mais il respecte le filtre
-     * temporel et reconstitue l'avancement à la date de référence.
+     * Les plans sont restreints au périmètre de la permission courante.
      */
     @Transactional(readOnly = true)
     public List<DashboardPlanActionOrigineDTO> avancementPlansParOrigine(Periode periode) {
+        Scope scope = resoudreScope(null);
         Map<String, DashboardPlanActionOrigineRow> index = new HashMap<>();
         for (DashboardPlanActionOrigineRow row
                 : dashboardRepository.avancementPlansParOrigine(
-                        periode.debut(), periode.fin(), periode.reference())) {
+                        periode.debut(), periode.fin(), periode.reference(),
+                        scope.service(), scope.departement(), scope.idUtilisateurPortee())) {
             if (row.getOrigine() == null) {
                 continue;
             }
@@ -320,7 +321,7 @@ public class DashboardService {
         PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
 
         if (perimetre.estRattacheService()) {
-            return new Scope(perimetre.getIdService(), null);
+            return new Scope(perimetre.getIdService(), null, perimetre.getIdUtilisateurPortee());
         }
 
         if (perimetre.estNiveauDepartement()) {
@@ -330,10 +331,11 @@ public class DashboardService {
                         "Service hors de votre périmètre",
                         HttpStatus.FORBIDDEN);
             }
-            return new Scope(serviceIdDemande, perimetre.getIdDepartement());
+            return new Scope(serviceIdDemande, perimetre.getIdDepartement(),
+                    perimetre.getIdUtilisateurPortee());
         }
 
-        return new Scope(serviceIdDemande, null);
+        return new Scope(serviceIdDemande, null, perimetre.getIdUtilisateurPortee());
     }
 
     private boolean serviceDuDepartement(Integer idService, Integer idDepartement) {

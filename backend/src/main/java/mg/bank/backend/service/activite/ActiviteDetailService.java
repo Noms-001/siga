@@ -78,7 +78,7 @@ public class ActiviteDetailService {
                 ActiviteDetailRow row = activiteRepository.findActiviteDetail(
                                 id,
                                 perimetre.getFiltreService(),
-                                perimetre.getFiltreDepartement(),
+                                perimetre.getFiltreDepartement(), perimetre.getIdUtilisateurPortee(),
                                 codesTerminaux())
                                 .orElseThrow(() -> refusOuAbsence(id));
 
@@ -112,7 +112,7 @@ public class ActiviteDetailService {
                                 idActivite,
                                 idSousActivite,
                                 perimetre.getFiltreService(),
-                                perimetre.getFiltreDepartement())
+                                perimetre.getFiltreDepartement(), perimetre.getIdUtilisateurPortee())
                                 .orElseThrow(() -> refusOuAbsenceSousActivite(
                                                 idActivite, idSousActivite));
 
@@ -190,7 +190,7 @@ public class ActiviteDetailService {
                                 .findFichierTelechargement(
                                                 idActivite, idSousActivite, idFichier,
                                                 perimetre.getFiltreService(),
-                                                perimetre.getFiltreDepartement())
+                                                perimetre.getFiltreDepartement(), perimetre.getIdUtilisateurPortee())
                                 .orElseThrow(() -> refusOuAbsenceFichier(
                                                 idActivite, idSousActivite, idFichier));
 

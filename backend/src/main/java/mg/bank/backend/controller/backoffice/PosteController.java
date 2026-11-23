@@ -20,6 +20,9 @@ import mg.bank.backend.dto.backoffice.PosteRequest;
 import mg.bank.backend.dto.backoffice.PosteResponse;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.utilisateur.PosteService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/backoffice/postes")
@@ -28,6 +31,7 @@ public class PosteController {
 
     private final PosteService posteService;
 
+    @RequirePermission(ressource = PermissionResource.POSTE, action = PermissionAction.CONSULTER)
     @GetMapping
     public ResponseEntity<ApiResponse<List<PosteResponse>>> lister(
             @RequestParam(name = "inclureInactifs", defaultValue = "false") boolean inclureInactifs) {
@@ -35,12 +39,14 @@ public class PosteController {
                 ApiResponse.success(posteService.lister(inclureInactifs)));
     }
 
+    @RequirePermission(ressource = PermissionResource.POSTE, action = PermissionAction.CONSULTER)
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<PosteResponse>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ApiResponse.success(posteService.getById(id)));
     }
 
+    @RequirePermission(ressource = PermissionResource.POSTE, action = PermissionAction.CREER)
     @PostMapping
     public ResponseEntity<ApiResponse<PosteResponse>> creer(
             @Valid @RequestBody PosteRequest request) {
@@ -48,6 +54,7 @@ public class PosteController {
                 .body(ApiResponse.success(posteService.creer(request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.POSTE, action = PermissionAction.MODIFIER)
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<PosteResponse>> modifier(
             @PathVariable Integer id,
@@ -56,12 +63,14 @@ public class PosteController {
                 ApiResponse.success(posteService.modifier(id, request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.POSTE, action = PermissionAction.DESACTIVER)
     @PatchMapping("/{id}/desactiver")
     public ResponseEntity<ApiResponse<PosteResponse>> desactiver(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ApiResponse.success(posteService.desactiver(id)));
     }
 
+    @RequirePermission(ressource = PermissionResource.POSTE, action = PermissionAction.ACTIVER)
     @PatchMapping("/{id}/activer")
     public ResponseEntity<ApiResponse<PosteResponse>> activer(@PathVariable Integer id) {
         return ResponseEntity.ok(

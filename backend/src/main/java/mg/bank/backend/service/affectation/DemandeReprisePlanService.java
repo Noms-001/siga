@@ -30,6 +30,7 @@ import mg.bank.backend.repository.projection.affectation.DemandeReprisePlanRow;
 import mg.bank.backend.repository.projection.planaction.AvancementPlanActionRow;
 import mg.bank.backend.repository.utilisateur.RoleRepository;
 import mg.bank.backend.repository.utilisateur.UtilisateurRepository;
+import mg.bank.backend.service.common.PorteeService;
 import mg.bank.backend.service.common.PriorityService;
 import mg.bank.backend.service.utilisateur.CurrentUserService;
 import mg.bank.backend.utils.ReferenceMapper;
@@ -55,6 +56,7 @@ public class DemandeReprisePlanService {
 
     private final CurrentUserService currentUserService;
     private final PriorityService priorityService;
+    private final PorteeService porteeService;
 
     // ------------------------------------------------------------------
     // F1 — Créer une demande
@@ -71,6 +73,7 @@ public class DemandeReprisePlanService {
                     HttpStatus.FORBIDDEN);
         }
 
+        porteeService.exigerPlanAction(idPlanAction);
         PlanAction plan = planActionRepository.findById(idPlanAction)
                 .orElseThrow(() -> new ApiException(
                         "Plan d'action introuvable.", HttpStatus.NOT_FOUND));
@@ -146,9 +149,7 @@ public class DemandeReprisePlanService {
 
     @Transactional(readOnly = true)
     public List<DemandeReprisePlanDTO> historiquePlan(Integer idPlanAction) {
-        if (!planActionRepository.existsById(idPlanAction)) {
-            throw new ApiException("Plan d'action introuvable.", HttpStatus.NOT_FOUND);
-        }
+        porteeService.exigerPlanAction(idPlanAction);
         return demandeRepository.findHistoriquePlan(idPlanAction)
                 .stream().map(this::versDto).toList();
     }
@@ -301,11 +302,13 @@ public class DemandeReprisePlanService {
     // ------------------------------------------------------------------
 
     private DemandeReprisePlanAction chargerDemandeEnAttente(Integer idDemande) {
-        return demandeRepository
+        DemandeReprisePlanAction demande = demandeRepository
                 .findByIdDemandeReprisePlanActionAndStatut(idDemande, DemandeRepriseStatuts.EN_ATTENTE)
                 .orElseThrow(() -> new ApiException(
                         "Demande introuvable ou déjà traitée.",
                         HttpStatus.NOT_FOUND));
+        porteeService.exigerPlanAction(demande.getPlanAction().getIdPlanAction());
+        return demande;
     }
 
     private void verifierStatutAffectable(Integer idPlanAction) {

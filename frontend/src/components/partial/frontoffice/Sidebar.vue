@@ -15,7 +15,7 @@
             <nav class="nav" aria-label="Navigation principale">
 
                 <!-- Vue d'ensemble -->
-                <router-link to="/dashboard" class="nav-item"
+                <router-link v-if="can(R.DASHBOARD, A.CONSULTER)" to="/dashboard" class="nav-item"
                     :class="{ active: isActive('/dashboard') }" :title="isCollapsed ? 'Vue d’ensemble' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -28,7 +28,7 @@
                     <span class="nav-text">Vue d’ensemble</span>
                 </router-link>
 
-                <router-link to="/membres/suivi" class="nav-item"
+                <router-link v-if="can(R.MEMBRE_SUIVI, A.CONSULTER)" to="/membres/suivi" class="nav-item"
                     :class="{ active: isActive('/membres/suivi') }" :title="isCollapsed ? 'Suivi des membres' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -42,6 +42,7 @@
 
                 <!-- ACTIVITÉS -->
                 <button
+                    v-if="canVoirActivites"
                     type="button" class="nav-item nav-toggle" :class="{ 'has-active': isGroupActive('activites') }"
                     @click="toggle('activites')" :aria-expanded="openSections.activites"
                     :title="isCollapsed ? 'Activités' : undefined">
@@ -56,25 +57,25 @@
                         <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
-                <div class="nav-sub" :class="{ open: openSections.activites }">
+                <div v-if="canVoirActivites" class="nav-sub" :class="{ open: openSections.activites }">
                     <div class="nav-sub-inner">
-                        <router-link to="/activites" class="nav-sub-item"
+                        <router-link v-if="can(R.ACTIVITE, A.CONSULTER)" to="/activites" class="nav-sub-item"
                             :class="{ active: isActive('/activites') }">
                             Liste des activités
                         </router-link>
-                        <router-link to="/activites/nouvelle" class="nav-sub-item"
+                        <router-link v-if="can(R.ACTIVITE, A.CREER)" to="/activites/nouvelle" class="nav-sub-item"
                             :class="{ active: isActive('/activites/nouvelle') }">
                             Nouvelle activité
                         </router-link>
-                        <router-link to="/activites/importer" class="nav-sub-item"
+                        <router-link v-if="can(R.ACTIVITE, A.IMPORTER)" to="/activites/importer" class="nav-sub-item"
                             :class="{ active: isActive('/activites/importer') }">
                             Importer des activités
                         </router-link>
-                        <router-link to="/activites/traitement" class="nav-sub-item"
+                        <router-link v-if="canTraiterActivites" to="/activites/traitement" class="nav-sub-item"
                             :class="{ active: isActive('/activites/traitement') }">
                             Traitement des activités
                         </router-link>
-                        <router-link to="/activites/suivi" class="nav-sub-item"
+                        <router-link v-if="can(R.ACTIVITE, A.CONSULTER)" to="/activites/suivi" class="nav-sub-item"
                             :class="{ active: isActive('/activites/suivi') }">
                             Suivi des activités
                         </router-link>
@@ -82,7 +83,7 @@
                 </div>
 
                 <!-- PLANS D'ACTION -->
-                <button type="button"
+                <button v-if="canVoirPlans" type="button"
                     class="nav-item nav-toggle" :class="{ 'has-active': isGroupActive('plans') }"
                     @click="toggle('plans')" :aria-expanded="openSections.plans"
                     :title="isCollapsed ? 'Plans d’action' : undefined">
@@ -96,13 +97,13 @@
                         <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
-                <div class="nav-sub" :class="{ open: openSections.plans }">
+                <div v-if="canVoirPlans" class="nav-sub" :class="{ open: openSections.plans }">
                     <div class="nav-sub-inner">
-                        <router-link to="/plans-action" class="nav-sub-item"
+                        <router-link v-if="can(R.PLAN_ACTION, A.CONSULTER)" to="/plans-action" class="nav-sub-item"
                             :class="{ active: isActive('/plans-action') }">
                             Liste des plans d’action
                         </router-link>
-                        <router-link to="/plans-action/nouveau" class="nav-sub-item"
+                        <router-link v-if="can(R.PLAN_ACTION, A.CREER)" to="/plans-action/nouveau" class="nav-sub-item"
                             :class="{ active: isActive('/plans-action/nouveau') }">
                             Nouveau plan d’action
                         </router-link>
@@ -110,7 +111,7 @@
                 </div>
 
                 <!-- SIGNALEMENTS -->
-                <button type="button"
+                <button v-if="canVoirSignalements" type="button"
                     class="nav-item nav-toggle" :class="{ 'has-active': isGroupActive('signalements') }"
                     @click="toggle('signalements')" :aria-expanded="openSections.signalements"
                     :title="isCollapsed ? 'Signalements' : undefined">
@@ -128,13 +129,13 @@
                         <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
-                <div class="nav-sub" :class="{ open: openSections.signalements }">
+                <div v-if="canVoirSignalements" class="nav-sub" :class="{ open: openSections.signalements }">
                     <div class="nav-sub-inner">
-                        <router-link to="/signalements" class="nav-sub-item"
+                        <router-link v-if="can(R.SIGNALEMENT, A.CONSULTER)" to="/signalements" class="nav-sub-item"
                             :class="{ active: isActive('/signalements') && route.path !== '/signalements/nouveau' }">
                             Liste des signalements
                         </router-link>
-                        <router-link to="/signalements/nouveau" class="nav-sub-item"
+                        <router-link v-if="can(R.SIGNALEMENT, A.CREER)" to="/signalements/nouveau" class="nav-sub-item"
                             :class="{ active: isActive('/signalements/nouveau') }">
                             Nouveau signalement
                         </router-link>
@@ -142,7 +143,7 @@
                 </div>
 
                 <!-- INDICATEURS -->
-                <button type="button" class="nav-item nav-toggle"
+                <button v-if="canVoirIndicateurs" type="button" class="nav-item nav-toggle"
                     :class="{ 'has-active': isGroupActive('indicateurs') }" @click="toggle('indicateurs')"
                     :aria-expanded="openSections.indicateurs" :title="isCollapsed ? 'Indicateurs' : undefined">
                     <span class="nav-icon">
@@ -156,13 +157,13 @@
                         <polyline points="6 9 12 15 18 9" />
                     </svg>
                 </button>
-                <div class="nav-sub" :class="{ open: openSections.indicateurs }">
+                <div v-if="canVoirIndicateurs" class="nav-sub" :class="{ open: openSections.indicateurs }">
                     <div class="nav-sub-inner">
-                        <router-link to="/indicateurs" class="nav-sub-item"
+                        <router-link v-if="can(R.INDICATEUR, A.CONSULTER)" to="/indicateurs" class="nav-sub-item"
                             :class="{ active: isActive('/indicateurs') }">
                             Liste des indicateurs
                         </router-link>
-                        <router-link to="/indicateurs/suivi" class="nav-sub-item"
+                        <router-link v-if="canVoirSuiviIndicateurs" to="/indicateurs/suivi" class="nav-sub-item"
                             :class="{ active: isActive('/indicateurs/suivi') }">
                             Suivi des indicateurs
                         </router-link>
@@ -170,7 +171,7 @@
                 </div>
 
                 <!-- Notifications -->
-                <router-link to="/notifications" class="nav-item"
+                <router-link v-if="can(R.NOTIFICATION, A.CONSULTER)" to="/notifications" class="nav-item"
                     :class="{ active: isActive('/notifications') }" :title="isCollapsed ? 'Notifications' : undefined">
                     <span class="nav-icon">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -212,6 +213,14 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import {
+    PermissionAction as A,
+    PermissionResource as R,
+    permission,
+    type PermissionAction,
+    type PermissionRequirement,
+    type PermissionResource,
+} from '@/utils/authorization'
 
 const props = defineProps<{
     isOpen?: boolean
@@ -225,6 +234,47 @@ const emit = defineEmits<{
 
 const route = useRoute()
 const authStore = useAuthStore()
+
+/* ---- Permissions ---- */
+const can = (resource: PermissionResource, action: PermissionAction) =>
+    authStore.hasPermission(resource, action)
+
+const canAny = (...requirements: PermissionRequirement[]) =>
+    authStore.hasAnyPermission(requirements)
+
+const canTraiterActivites = computed(() => canAny(
+    permission(R.ACTIVITE, A.CONSULTER),
+    permission(R.VALIDATION_ACTIVITE, A.CONSULTER),
+    permission(R.AFFECTATION_ACTIVITE, A.CONSULTER),
+))
+
+const canVoirActivites = computed(() => canAny(
+    permission(R.ACTIVITE, A.CONSULTER),
+    permission(R.ACTIVITE, A.CREER),
+    permission(R.ACTIVITE, A.IMPORTER),
+    permission(R.VALIDATION_ACTIVITE, A.CONSULTER),
+    permission(R.AFFECTATION_ACTIVITE, A.CONSULTER),
+))
+
+const canVoirPlans = computed(() => canAny(
+    permission(R.PLAN_ACTION, A.CONSULTER),
+    permission(R.PLAN_ACTION, A.CREER),
+))
+
+const canVoirSignalements = computed(() => canAny(
+    permission(R.SIGNALEMENT, A.CONSULTER),
+    permission(R.SIGNALEMENT, A.CREER),
+))
+
+const canVoirSuiviIndicateurs = computed(() => canAny(
+    permission(R.VALEUR_INDICATEUR, A.CONSULTER),
+    permission(R.INDICATEUR, A.CONSULTER),
+))
+
+const canVoirIndicateurs = computed(() => canAny(
+    permission(R.INDICATEUR, A.CONSULTER),
+    permission(R.VALEUR_INDICATEUR, A.CONSULTER),
+))
 
 const isActive = (path: string) => route.path === path
 const notificationCount = computed(() => props.notificationCount ?? 0)

@@ -19,6 +19,9 @@ import mg.bank.backend.dto.backoffice.ParametreResponse;
 import mg.bank.backend.dto.backoffice.ParametreUpdateRequest;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.parametre.ParametreService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/backoffice/parametres")
@@ -27,6 +30,7 @@ public class ParametreController {
 
     private final ParametreService parametreService;
 
+    @RequirePermission(ressource = PermissionResource.PARAMETRE, action = PermissionAction.CONSULTER)
     @GetMapping
     public ResponseEntity<ApiResponse<List<ParametreResponse>>> lister(
             @RequestParam(name = "actif", required = false) Boolean actif,
@@ -35,18 +39,21 @@ public class ParametreController {
                 ApiResponse.success(parametreService.lister(actif, categorie)));
     }
 
+    @RequirePermission(ressource = PermissionResource.PARAMETRE, action = PermissionAction.CONSULTER)
     @GetMapping("/filtres")
     public ResponseEntity<ApiResponse<ParametreFiltresResponse>> getFiltres() {
         return ResponseEntity.ok(
                 ApiResponse.success(parametreService.getFiltres()));
     }
 
+    @RequirePermission(ressource = PermissionResource.PARAMETRE, action = PermissionAction.CONSULTER)
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ParametreResponse>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ApiResponse.success(parametreService.getById(id)));
     }
 
+    @RequirePermission(ressource = PermissionResource.PARAMETRE, action = PermissionAction.MODIFIER)
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ParametreResponse>> modifier(
             @PathVariable Integer id,
@@ -55,12 +62,14 @@ public class ParametreController {
                 ApiResponse.success(parametreService.modifier(id, request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.PARAMETRE, action = PermissionAction.DESACTIVER)
     @PatchMapping("/{id}/desactiver")
     public ResponseEntity<ApiResponse<ParametreResponse>> desactiver(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ApiResponse.success(parametreService.desactiver(id)));
     }
 
+    @RequirePermission(ressource = PermissionResource.PARAMETRE, action = PermissionAction.ACTIVER)
     @PatchMapping("/{id}/activer")
     public ResponseEntity<ApiResponse<ParametreResponse>> activer(@PathVariable Integer id) {
         return ResponseEntity.ok(

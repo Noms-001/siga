@@ -26,6 +26,9 @@ import mg.bank.backend.dto.common.ActiviteFiltreCriteria;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.dto.common.PageResponse;
 import mg.bank.backend.service.affectation.AffectationService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/activites/affectations")
@@ -35,6 +38,8 @@ public class AffectationController {
         private final AffectationService affectationService;
 
         /** F1 — liste des activites NON_COMMENCEE sans affectation active. */
+        @RequirePermission(ressource = PermissionResource.AFFECTATION_ACTIVITE, action = PermissionAction.CONSULTER)
+        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.CONSULTER)
         @GetMapping("/non-affectees")
         public ResponseEntity<ApiResponse<PageResponse<ActiviteListItemDTO>>> nonAffectees(
                         @RequestParam(required = false) Boolean pta,
@@ -63,6 +68,8 @@ public class AffectationController {
         }
 
         /** F2 — historique des affectations d'une activite. */
+        @RequirePermission(ressource = PermissionResource.AFFECTATION_ACTIVITE, action = PermissionAction.CONSULTER)
+        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.CONSULTER)
         @GetMapping("/{idActivite}")
         public ResponseEntity<ApiResponse<List<AffectationActiviteDTO>>> historique(
                         @PathVariable Integer idActivite) {
@@ -71,6 +78,9 @@ public class AffectationController {
         }
 
         /** F3 — historique des affectations d'une sous-activite. */
+        @RequirePermission(ressource = PermissionResource.AFFECTATION_SOUS_ACTIVITE, action = PermissionAction.CONSULTER)
+        @RequirePermission(ressource = PermissionResource.SOUS_ACTIVITE, action = PermissionAction.CONSULTER)
+        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.CONSULTER)
         @GetMapping("/{idActivite}/sous-activites/{idSousActivite}")
         public ResponseEntity<ApiResponse<List<AffectationActiviteDTO>>> historiqueSousActivite(
                         @PathVariable Integer idActivite,
@@ -80,6 +90,8 @@ public class AffectationController {
         }
 
         /** F4 — utilisateurs du service de l'activite, actifs. */
+        @RequirePermission(ressource = PermissionResource.AFFECTATION_ACTIVITE, action = PermissionAction.CONSULTER)
+        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.CONSULTER)
         @GetMapping("/{idActivite}/utilisateurs-disponibles")
         public ResponseEntity<ApiResponse<List<UtilisateurAffectableDTO>>> utilisateursDisponibles(
                         @PathVariable Integer idActivite) {
@@ -88,6 +100,8 @@ public class AffectationController {
         }
 
         /** F5 — affecter une activite. */
+        @RequirePermission(ressource = PermissionResource.AFFECTATION_ACTIVITE, action = PermissionAction.AFFECTER)
+        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.AFFECTER)
         @PostMapping("/{idActivite}")
         public ResponseEntity<ApiResponse<AffectationActiviteDTO>> affecterActivite(
                         @PathVariable Integer idActivite,
@@ -98,6 +112,9 @@ public class AffectationController {
         }
 
         /** F6 — affecter une sous-activite. */
+        @RequirePermission(ressource = PermissionResource.AFFECTATION_SOUS_ACTIVITE, action = PermissionAction.AFFECTER)
+        @RequirePermission(ressource = PermissionResource.SOUS_ACTIVITE, action = PermissionAction.AFFECTER)
+        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.AFFECTER)
         @PostMapping("/{idActivite}/sous-activites/{idSousActivite}")
         public ResponseEntity<ApiResponse<AffectationActiviteDTO>> affecterSousActivite(
                         @PathVariable Integer idActivite,
@@ -110,6 +127,8 @@ public class AffectationController {
         }
 
         /** F7 — desaffecter une activite. */
+        @RequirePermission(ressource = PermissionResource.AFFECTATION_ACTIVITE, action = PermissionAction.AFFECTER)
+        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.AFFECTER)
         @DeleteMapping("/{idActivite}/{idAffectation}")
         public ResponseEntity<Void> desaffecterActivite(
                         @PathVariable Integer idActivite,
@@ -119,6 +138,9 @@ public class AffectationController {
         }
 
         /** F8 — desaffecter une sous-activite. */
+        @RequirePermission(ressource = PermissionResource.AFFECTATION_SOUS_ACTIVITE, action = PermissionAction.AFFECTER)
+        @RequirePermission(ressource = PermissionResource.SOUS_ACTIVITE, action = PermissionAction.AFFECTER)
+        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.AFFECTER)
         @DeleteMapping("/{idActivite}/sous-activites/{idSousActivite}/{idAffectation}")
         public ResponseEntity<Void> desaffecterSousActivite(
                         @PathVariable Integer idActivite,
@@ -128,6 +150,8 @@ public class AffectationController {
                 return ResponseEntity.noContent().build();
         }
 
+        @RequirePermission(ressource = PermissionResource.AFFECTATION_ACTIVITE, action = PermissionAction.AFFECTER)
+        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.AFFECTER)
         @PostMapping("/{idActivite}/batch")
         public ResponseEntity<ApiResponse<List<AffectationActiviteDTO>>> affecterBatch(
                         @PathVariable Integer idActivite,
@@ -138,6 +162,9 @@ public class AffectationController {
                                                                 idActivite, request.getAffectations())));
         }
 
+        @RequirePermission(ressource = PermissionResource.AFFECTATION_SOUS_ACTIVITE, action = PermissionAction.AFFECTER)
+        @RequirePermission(ressource = PermissionResource.SOUS_ACTIVITE, action = PermissionAction.AFFECTER)
+        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.AFFECTER)
         @PostMapping("/{idActivite}/sous-activites/{idSousActivite}/batch")
         public ResponseEntity<ApiResponse<List<AffectationActiviteDTO>>> affecterSousActiviteBatch(
                         @PathVariable Integer idActivite,

@@ -755,7 +755,7 @@ public class ActiviteEcritureService {
                 return activiteRepository.findStatutCourant(
                                 idActivite,
                                 perimetre.getFiltreService(),
-                                perimetre.getFiltreDepartement());
+                                perimetre.getFiltreDepartement(), perimetre.getIdUtilisateurPortee());
         }
 
         private ActiviteEcritureResponse reponse(

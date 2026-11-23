@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import mg.bank.backend.enums.PorteePermission;
 import mg.bank.backend.model.utilisateur.PostePermission;
 import mg.bank.backend.model.utilisateur.PostePermissionId;
 
@@ -63,4 +64,22 @@ public interface PostePermissionRepository extends JpaRepository<PostePermission
             order by lower(pp.permission.ressource), lower(pp.permission.action)
             """)
     List<String> findActivePermissionKeys(@Param("idPoste") Integer idPoste);
+
+    /**
+     * Portees des permissions actives correspondantes. Une ligne peut avoir
+     * une portee nulle en base : elle est alors ramenee a UTILISATEUR par
+     * {@link mg.bank.backend.security.PorteeAcces}.
+     */
+    @Query("""
+            select pp.portee
+            from PostePermission pp
+            where pp.poste.idPoste = :idPoste
+              and lower(pp.permission.ressource) = lower(:resource)
+              and lower(pp.permission.action) = lower(:action)
+              and pp.permission.actif = true
+            """)
+    List<PorteePermission> findPorteesActives(
+            @Param("idPoste") Integer idPoste,
+            @Param("resource") String resource,
+            @Param("action") String action);
 }

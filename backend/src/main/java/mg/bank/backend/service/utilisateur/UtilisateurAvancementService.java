@@ -25,6 +25,7 @@ import mg.bank.backend.repository.planaction.PlanActionRepository;
 import mg.bank.backend.repository.projection.activite.UtilisateurActiviteAnneeRow;
 import mg.bank.backend.repository.projection.planaction.UtilisateurPlanActionAnneeRow;
 import mg.bank.backend.repository.utilisateur.UtilisateurRepository;
+import mg.bank.backend.service.common.PorteeService;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +37,7 @@ public class UtilisateurAvancementService {
     private final UtilisateurRepository utilisateurRepository;
     private final ActiviteRepository activiteRepository;
     private final PlanActionRepository planActionRepository;
+    private final PorteeService porteeService;
 
     @Transactional(readOnly = true)
     public UtilisateurAvancementDTO avancementAnnee(Integer idUtilisateur, Integer annee) {
@@ -43,6 +45,7 @@ public class UtilisateurAvancementService {
         Utilisateur utilisateur = utilisateurRepository.findById(idUtilisateur)
                 .orElseThrow(() -> new ApiException(
                         "Utilisateur introuvable.", HttpStatus.NOT_FOUND));
+        porteeService.exigerUtilisateur(utilisateur);
 
         int anneeCible = (annee != null) ? annee : LocalDate.now().getYear();
         LocalDate debutAnnee = LocalDate.of(anneeCible, 1, 1);

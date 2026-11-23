@@ -16,6 +16,9 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.dto.indicateur.IndicateurSimpleDTO;
 import mg.bank.backend.service.indicateur.LiaisonIndicateurService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/activites/{idActivite}/indicateurs")
@@ -25,6 +28,8 @@ public class LiaisonIndicateurController {
     private final LiaisonIndicateurService liaisonIndicateurService;
 
     /** F8a — lier un indicateur a l'activite. */
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.AFFECTER)
+    @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.AFFECTER)
     @PostMapping("/{idIndicateur}")
     public ResponseEntity<ApiResponse<IndicateurSimpleDTO>> lier(
             @PathVariable Integer idActivite,
@@ -35,6 +40,8 @@ public class LiaisonIndicateurController {
     }
 
     /** F8b — delier un indicateur de l'activite. */
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.AFFECTER)
+    @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.AFFECTER)
     @DeleteMapping("/{idIndicateur}")
     public ResponseEntity<Void> delier(
             @PathVariable Integer idActivite,
@@ -44,6 +51,8 @@ public class LiaisonIndicateurController {
     }
 
     /** F8c — indicateurs actifs non encore lies a cette activite. */
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
+    @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.CONSULTER)
     @GetMapping("/disponibles")
     public ResponseEntity<ApiResponse<List<IndicateurSimpleDTO>>> disponibles(
             @PathVariable Integer idActivite,

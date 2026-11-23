@@ -18,6 +18,9 @@ import mg.bank.backend.dto.affectation.DemandeRepriseRequest;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.dto.planaction.DemandeReprisePlanDTO;
 import mg.bank.backend.service.affectation.DemandeReprisePlanService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/demandes-reprise-plans")
@@ -26,6 +29,8 @@ public class DemandeReprisePlanController {
 
     private final DemandeReprisePlanService demandeReprisePlanService;
 
+    @RequirePermission(ressource = PermissionResource.DEMANDE_REPRISE_PLAN, action = PermissionAction.CREER)
+    @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.CONSULTER)
     @PostMapping("/plans/{idPlanAction}")
     public ResponseEntity<ApiResponse<DemandeReprisePlanDTO>> creer(
             @PathVariable Integer idPlanAction,
@@ -35,6 +40,8 @@ public class DemandeReprisePlanController {
                         demandeReprisePlanService.creer(idPlanAction, request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DEMANDE_REPRISE_PLAN, action = PermissionAction.CONSULTER)
+    @RequirePermission(ressource = PermissionResource.PLAN_ACTION, action = PermissionAction.CONSULTER)
     @GetMapping("/plans/{idPlanAction}")
     public ResponseEntity<ApiResponse<List<DemandeReprisePlanDTO>>> historiquePlan(
             @PathVariable Integer idPlanAction) {
@@ -42,18 +49,21 @@ public class DemandeReprisePlanController {
                 demandeReprisePlanService.historiquePlan(idPlanAction)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DEMANDE_REPRISE_PLAN, action = PermissionAction.CONSULTER)
     @GetMapping("/mes-demandes")
     public ResponseEntity<ApiResponse<List<DemandeReprisePlanDTO>>> mesDemandes() {
         return ResponseEntity.ok(ApiResponse.success(
                 demandeReprisePlanService.mesDemandes()));
     }
 
+    @RequirePermission(ressource = PermissionResource.DEMANDE_REPRISE_PLAN, action = PermissionAction.CONSULTER)
     @GetMapping("/a-traiter")
     public ResponseEntity<ApiResponse<List<DemandeReprisePlanDTO>>> aTraiter() {
         return ResponseEntity.ok(ApiResponse.success(
                 demandeReprisePlanService.aTraiter()));
     }
 
+    @RequirePermission(ressource = PermissionResource.DEMANDE_REPRISE_PLAN, action = PermissionAction.VALIDER)
     @PostMapping("/{id}/accepter")
     public ResponseEntity<ApiResponse<DemandeReprisePlanDTO>> accepter(
             @PathVariable Integer id,
@@ -62,6 +72,7 @@ public class DemandeReprisePlanController {
                 demandeReprisePlanService.accepter(id, request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DEMANDE_REPRISE_PLAN, action = PermissionAction.VALIDER)
     @PostMapping("/{id}/refuser")
     public ResponseEntity<ApiResponse<DemandeReprisePlanDTO>> refuser(
             @PathVariable Integer id,
@@ -70,6 +81,7 @@ public class DemandeReprisePlanController {
                 demandeReprisePlanService.refuser(id, request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DEMANDE_REPRISE_PLAN, action = PermissionAction.MODIFIER)
     @PostMapping("/{id}/annuler")
     public ResponseEntity<ApiResponse<DemandeReprisePlanDTO>> annuler(
             @PathVariable Integer id) {

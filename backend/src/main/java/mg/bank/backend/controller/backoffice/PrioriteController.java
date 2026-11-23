@@ -13,6 +13,9 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.backoffice.PrioriteResponse;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.referentiel.PrioriteService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/backoffice/priorites")
@@ -21,6 +24,7 @@ public class PrioriteController {
 
     private final PrioriteService prioriteService;
 
+    @RequirePermission(ressource = PermissionResource.PRIORITE, action = PermissionAction.CONSULTER)
     @GetMapping
     public ResponseEntity<ApiResponse<List<PrioriteResponse>>> lister(
             @RequestParam(name = "inclureInactifs", defaultValue = "false") boolean inclureInactifs) {
@@ -28,6 +32,7 @@ public class PrioriteController {
                 ApiResponse.success(prioriteService.lister(inclureInactifs)));
     }
 
+    @RequirePermission(ressource = PermissionResource.PRIORITE, action = PermissionAction.CONSULTER)
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<PrioriteResponse>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(

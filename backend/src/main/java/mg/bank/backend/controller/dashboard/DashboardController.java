@@ -26,6 +26,9 @@ import mg.bank.backend.dto.dashboard.DashboardTypeActiviteDTO;
 import mg.bank.backend.service.common.PeriodeSupport;
 import mg.bank.backend.service.common.PeriodeSupport.Periode;
 import mg.bank.backend.service.dashboard.DashboardService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 /**
  * API du dashboard SAGA.
@@ -46,11 +49,13 @@ public class DashboardController {
 
     private final DashboardService dashboardService;
 
+    @RequirePermission(ressource = PermissionResource.DASHBOARD, action = PermissionAction.CONSULTER)
     @GetMapping("/perimetre")
     public ResponseEntity<ApiResponse<DashboardPerimetreDTO>> perimetre() {
         return ResponseEntity.ok(ApiResponse.success(dashboardService.perimetre()));
     }
 
+    @RequirePermission(ressource = PermissionResource.DASHBOARD, action = PermissionAction.CONSULTER)
     @GetMapping("/kpi")
     public ResponseEntity<ApiResponse<DashboardKpiDTO>> kpi(
             @RequestParam(name = "dateDebut", required = false)
@@ -64,6 +69,7 @@ public class DashboardController {
                 dashboardService.kpi(periode, serviceId)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DASHBOARD, action = PermissionAction.CONSULTER)
     @GetMapping("/avancement")
     public ResponseEntity<ApiResponse<DashboardAvancementDTO>> avancement(
             @RequestParam(name = "dateDebut", required = false)
@@ -77,6 +83,7 @@ public class DashboardController {
                 dashboardService.avancement(periode, serviceId)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DASHBOARD, action = PermissionAction.CONSULTER)
     @GetMapping("/statuts")
     public ResponseEntity<ApiResponse<List<DashboardStatutDTO>>> statuts(
             @RequestParam(name = "dateDebut", required = false)
@@ -90,6 +97,7 @@ public class DashboardController {
                 dashboardService.statuts(periode, serviceId)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DASHBOARD, action = PermissionAction.CONSULTER)
     @GetMapping("/statuts-priorites")
     public ResponseEntity<ApiResponse<List<DashboardStatutPrioriteDTO>>> statutsPriorites(
             @RequestParam(name = "dateDebut", required = false)
@@ -103,6 +111,7 @@ public class DashboardController {
                 dashboardService.statutsPriorites(periode, serviceId)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DASHBOARD, action = PermissionAction.CONSULTER)
     @GetMapping("/services")
     public ResponseEntity<ApiResponse<List<DashboardServiceDTO>>> services(
             @RequestParam(name = "dateDebut", required = false)
@@ -116,6 +125,7 @@ public class DashboardController {
                 dashboardService.services(periode, serviceId)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DASHBOARD, action = PermissionAction.CONSULTER)
     @GetMapping("/echeances")
     public ResponseEntity<ApiResponse<DashboardEcheancesDTO>> echeances(
             @RequestParam(name = "dateDebut", required = false)
@@ -130,6 +140,7 @@ public class DashboardController {
                 dashboardService.echeances(periode, jours, serviceId)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DASHBOARD, action = PermissionAction.CONSULTER)
     @GetMapping("/pta")
     public ResponseEntity<ApiResponse<DashboardPtaComparaisonDTO>> pta(
             @RequestParam(name = "dateDebut", required = false)
@@ -143,6 +154,7 @@ public class DashboardController {
                 dashboardService.pta(periode, serviceId)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DASHBOARD, action = PermissionAction.CONSULTER)
     @GetMapping("/risques-incidents")
     public ResponseEntity<ApiResponse<DashboardRisquesIncidentsDTO>> risquesIncidents(
             @RequestParam(name = "annee", required = false) Integer annee) {
@@ -150,6 +162,7 @@ public class DashboardController {
                 dashboardService.risquesIncidents(annee)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DASHBOARD, action = PermissionAction.CONSULTER)
     @GetMapping("/types-activite")
     public ResponseEntity<ApiResponse<List<DashboardTypeActiviteDTO>>> typesActivite(
             @RequestParam(name = "dateDebut", required = false)
@@ -163,6 +176,7 @@ public class DashboardController {
                 dashboardService.typesActivite(periode, serviceId)));
     }
 
+    @RequirePermission(ressource = PermissionResource.DASHBOARD, action = PermissionAction.CONSULTER)
     @GetMapping("/plans-action/avancement-origine")
     public ResponseEntity<ApiResponse<List<DashboardPlanActionOrigineDTO>>> avancementPlansParOrigine(
             @RequestParam(name = "dateDebut", required = false)

@@ -94,8 +94,9 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      """
                      + SqlFragments.STATUT_COURANT;
 
-       String FILTRES = """
-                     WHERE 1 = 1
+        String FILTRES = """
+                      WHERE 1 = 1
+
 
                      AND (:pta IS NULL
                             OR (CAST(:pta AS BOOLEAN) AND act.id_objectif_specifique IS NOT NULL)
@@ -167,9 +168,11 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                                    AND (CAST(:dateDebut AS DATE) IS NULL
                                           OR act.date_fin_prevue IS NULL
                                           OR act.date_fin_prevue >= CAST(:dateDebut AS DATE))
-                                   AND (CAST(:dateFin AS DATE) IS NULL
-                                          OR act.date_debut_prevue <= CAST(:dateFin AS DATE))
-                                   """;
+                                    AND (CAST(:dateFin AS DATE) IS NULL
+                                           OR act.date_debut_prevue <= CAST(:dateFin AS DATE))
+                                    """
+                      + SqlFragments.PORTEE_UTILISATEUR;
+
 
        @Query(value = """
                      SELECT act.id_activite                       AS id,
@@ -207,8 +210,9 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("recherche") String recherche,
                      @Param("objectifId") Integer objectifId,
                      @Param("objectifRecherche") String objectifRecherche,
-                     @Param("servicePerimetre") Integer servicePerimetre,
-                     @Param("departementPerimetre") Integer departementPerimetre,
+                                     @Param("servicePerimetre") Integer servicePerimetre,
+                                     @Param("departementPerimetre") Integer departementPerimetre,
+                                      @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
                      @Param("serviceDemande") Integer serviceDemande,
                      @Param("prioriteId") Integer prioriteId,
                      @Param("typeActiviteId") Integer typeActiviteId,
@@ -262,8 +266,9 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("recherche") String recherche,
                      @Param("objectifId") Integer objectifId,
                      @Param("objectifRecherche") String objectifRecherche,
-                     @Param("servicePerimetre") Integer servicePerimetre,
-                     @Param("departementPerimetre") Integer departementPerimetre,
+                                     @Param("servicePerimetre") Integer servicePerimetre,
+                                     @Param("departementPerimetre") Integer departementPerimetre,
+                                      @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
                      @Param("serviceDemande") Integer serviceDemande,
                      @Param("prioriteId") Integer prioriteId,
                      @Param("typeActiviteId") Integer typeActiviteId,
@@ -304,12 +309,13 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                                     """
                                     + FILTRES, nativeQuery = true)
           ActiviteSuiviStatistiquesRow statistiquesSuivi(
-                                    @Param("pta") Boolean pta,
-                                    @Param("recherche") String recherche,
-                                    @Param("objectifId") Integer objectifId,
-                                    @Param("objectifRecherche") String objectifRecherche,
-                                    @Param("servicePerimetre") Integer servicePerimetre,
-                                    @Param("departementPerimetre") Integer departementPerimetre,
+                                     @Param("pta") Boolean pta,
+                                     @Param("recherche") String recherche,
+                                     @Param("objectifId") Integer objectifId,
+                                     @Param("objectifRecherche") String objectifRecherche,
+                                     @Param("servicePerimetre") Integer servicePerimetre,
+                                     @Param("departementPerimetre") Integer departementPerimetre,
+                                     @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
                                     @Param("serviceDemande") Integer serviceDemande,
                                     @Param("prioriteId") Integer prioriteId,
                                     @Param("typeActiviteId") Integer typeActiviteId,
@@ -356,19 +362,23 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                                    AND (h2.date_changement, h2.id_historique_activite)
                                        > (h.date_changement, h.id_historique_activite))
                              AND s.code IN ("""
-                     + SQL_NON_PUBLIEES
-                     + """
-                                          )
-                                     )
-                                   ORDER BY act.code
-                                   LIMIT :limite
-                                   """, nativeQuery = true)
-       List<OptionRow> autocomplete(
-                     @Param("recherche") String recherche,
-                     @Param("motif") String motif,
-                     @Param("pta") Boolean pta,
-                     @Param("servicePerimetre") Integer servicePerimetre,
-                     @Param("departementPerimetre") Integer departementPerimetre,
+                      + SQL_NON_PUBLIEES
+                      + """
+                                           )
+                                      )
+                                    """
+                      + SqlFragments.PORTEE_UTILISATEUR
+                      + """
+                                    ORDER BY act.code
+                                    LIMIT :limite
+                                    """, nativeQuery = true)
+        List<OptionRow> autocomplete(
+                      @Param("recherche") String recherche,
+                      @Param("motif") String motif,
+                      @Param("pta") Boolean pta,
+                      @Param("servicePerimetre") Integer servicePerimetre,
+                      @Param("departementPerimetre") Integer departementPerimetre,
+                      @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
                      @Param("limite") int limite);
 
        // ------------------------------------------------------------------
@@ -408,18 +418,20 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                                                                                           AS enRetard
                      """
                      + SELECT_BASE
-                     + """
-                                   WHERE act.id_activite = :id
-                                     AND (:servicePerimetre IS NULL
-                                          OR act.id_service = :servicePerimetre)
-                                     AND (:departementPerimetre IS NULL
-                                          OR srv.id_departement = :departementPerimetre)
-                                   """, nativeQuery = true)
-       Optional<ActiviteDetailRow> findActiviteDetail(
-                     @Param("id") Integer id,
-                     @Param("servicePerimetre") Integer servicePerimetre,
-                     @Param("departementPerimetre") Integer departementPerimetre,
-                     @Param("codesTerminaux") String codesTerminaux);
+                      + """
+                                    WHERE act.id_activite = :id
+                                      AND (:servicePerimetre IS NULL
+                                           OR act.id_service = :servicePerimetre)
+                                      AND (:departementPerimetre IS NULL
+                                           OR srv.id_departement = :departementPerimetre)
+                                    """
+                      + SqlFragments.PORTEE_UTILISATEUR, nativeQuery = true)
+        Optional<ActiviteDetailRow> findActiviteDetail(
+                      @Param("id") Integer id,
+                      @Param("servicePerimetre") Integer servicePerimetre,
+                      @Param("departementPerimetre") Integer departementPerimetre,
+                      @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
+                      @Param("codesTerminaux") String codesTerminaux);
 
        @Query(value = """
                      SELECT COUNT(*)
@@ -435,17 +447,19 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                             sta.code       AS statutCode
                      """
                      + SELECT_BASE
-                     + """
-                                   WHERE act.id_activite = :id
-                                     AND (:servicePerimetre IS NULL
-                                          OR act.id_service = :servicePerimetre)
-                                     AND (:departementPerimetre IS NULL
-                                          OR srv.id_departement = :departementPerimetre)
-                                   """, nativeQuery = true)
-       Optional<StatutCourantRow> findStatutCourant(
-                     @Param("id") Integer id,
-                     @Param("servicePerimetre") Integer servicePerimetre,
-                     @Param("departementPerimetre") Integer departementPerimetre);
+                      + """
+                                    WHERE act.id_activite = :id
+                                      AND (:servicePerimetre IS NULL
+                                           OR act.id_service = :servicePerimetre)
+                                      AND (:departementPerimetre IS NULL
+                                           OR srv.id_departement = :departementPerimetre)
+                                    """
+                      + SqlFragments.PORTEE_UTILISATEUR, nativeQuery = true)
+        Optional<StatutCourantRow> findStatutCourant(
+                      @Param("id") Integer id,
+                      @Param("servicePerimetre") Integer servicePerimetre,
+                      @Param("departementPerimetre") Integer departementPerimetre,
+                      @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
        boolean existsByCodeIgnoreCaseAndService_IdService(String code, Integer idService);
 
@@ -687,18 +701,20 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      ) hist ON TRUE
                      LEFT JOIN statut sta
                             ON sta.id_statut = hist.id_statut
-                     WHERE sa.id_sous_activite = :idSousActivite
-                       AND act.id_activite = :idActivite
-                       AND (:servicePerimetre IS NULL
-                            OR act.id_service = :servicePerimetre)
-                       AND (:departementPerimetre IS NULL
-                            OR srv.id_departement = :departementPerimetre)
-                     """, nativeQuery = true)
-       Optional<SousActiviteDetailRow> findSousActivite(
-                     @Param("idActivite") Integer idActivite,
-                     @Param("idSousActivite") Integer idSousActivite,
-                     @Param("servicePerimetre") Integer servicePerimetre,
-                     @Param("departementPerimetre") Integer departementPerimetre);
+                      WHERE sa.id_sous_activite = :idSousActivite
+                        AND act.id_activite = :idActivite
+                        AND (:servicePerimetre IS NULL
+                             OR act.id_service = :servicePerimetre)
+                        AND (:departementPerimetre IS NULL
+                             OR srv.id_departement = :departementPerimetre)
+                      """
+                      + SqlFragments.PORTEE_UTILISATEUR, nativeQuery = true)
+        Optional<SousActiviteDetailRow> findSousActivite(
+                      @Param("idActivite") Integer idActivite,
+                      @Param("idSousActivite") Integer idSousActivite,
+                      @Param("servicePerimetre") Integer servicePerimetre,
+                      @Param("departementPerimetre") Integer departementPerimetre,
+                      @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
        @Query(value = """
                      SELECT COUNT(*)
@@ -847,20 +863,22 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                             ON act.id_activite = sa.id_activite
                      LEFT JOIN service srv
                             ON srv.id_service = act.id_service
-                     WHERE f.id_fichier_sous_activite = :idFichier
-                       AND sa.id_sous_activite = :idSousActivite
-                       AND act.id_activite = :idActivite
-                       AND (:servicePerimetre IS NULL
-                            OR act.id_service = :servicePerimetre)
-                       AND (:departementPerimetre IS NULL
-                            OR srv.id_departement = :departementPerimetre)
-                     """, nativeQuery = true)
-       Optional<FichierTelechargementRow> findFichierTelechargement(
-                     @Param("idActivite") Integer idActivite,
-                     @Param("idSousActivite") Integer idSousActivite,
-                     @Param("idFichier") Integer idFichier,
-                     @Param("servicePerimetre") Integer servicePerimetre,
-                     @Param("departementPerimetre") Integer departementPerimetre);
+                      WHERE f.id_fichier_sous_activite = :idFichier
+                        AND sa.id_sous_activite = :idSousActivite
+                        AND act.id_activite = :idActivite
+                        AND (:servicePerimetre IS NULL
+                             OR act.id_service = :servicePerimetre)
+                        AND (:departementPerimetre IS NULL
+                             OR srv.id_departement = :departementPerimetre)
+                      """
+                      + SqlFragments.PORTEE_UTILISATEUR, nativeQuery = true)
+        Optional<FichierTelechargementRow> findFichierTelechargement(
+                      @Param("idActivite") Integer idActivite,
+                      @Param("idSousActivite") Integer idSousActivite,
+                      @Param("idFichier") Integer idFichier,
+                      @Param("servicePerimetre") Integer servicePerimetre,
+                      @Param("departementPerimetre") Integer departementPerimetre,
+                      @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
        /**
         * Le fichier existe-t-il, quel que soit son rattachement ?
@@ -1146,8 +1164,9 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("recherche") String recherche,
                      @Param("objectifId") Integer objectifId,
                      @Param("objectifRecherche") String objectifRecherche,
-                     @Param("servicePerimetre") Integer servicePerimetre,
-                     @Param("departementPerimetre") Integer departementPerimetre,
+                                     @Param("servicePerimetre") Integer servicePerimetre,
+                                     @Param("departementPerimetre") Integer departementPerimetre,
+                                      @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
                      @Param("serviceDemande") Integer serviceDemande,
                      @Param("prioriteId") Integer prioriteId,
                      @Param("typeActiviteId") Integer typeActiviteId,
@@ -1207,8 +1226,9 @@ public interface ActiviteRepository extends JpaRepository<Activite, Integer> {
                      @Param("recherche") String recherche,
                      @Param("objectifId") Integer objectifId,
                      @Param("objectifRecherche") String objectifRecherche,
-                     @Param("servicePerimetre") Integer servicePerimetre,
-                     @Param("departementPerimetre") Integer departementPerimetre,
+                                     @Param("servicePerimetre") Integer servicePerimetre,
+                                     @Param("departementPerimetre") Integer departementPerimetre,
+                                      @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
                      @Param("serviceDemande") Integer serviceDemande,
                      @Param("prioriteId") Integer prioriteId,
                      @Param("typeActiviteId") Integer typeActiviteId,

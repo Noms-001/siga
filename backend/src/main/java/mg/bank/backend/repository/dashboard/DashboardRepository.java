@@ -64,13 +64,15 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                                           AND (:serviceFiltre IS NULL OR act.id_service = :serviceFiltre)
                                           AND (:departementFiltre IS NULL OR srv.id_departement = :departementFiltre)
                                           AND (sta.code IS DISTINCT FROM 'BROUILLON')
-                                        """, nativeQuery = true)
+                                        """
+                        + SqlFragments.PORTEE_UTILISATEUR, nativeQuery = true)
         DashboardKpiRow kpi(
                         @Param("dateDebut") LocalDate dateDebut,
                         @Param("dateFin") LocalDate dateFin,
                         @Param("dateReference") LocalDate dateReference,
                         @Param("serviceFiltre") Integer serviceFiltre,
                         @Param("departementFiltre") Integer departementFiltre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
                         @Param("codesTerminaux") String codesTerminaux);
 
         /*
@@ -116,13 +118,15 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                                           AND (:serviceFiltre IS NULL OR act.id_service = :serviceFiltre)
                                           AND (:departementFiltre IS NULL OR srv.id_departement = :departementFiltre)
                                           AND (sta.code IS DISTINCT FROM 'BROUILLON')
-                                        """, nativeQuery = true)
+                                        """
+                        + SqlFragments.PORTEE_UTILISATEUR, nativeQuery = true)
         DashboardAvancementRow avancement(
                         @Param("dateDebut") LocalDate dateDebut,
                         @Param("dateFin") LocalDate dateFin,
                         @Param("dateReference") LocalDate dateReference,
                         @Param("serviceFiltre") Integer serviceFiltre,
-                        @Param("departementFiltre") Integer departementFiltre);
+                        @Param("departementFiltre") Integer departementFiltre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
         /*
          * ------------------------------------------------------------------
@@ -143,8 +147,11 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                                       AND (:serviceFiltre IS NULL OR act.id_service = :serviceFiltre)
                                       AND (:departementFiltre IS NULL OR srv.id_departement = :departementFiltre)
                                                   AND (sta.code IS DISTINCT FROM 'BROUILLON')
-                                GROUP BY sta.code, sta.libelle
-                                ORDER BY CASE COALESCE(sta.code, 'SANS_STATUT')
+                                 """
+                        + SqlFragments.PORTEE_UTILISATEUR
+                        + """
+                                 GROUP BY sta.code, sta.libelle
+                                 ORDER BY CASE COALESCE(sta.code, 'SANS_STATUT')
                                   WHEN 'BROUILLON' THEN 1
                                   WHEN 'EN_ATTENTE_VALIDATION' THEN 2
                                   WHEN 'NON_COMMENCEE' THEN 3
@@ -163,7 +170,8 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                         @Param("dateFin") LocalDate dateFin,
                         @Param("dateReference") LocalDate dateReference,
                         @Param("serviceFiltre") Integer serviceFiltre,
-                        @Param("departementFiltre") Integer departementFiltre);
+                        @Param("departementFiltre") Integer departementFiltre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
         /*
          * ------------------------------------------------------------------
@@ -191,6 +199,9 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                                           AND (:serviceFiltre IS NULL OR act.id_service = :serviceFiltre)
                                           AND (:departementFiltre IS NULL OR srv.id_departement = :departementFiltre)
                                           AND (sta.code IS DISTINCT FROM 'BROUILLON')
+                                        """
+                        + SqlFragments.PORTEE_UTILISATEUR
+                        + """
                                         GROUP BY sta.code, sta.libelle, pr.code, pr.libelle
                                         ORDER BY CASE COALESCE(sta.code, 'SANS_STATUT')
                                           WHEN 'BROUILLON' THEN 1
@@ -218,7 +229,8 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                         @Param("dateFin") LocalDate dateFin,
                         @Param("dateReference") LocalDate dateReference,
                         @Param("serviceFiltre") Integer serviceFiltre,
-                        @Param("departementFiltre") Integer departementFiltre);
+                        @Param("departementFiltre") Integer departementFiltre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
         /*
          * ------------------------------------------------------------------
@@ -250,6 +262,9 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                                           AND (:serviceFiltre IS NULL OR act.id_service = :serviceFiltre)
                                           AND (:departementFiltre IS NULL OR srv.id_departement = :departementFiltre)
                                           AND (sta.code IS DISTINCT FROM 'BROUILLON')
+                                        """
+                        + SqlFragments.PORTEE_UTILISATEUR
+                        + """
                                         GROUP BY srv.id_service, srv.nom
                                         ORDER BY srv.nom
                                         """, nativeQuery = true)
@@ -259,6 +274,7 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                         @Param("dateReference") LocalDate dateReference,
                         @Param("serviceFiltre") Integer serviceFiltre,
                         @Param("departementFiltre") Integer departementFiltre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
                         @Param("codesTerminaux") String codesTerminaux);
 
         /*
@@ -294,6 +310,9 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                                           AND (sta.code IS NULL
                                                OR sta.code NOT IN (SELECT unnest(string_to_array(:codesTerminaux, ','))))
                                           AND act.date_fin_prevue <= CAST(:dateReference AS date) + :joursFenetre
+                                        """
+                        + SqlFragments.PORTEE_UTILISATEUR
+                        + """
                                         ORDER BY act.date_fin_prevue ASC,
                                                  CASE pr.code
                                                    WHEN 'CRITIQUE' THEN 1
@@ -310,6 +329,7 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                         @Param("dateReference") LocalDate dateReference,
                         @Param("serviceFiltre") Integer serviceFiltre,
                         @Param("departementFiltre") Integer departementFiltre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
                         @Param("codesTerminaux") String codesTerminaux,
                         @Param("joursFenetre") int joursFenetre);
 
@@ -341,15 +361,17 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                                           AND (:serviceFiltre IS NULL OR act.id_service = :serviceFiltre)
                                           AND (:departementFiltre IS NULL OR srv.id_departement = :departementFiltre)
                                           AND (sta.code IS DISTINCT FROM 'BROUILLON')
-                                          AND ((CAST(:pta AS BOOLEAN) AND act.id_objectif_specifique IS NOT NULL)
-                                               OR (NOT CAST(:pta AS BOOLEAN) AND act.id_objectif_specifique IS NULL))
-                                        """, nativeQuery = true)
+                                           AND ((CAST(:pta AS BOOLEAN) AND act.id_objectif_specifique IS NOT NULL)
+                                                OR (NOT CAST(:pta AS BOOLEAN) AND act.id_objectif_specifique IS NULL))
+                                         """
+                        + SqlFragments.PORTEE_UTILISATEUR, nativeQuery = true)
         DashboardPtaRow pta(
                         @Param("dateDebut") LocalDate dateDebut,
                         @Param("dateFin") LocalDate dateFin,
                         @Param("dateReference") LocalDate dateReference,
                         @Param("serviceFiltre") Integer serviceFiltre,
                         @Param("departementFiltre") Integer departementFiltre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
                         @Param("pta") boolean pta,
                         @Param("codesTerminaux") String codesTerminaux);
 
@@ -358,7 +380,7 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
          * 9. Plans d'action (indicateur non expose dans le dashboard)
          * ------------------------------------------------------------------
          */
-        @Query(value = """
+        @Query(value = SqlFragments.PLAN_SCOPE + """
                         SELECT COUNT(*) AS total,
                                COUNT(*) FILTER (
                                    WHERE ap.valeur_pourcentage IS NOT NULL
@@ -370,6 +392,7 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                                      AND (ap.valeur_pourcentage IS NULL OR ap.valeur_pourcentage < 100))
                                                                                     AS enRetard
                         FROM plan_action pa
+                        LEFT JOIN plan_scope ps ON ps.id_plan_action = pa.id_plan_action
                         LEFT JOIN LATERAL (
                             SELECT a2.valeur_pourcentage
                             FROM avancement_plan_action a2
@@ -380,9 +403,17 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                                     AND (a3.date_changement, a3.id_avancement_plan_action)
                                         > (a2.date_changement, a2.id_avancement_plan_action))
                         ) ap ON TRUE
-                        WHERE (:annee IS NULL OR EXTRACT(YEAR FROM pa.date_debut_prevue) = :annee)
+                        """
+                        + SqlFragments.FILTRES_PORTEE_PLAN
+                        + SqlFragments.PORTEE_UTILISATEUR_PLAN
+                        + """
+                        AND (:annee IS NULL OR EXTRACT(YEAR FROM pa.date_debut_prevue) = :annee)
                         """, nativeQuery = true)
-        DashboardPlanActionRow plansAction(@Param("annee") Integer annee);
+        DashboardPlanActionRow plansAction(
+                        @Param("annee") Integer annee,
+                        @Param("servicePerimetre") Integer servicePerimetre,
+                        @Param("departementPerimetre") Integer departementPerimetre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
         /*
          * Avancement moyen par type d'activité.
@@ -415,6 +446,9 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                                           AND (:serviceFiltre IS NULL OR act.id_service = :serviceFiltre)
                                           AND (:departementFiltre IS NULL OR srv.id_departement = :departementFiltre)
                                           AND (sta.code IS DISTINCT FROM 'BROUILLON')
+                                        """
+                        + SqlFragments.PORTEE_UTILISATEUR
+                        + """
                                         GROUP BY typ.id_type_activite, typ.designation
                                         ORDER BY typ.designation
                                         """, nativeQuery = true)
@@ -423,7 +457,8 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                         @Param("dateFin") LocalDate dateFin,
                         @Param("dateReference") LocalDate dateReference,
                         @Param("serviceFiltre") Integer serviceFiltre,
-                        @Param("departementFiltre") Integer departementFiltre);
+                        @Param("departementFiltre") Integer departementFiltre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
         /*
          * ------------------------------------------------------------------
@@ -444,8 +479,8 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
          * Seuls les plans NON_COMMENCEE, EN_COURS et TERMINEE sont inclus,
          * comme dans le suivi global des plans.
          */
-        @Query(value = """
-                        WITH plans AS (
+        @Query(value = SqlFragments.PLAN_SCOPE + """
+                        , plans AS (
                             SELECT pa.id_plan_action,
                                    pa.date_debut_prevue,
                                    pa.date_fin_prevue,
@@ -456,6 +491,7 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                                        ELSE 'AUTRE'
                                    END AS origine
                             FROM plan_action pa
+                            LEFT JOIN plan_scope ps ON ps.id_plan_action = pa.id_plan_action
                           """
                           + SqlFragments.AVANCEMENT_PLAN_ACTION_A_DATE
                           + """
@@ -467,7 +503,11 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
                                 ORDER BY (pao.est_principale IS TRUE) DESC, pao.id_origine
                                 LIMIT 1
                             ) o ON TRUE
-                            WHERE pa.date_debut_prevue <= CAST(:dateFin AS date)
+                          """
+                          + SqlFragments.FILTRES_PORTEE_PLAN
+                          + SqlFragments.PORTEE_UTILISATEUR_PLAN
+                          + """
+                            AND pa.date_debut_prevue <= CAST(:dateFin AS date)
                               AND pa.date_fin_prevue >= CAST(:dateDebut AS date)
                               AND sta.code IN ('NON_COMMENCEE', 'EN_COURS', 'TERMINEE')
                         )
@@ -481,5 +521,8 @@ public interface DashboardRepository extends Repository<Activite, Integer> {
         List<DashboardPlanActionOrigineRow> avancementPlansParOrigine(
                         @Param("dateDebut") LocalDate dateDebut,
                         @Param("dateFin") LocalDate dateFin,
-                        @Param("dateReference") LocalDate dateReference);
+                        @Param("dateReference") LocalDate dateReference,
+                        @Param("servicePerimetre") Integer servicePerimetre,
+                        @Param("departementPerimetre") Integer departementPerimetre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 }

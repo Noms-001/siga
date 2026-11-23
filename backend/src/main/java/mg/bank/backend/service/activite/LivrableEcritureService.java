@@ -157,7 +157,7 @@ public class LivrableEcritureService {
                 idActivite,
                 idSousActivite,
                 perimetre.getFiltreService(),
-                perimetre.getFiltreDepartement())
+                perimetre.getFiltreDepartement(), perimetre.getIdUtilisateurPortee())
                 .orElseThrow(() -> activiteDetailService
                         .refusOuAbsenceSousActivite(idActivite, idSousActivite));
 

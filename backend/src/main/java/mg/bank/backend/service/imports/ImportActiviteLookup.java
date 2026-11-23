@@ -10,6 +10,7 @@ import mg.bank.backend.dto.importactivite.ErreurImportDTO;
 import mg.bank.backend.model.activite.Activite;
 import mg.bank.backend.repository.activite.ActiviteRepository;
 import mg.bank.backend.service.activite.ActiviteService;
+import mg.bank.backend.service.common.PorteeService;
 
 /**
  * Résolution et autorisation d'une activité cible par sa référence.
@@ -22,6 +23,7 @@ public class ImportActiviteLookup {
 
     private final ActiviteRepository activiteRepository;
     private final ActiviteService activiteService;
+    private final PorteeService porteeService;
 
     /** Activité ou null si la référence est vide ou absente de la base. */
     public Activite parReference(String reference) {
@@ -70,6 +72,7 @@ public class ImportActiviteLookup {
         if (service == null) return false;
         PerimetreUtilisateur perimetre = activiteService.getPerimetre();
         if (perimetre == null) return false;
+        if (!porteeService.serviceAccessible(service)) return false;
         if (perimetre.estRattacheService()) {
             return service.getIdService() != null
                     && service.getIdService().equals(perimetre.getIdService());

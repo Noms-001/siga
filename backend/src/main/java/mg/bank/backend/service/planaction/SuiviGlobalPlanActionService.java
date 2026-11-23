@@ -21,6 +21,7 @@ import mg.bank.backend.repository.planaction.PlanActionRepository;
 import mg.bank.backend.repository.projection.planaction.PlanActionSuiviRow;
 import mg.bank.backend.repository.projection.planaction.PlanActionTypeOrigineRow;
 import mg.bank.backend.service.common.PeriodeSupport.Periode;
+import mg.bank.backend.service.utilisateur.CurrentUserService;
 
 
 @Service
@@ -36,14 +37,18 @@ public class SuiviGlobalPlanActionService {
     private static final int LIMITE_ECHEANCES = 20;
 
     private final PlanActionRepository planActionRepository;
+    private final CurrentUserService currentUserService;
 
     @Transactional(readOnly = true)
     public SuiviGlobalPlanActionDTO suiviGlobal(Periode periode) {
 
         // 1. Lire tous les plans actifs (statuts non BROUILLON/ANNULEE)
         String statutsCsv = String.join(",", STATUTS_ACTIFS);
+        var perimetre = currentUserService.getPerimetre();
         List<PlanActionSuiviRow> plans = planActionRepository.findPlansPourSuivi(
-                statutsCsv, periode.debut(), periode.fin(), periode.reference());
+                statutsCsv, periode.debut(), periode.fin(), periode.reference(),
+                perimetre.getFiltreService(), perimetre.getFiltreDepartement(),
+                perimetre.getIdUtilisateurPortee());
 
         if (plans.isEmpty()) {
             return SuiviGlobalPlanActionDTO.builder()

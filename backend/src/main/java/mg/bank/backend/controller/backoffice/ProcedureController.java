@@ -20,6 +20,9 @@ import mg.bank.backend.dto.backoffice.ProcedureRequest;
 import mg.bank.backend.dto.backoffice.ProcedureResponse;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.validation.ProcedureService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/backoffice/procedures")
@@ -28,6 +31,7 @@ public class ProcedureController {
 
         private final ProcedureService procedureService;
 
+        @RequirePermission(ressource = PermissionResource.PROCEDURE, action = PermissionAction.CONSULTER)
         @GetMapping
         public ResponseEntity<ApiResponse<List<ProcedureResponse>>> lister(
                         @RequestParam(name = "inclureInactifs", defaultValue = "false") boolean inclureInactifs) {
@@ -35,12 +39,14 @@ public class ProcedureController {
                                 ApiResponse.success(procedureService.lister(inclureInactifs)));
         }
 
+        @RequirePermission(ressource = PermissionResource.PROCEDURE, action = PermissionAction.CONSULTER)
         @GetMapping("/{id}")
         public ResponseEntity<ApiResponse<ProcedureResponse>> getById(@PathVariable Integer id) {
                 return ResponseEntity.ok(
                                 ApiResponse.success(procedureService.getById(id)));
         }
 
+        @RequirePermission(ressource = PermissionResource.PROCEDURE, action = PermissionAction.CREER)
         @PostMapping
         public ResponseEntity<ApiResponse<ProcedureResponse>> creer(
                         @Valid @RequestBody ProcedureRequest request) {
@@ -48,6 +54,7 @@ public class ProcedureController {
                                 .body(ApiResponse.success(procedureService.creer(request)));
         }
 
+        @RequirePermission(ressource = PermissionResource.PROCEDURE, action = PermissionAction.MODIFIER)
         @PutMapping("/{id}")
         public ResponseEntity<ApiResponse<ProcedureResponse>> modifier(
                         @PathVariable Integer id,
@@ -56,12 +63,14 @@ public class ProcedureController {
                                 ApiResponse.success(procedureService.modifier(id, request)));
         }
 
+        @RequirePermission(ressource = PermissionResource.PROCEDURE, action = PermissionAction.DESACTIVER)
         @PatchMapping("/{id}/desactiver")
         public ResponseEntity<ApiResponse<ProcedureResponse>> desactiver(@PathVariable Integer id) {
                 return ResponseEntity.ok(
                                 ApiResponse.success(procedureService.desactiver(id)));
         }
 
+        @RequirePermission(ressource = PermissionResource.PROCEDURE, action = PermissionAction.ACTIVER)
         @PatchMapping("/{id}/activer")
         public ResponseEntity<ApiResponse<ProcedureResponse>> activer(@PathVariable Integer id) {
                 return ResponseEntity.ok(

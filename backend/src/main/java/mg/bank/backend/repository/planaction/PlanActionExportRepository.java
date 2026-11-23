@@ -20,31 +20,6 @@ import mg.bank.backend.repository.projection.planaction.SuiviPlanActionExportRow
 @Repository
 public interface PlanActionExportRepository extends JpaRepository<PlanAction, Integer> {
 
-    String PLAN_SCOPE = """
-            WITH plan_services AS (
-                SELECT DISTINCT pao.id_plan_action,
-                       srv.id_service,
-                       srv.nom AS nom_service,
-                       srv.id_departement
-                FROM plan_action_origine pao
-                JOIN origine o ON o.id_origine = pao.id_origine
-                JOIN activite_origine ao ON ao.id_origine = o.id_origine
-                JOIN activite act ON act.id_activite = ao.id_activite
-                JOIN service srv ON srv.id_service = act.id_service
-            ),
-            plan_scope AS (
-                SELECT id_plan_action,
-                       COUNT(DISTINCT id_service) AS nombre_services,
-                       COUNT(DISTINCT id_departement) AS nombre_departements,
-                       MIN(id_service) AS id_service_principal,
-                       MIN(nom_service) AS nom_service_principal,
-                       MIN(id_departement) AS id_departement_principal,
-                       STRING_AGG(DISTINCT nom_service, ', ' ORDER BY nom_service) AS services_lies
-                FROM plan_services
-                GROUP BY id_plan_action
-            )
-            """;
-
     String RESPONSABLE_LATERAL = """
             LEFT JOIN LATERAL (
                 SELECT aff.id_utilisateur
@@ -64,7 +39,7 @@ public interface PlanActionExportRepository extends JpaRepository<PlanAction, In
             ) resp ON TRUE
             """;
 
-    @Query(value = PLAN_SCOPE + """
+    @Query(value = SqlFragments.PLAN_SCOPE + """
             SELECT pa.id_plan_action AS id,
                    pa.code AS code,
                    pa.designation AS designation,
@@ -90,6 +65,9 @@ public interface PlanActionExportRepository extends JpaRepository<PlanAction, In
               AND (CAST(:departementPerimetre AS integer) IS NULL
                    OR (ps.nombre_departements = 1
                        AND ps.id_departement_principal = CAST(:departementPerimetre AS integer)))
+            """
+            + SqlFragments.PORTEE_UTILISATEUR_PLAN
+            + """
               AND (CAST(:serviceDemande AS integer) IS NULL
                    OR (ps.nombre_services = 1 AND ps.id_service_principal = CAST(:serviceDemande AS integer)))
               AND (:statutCode IS NULL OR sta.code = :statutCode)
@@ -116,6 +94,7 @@ public interface PlanActionExportRepository extends JpaRepository<PlanAction, In
     List<PlanActionExportRow> findPlansPourExport(
             @Param("servicePerimetre") Integer servicePerimetre,
             @Param("departementPerimetre") Integer departementPerimetre,
+            @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
             @Param("serviceDemande") Integer serviceDemande,
             @Param("statutCode") String statutCode,
             @Param("statutsParDefautCsv") String statutsParDefautCsv,

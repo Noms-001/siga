@@ -14,6 +14,9 @@ import mg.bank.backend.dto.importactivite.RapportValidationDTO;
 import mg.bank.backend.dto.importactivite.ResultatImportDTO;
 import mg.bank.backend.service.imports.ActiviteImportService;
 import mg.bank.backend.service.imports.ActiviteImportValidator;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/activites/import")
@@ -23,6 +26,7 @@ public class ActiviteImportController {
     private final ActiviteImportValidator activiteImportValidator;
     private final ActiviteImportService activiteImportService;
 
+    @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.IMPORTER)
     @PostMapping("/valider")
     public ResponseEntity<ApiResponse<RapportValidationDTO>> valider(
             @RequestBody ActiviteImportRequest request) {
@@ -31,6 +35,7 @@ public class ActiviteImportController {
                 ApiResponse.success(activiteImportValidator.valider(request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.IMPORTER)
     @PostMapping("/confirmer")
     public ResponseEntity<ApiResponse<ResultatImportDTO>> confirmer(
             @RequestBody ActiviteImportRequest request) {

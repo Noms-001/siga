@@ -141,7 +141,7 @@ public class ActiviteWorkflowService {
                 return activiteRepository.findStatutCourant(
                                 idActivite,
                                 perimetre.getFiltreService(),
-                                perimetre.getFiltreDepartement())
+                                perimetre.getFiltreDepartement(), perimetre.getIdUtilisateurPortee())
                                 .orElseThrow(() -> activiteService.refusOuAbsence(idActivite));
         }
 

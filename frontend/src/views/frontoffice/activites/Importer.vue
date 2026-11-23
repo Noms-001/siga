@@ -9,7 +9,14 @@ import type {
     ImportResult,
     ImportValidationReport,
 } from '@/types/importActivite'
-import { normalizeImportDate } from '@/utils/importDate'
+import {
+    buildImportTree,
+    analyzeSheets,
+    parseField,
+    type SheetRole,
+    type SheetAnalysis,
+    type ImportTreeResult,
+} from '@/utils/importTree'
 
 /* ============================================================
    TYPES
@@ -47,16 +54,6 @@ interface MappingItem {
     colLetter: string
     excelName: string
     field: string
-}
-
-interface ParsedField {
-    level1: string
-    isArray1: boolean
-    level2: string | null
-    isArray2: boolean
-    level3: string | null
-    leaf: string
-    simple: boolean
 }
 
 interface CellSel {
@@ -119,7 +116,6 @@ const destinationFields: DestinationField[] = [
     { name: '_referenceSousActivite', label: 'Référence (sous-activité)', mandatory: false, fill: true, category: 'Clé de jointure', cibles: ['ACTIVITES'] },
 ]
 
-const DATE_LEAVES = new Set(['dateDebut', 'dateFin'])
 const STEPS = ['Prévisualisation', 'Sélection', 'Correspondance', 'Configuration', 'Import']
 
 const CATEGORY_CLASS: Record<string, string> = {
@@ -131,6 +127,15 @@ const CATEGORY_CLASS: Record<string, string> = {
     'Indicateur': 'indicateur',
     'Origine': 'origine',
     'Clé de jointure': 'cle',
+}
+
+const ROLE_LABELS: Record<SheetRole, string> = {
+    ACTIVITES: 'Activités',
+    SOUS_ACTIVITES: 'Sous-activités',
+    LIVRABLES: 'Livrables',
+    RESULTATS_INTERMEDIAIRES: 'Résultats inter.',
+    INDICATEURS: 'Indicateurs',
+    ORIGINES: 'Origines',
 }
 
 const MAX_HISTORY = 50
@@ -149,11 +154,8 @@ const headerRow = ref<Record<string, number>>({})
 const selectedRanges = ref<Record<string, Range[]>>({})
 const activeSheet = ref(0)
 
-/* Prévisualisation plein écran (étape 1) */
 const previewFullscreen = ref(false)
-/* Sélection plein écran (étape 2) */
 const selectionFullscreen = ref(false)
-/* Modal Plage/Colonnes/Lignes dans la sélection plein écran */
 const showRangeModal = ref(false)
 
 const selectionHistory = ref<Record<string, Range[]>[]>([])
@@ -170,6 +172,10 @@ const mapping = ref<MappingItem[]>([])
 const result = ref<Record<string, any>[]>([])
 const resultFields = ref<string[]>([])
 const errors = ref<string[]>([])
+const warnings = ref<string[]>([])
+
+/** Arbre d'import fusionné — source de vérité pour l'aperçu et le JSON final */
+const treeResult = ref<ImportTreeResult | null>(null)
 
 const isDragging = ref(false)
 const dragMode = ref<DragMode | null>(null)
@@ -177,7 +183,6 @@ const dragAnchor = ref<{ r: number; c: number } | null>(null)
 const dragCurrent = ref<{ r: number; c: number } | null>(null)
 const dragAdd = ref(false)
 
-/* Deux refs distincts pour la grille sélection (normal / plein écran) */
 const gridScrollRef = ref<HTMLDivElement | null>(null)
 const gridScrollRefFs = ref<HTMLDivElement | null>(null)
 
@@ -276,7 +281,8 @@ const resultSummary = computed(() => {
     if (errors.value.length) return 'Corrigez les erreurs ci-dessous'
     if (result.value.length === 0) return 'Aucune donnée à afficher'
     const label = CIBLE_LABELS[config.value.cible].toLowerCase()
-    return `${result.value.length} ligne(s) · ${label} · ${resultFields.value.length} colonne(s)`
+    const warn = warnings.value.length > 0 ? ` · ${warnings.value.length} avertissement(s)` : ''
+    return `${result.value.length} ligne(s) · ${label} · ${resultFields.value.length} colonne(s)${warn}`
 })
 
 const serviceLabel = computed(() => {
@@ -296,6 +302,13 @@ const uniqueReferenceCount = computed(() => {
     }
     return refs.size
 })
+
+/** Rôles détectés automatiquement par feuille (affichage étape 3) */
+const sheetAnalysis = computed<Map<string, SheetAnalysis>>(() =>
+    analyzeSheets(mapping.value.filter(m => m.field).map(m => ({ sheet: m.sheet, field: m.field })))
+)
+
+const hasWarnings = computed(() => warnings.value.length > 0)
 
 /* ============================================================
    SÉLECTION (map de cellules)
@@ -425,7 +438,6 @@ function isFillPlaceholder(v: any): boolean {
     return /^[-_–—]+$/.test(s)
 }
 
-/* Retourne la grille active (normale ou plein écran) */
 function getActiveGridEl(): HTMLDivElement | null {
     return selectionFullscreen.value ? gridScrollRefFs.value : gridScrollRef.value
 }
@@ -728,6 +740,11 @@ function onCibleChange(): void {
         ...m,
         field: m.field && !applicable.has(m.field) ? '' : m.field,
     }))
+    // Invalider l'arbre : le changement de cible peut changer la structure
+    treeResult.value = null
+    warnings.value = []
+    result.value = []
+    resultFields.value = []
 }
 
 interface FieldGroup { category: string; fields: DestinationField[] }
@@ -740,161 +757,6 @@ function groupedOptions(index: number): FieldGroup[] {
         groups.get(f.category)!.push(f)
     }
     return Array.from(groups.entries()).map(([category, fields]) => ({ category, fields }))
-}
-
-/* ============================================================
-   PARSEUR DE CHEMIN
-   ============================================================ */
-function parseField(name: string): ParsedField {
-    const parts = name.split('.')
-    if (parts.length === 1) {
-        return { level1: parts[0]!, isArray1: false, level2: null, isArray2: false, level3: null, leaf: parts[0]!, simple: true }
-    }
-    if (parts.length === 2) {
-        const isArray1 = parts[0]!.endsWith('[]')
-        const level1 = isArray1 ? parts[0]!.slice(0, -2) : parts[0]!
-        return { level1, isArray1, level2: parts[1]!, isArray2: false, level3: null, leaf: parts[1]!, simple: false }
-    }
-    const isArray1 = parts[0]!.endsWith('[]')
-    const level1 = isArray1 ? parts[0]!.slice(0, -2) : parts[0]!
-    const isArray2 = parts[1]!.endsWith('[]')
-    const level2 = isArray2 ? parts[1]!.slice(0, -2) : parts[1]!
-    return { level1, isArray1, level2, isArray2, level3: parts[2]!, leaf: parts[2]!, simple: false }
-}
-
-/* ============================================================
-   DÉTECTION DES FEUILLES
-   ============================================================ */
-interface SheetRoles {
-    activitesSheet: string | null
-    sousActivitesSheet: string | null
-}
-
-function findSheetRoles(mapped: MappingItem[]): SheetRoles {
-    const activitesSheets = new Set<string>()
-    const sousActivitesSheets = new Set<string>()
-    for (const m of mapped) {
-        if (m.field === '_referenceActivite') activitesSheets.add(m.sheet)
-        else if (m.field === '_referenceSousActivite') sousActivitesSheets.add(m.sheet)
-    }
-    return {
-        activitesSheet: activitesSheets.size === 1 ? [...activitesSheets][0]! : null,
-        sousActivitesSheet: sousActivitesSheets.size === 1 ? [...sousActivitesSheets][0]! : null,
-    }
-}
-
-/* ============================================================
-   CONSTRUCTION SA / ACTIVITÉ / ENFANTS
-   ============================================================ */
-function buildSousActiviteFromRow(row: Record<string, any>): Record<string, any> {
-    const sa: Record<string, any> = {}
-    const livrable: Record<string, any> = {}
-    for (const [field, value] of Object.entries(row)) {
-        if (field.startsWith('_')) continue
-        if (isEmptyCell(value)) continue
-        const parsed = parseField(field)
-        if (parsed.level1 !== 'sousActivites') continue
-        if (parsed.isArray2 && parsed.level2 === 'livrables') {
-            livrable[parsed.level3!] = value
-        } else if (!parsed.isArray2) {
-            sa[parsed.level2!] = value
-        }
-    }
-    if (Object.keys(livrable).length > 0) sa.livrables = [livrable]
-    return sa
-}
-
-function buildActivityFromRow(row: Record<string, any>): Record<string, any> {
-    const activity: Record<string, any> = {}
-    const objectifFields: Record<string, any> = {}
-    const resultatItem: Record<string, any> = {}
-    const indicateurItem: Record<string, any> = {}
-    const origineItem: Record<string, any> = {}
-
-    if (Array.isArray(row['sousActivites']) && row['sousActivites'].length > 0) {
-        activity.sousActivites = row['sousActivites']
-    }
-
-    for (const [field, value] of Object.entries(row)) {
-        if (field === 'sousActivites') continue
-        if (field.startsWith('_')) continue
-        if (isEmptyCell(value)) continue
-        const parsed = parseField(field)
-        if (parsed.level1 === 'sousActivites') continue
-
-        const v = DATE_LEAVES.has(parsed.leaf) ? normalizeImportDate(value) : value
-        if (parsed.simple) activity[parsed.level1] = v
-        else if (parsed.level1 === 'objectifSpecifique') objectifFields[parsed.level2!] = v
-        else if (parsed.level1 === 'resultatsIntermediaires') resultatItem[parsed.level2!] = v
-        else if (parsed.level1 === 'indicateurs') indicateurItem[parsed.level2!] = v
-        else if (parsed.level1 === 'origines') origineItem[parsed.level2!] = v
-    }
-    if (Object.keys(objectifFields).length > 0) activity.objectifSpecifique = objectifFields
-    if (Object.keys(resultatItem).length > 0) activity.resultatsIntermediaires = [resultatItem]
-    if (Object.keys(indicateurItem).length > 0) activity.indicateurs = [indicateurItem]
-    if (Object.keys(origineItem).length > 0) activity.origines = [origineItem]
-    return activity
-}
-
-function buildResultatIntermediaireFromRow(row: Record<string, any>): Record<string, any> {
-    const item: Record<string, any> = {}
-    for (const [field, value] of Object.entries(row)) {
-        if (field.startsWith('_')) continue
-        if (isEmptyCell(value)) continue
-        const parsed = parseField(field)
-        if (parsed.level1 !== 'resultatsIntermediaires') continue
-        item[parsed.level2!] = value
-    }
-    return item
-}
-
-function buildIndicateurFromRow(row: Record<string, any>): Record<string, any> {
-    const item: Record<string, any> = {}
-    for (const [field, value] of Object.entries(row)) {
-        if (field.startsWith('_')) continue
-        if (isEmptyCell(value)) continue
-        const parsed = parseField(field)
-        if (parsed.level1 !== 'indicateurs') continue
-        item[parsed.level2!] = value
-    }
-    return item
-}
-
-function buildOrigineFromRow(row: Record<string, any>): Record<string, any> {
-    const item: Record<string, any> = {}
-    for (const [field, value] of Object.entries(row)) {
-        if (field.startsWith('_')) continue
-        if (isEmptyCell(value)) continue
-        const parsed = parseField(field)
-        if (parsed.level1 !== 'origines') continue
-        item[parsed.level2!] = value
-    }
-    return item
-}
-
-type ChildKind = 'sousActivites' | 'resultatsIntermediaires' | 'indicateurs' | 'origines'
-
-function buildChildrenFor(kind: ChildKind, rows: Record<string, any>[]): Record<string, any>[] {
-    switch (kind) {
-        case 'sousActivites': return rows.map(buildSousActiviteFromRow)
-        case 'resultatsIntermediaires': return rows.map(buildResultatIntermediaireFromRow)
-        case 'indicateurs': return rows.map(buildIndicateurFromRow)
-        case 'origines': return rows.map(buildOrigineFromRow)
-    }
-}
-
-function groupByReference(rows: Record<string, any>[], kind: ChildKind): any[] {
-    const groups = new Map<string, Record<string, any>[]>()
-    for (const row of rows) {
-        const ref = String(row['_referenceActivite'] ?? '').trim()
-        if (!ref) continue
-        if (!groups.has(ref)) groups.set(ref, [])
-        groups.get(ref)!.push(row)
-    }
-    return [...groups.entries()].map(([reference, groupRows]) => ({
-        reference,
-        [kind]: buildChildrenFor(kind, groupRows),
-    }))
 }
 
 /* ============================================================
@@ -966,6 +828,8 @@ async function handleFile(file: File): Promise<void> {
         result.value = []
         resultFields.value = []
         errors.value = []
+        warnings.value = []
+        treeResult.value = null
         fileName.value = file.name
         currentStep.value = 1
     } catch (e: any) {
@@ -1045,7 +909,6 @@ function fermerRangeModal(): void {
     showRangeModal.value = false
 }
 
-/* « Suivant » depuis le plein écran sélection : on ferme puis on navigue */
 function suivantDepuisPleinEcran(): void {
     if (!hasAnySelection.value) return
     fermerPleinEcranSelection()
@@ -1199,7 +1062,7 @@ function onGlobalMouseUp(): void {
 }
 
 /* ============================================================
-   RACCOURCIS CLAVIER — ordre ESC : modal → sélection FS → preview FS
+   RACCOURCIS CLAVIER
    ============================================================ */
 function onGlobalKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
@@ -1290,11 +1153,21 @@ function goToStep(n: number): void {
             if (old) item.field = old.field
         })
         mapping.value = fresh
+        // Retour au mapping = invalidation de l'arbre
+        treeResult.value = null
+        warnings.value = []
     }
     currentStep.value = n
 }
 
-function onMappingChange(): void { mapping.value = [...mapping.value] }
+function onMappingChange(): void {
+    mapping.value = [...mapping.value]
+    // Invalider l'arbre si on revient modifier le mapping (sécurité)
+    if (treeResult.value) {
+        treeResult.value = null
+        warnings.value = []
+    }
+}
 
 function moveMapping(index: number, delta: number): void {
     const target = index + delta
@@ -1356,13 +1229,17 @@ function previewForMapping(item: MappingItem): string {
 }
 
 /* ============================================================
-   VALIDATION MAPPING
+   VALIDATION MAPPING — Fusion générique via importTree
    ============================================================ */
 function validateMapping(): void {
     errors.value = []
+    warnings.value = []
+    treeResult.value = null
+
     const mapped = mapping.value.filter(m => m.field)
     if (!mapped.length) { errors.value = ['Veuillez mapper au moins une colonne.']; return }
 
+    // 1. Champs obligatoires mappés
     const applicableFields = destinationFields.filter(f => f.cibles.includes(config.value.cible))
     const missingMandatory = applicableFields.filter(f => f.mandatory)
         .filter(f => !mapped.some(m => m.field === f.name))
@@ -1371,6 +1248,7 @@ function validateMapping(): void {
         return
     }
 
+    // 2. Doublons
     const seen = new Set<string>()
     for (const item of mapped) {
         const key = `${item.sheet}|${item.field}`
@@ -1381,6 +1259,7 @@ function validateMapping(): void {
     }
     if (errors.value.length) return
 
+    // 3. Construction des rowsBySheet (valeurs brutes, l'arbre gère les dates)
     const bySheet = new Map<string, MappingItem[]>()
     mapped.forEach(m => {
         if (!bySheet.has(m.sheet)) bySheet.set(m.sheet, [])
@@ -1414,16 +1293,7 @@ function validateMapping(): void {
             let hasValue = false
             sheetMapping.forEach(m => {
                 const source = columnData[m.field]!.values[i] ?? ''
-                let v = source
-                if (!isEmptyCell(source) && DATE_LEAVES.has(parseField(m.field).leaf)) {
-                    try { v = normalizeImportDate(source) }
-                    catch (error) {
-                        const line = columnData[m.field]!.rows[i]! + 1
-                        const detail = error instanceof Error ? error.message : 'format non reconnu'
-                        dataErrors.push(`Date invalide pour « ${fieldLabel(m.field)} » (feuille ${sheetName}, ligne ${line}) : ${detail}`)
-                    }
-                }
-                out[m.field] = v
+                out[m.field] = source
                 if (!isEmptyCell(source)) hasValue = true
             })
             if (hasValue) sheetRows.push(out)
@@ -1432,172 +1302,83 @@ function validateMapping(): void {
     }
     if (dataErrors.length) { errors.value = dataErrors; return }
 
+    // 4. Fusion générique — TOUTE la logique métier est dans importTree
+    const tree = buildImportTree({
+        cible: config.value.cible,
+        mapped: mapped.map(m => ({ sheet: m.sheet, field: m.field })),
+        rowsBySheet,
+    })
+    treeResult.value = tree
+    warnings.value = tree.warnings
+
+    if (tree.errors.length) { errors.value = tree.errors; return }
+
+    // 5. Préparation de l'aperçu
+    preparePreview(tree, rowsBySheet, mapped)
+    currentStep.value = 4
+}
+
+/**
+ * Prépare result/resultFields à partir de l'arbre fusionné.
+ * - ACTIVITES : aperçu par activité avec résumé des sous-activités
+ * - Autres    : aperçu plat par entité enfant rattachée à son activité
+ */
+function preparePreview(
+    tree: ImportTreeResult,
+    rowsBySheet: Map<string, Record<string, any>[]>,
+    mapped: MappingItem[],
+): void {
     if (config.value.cible === 'ACTIVITES') {
-        const hasSousActivitesMapping = mapped.some(m => {
-            if (m.field.startsWith('_')) return false
-            return parseField(m.field).level1 === 'sousActivites'
+        const rows = tree.activites.map(a => {
+            const sas = (a.sousActivites as any[]) ?? []
+            return {
+                ...a,
+                _sousActivitesSummary: sas.length === 0 ? '—' : sas.map((s: any) => s.designation || '?').join(', '),
+            }
         })
-
-        if (!hasSousActivitesMapping) {
-            const sheetsWithActivityData = [...bySheet.entries()]
-                .filter(([, sheetMapping]) => sheetMapping.some(m => !m.field.startsWith('_')))
-                .map(([sheetName]) => sheetName)
-
-            if (sheetsWithActivityData.length === 0) {
-                errors.value = ["Aucune colonne d'activité n'est mappée."]
-                return
-            }
-            if (sheetsWithActivityData.length > 1) {
-                errors.value = [
-                    "Pour importer des activités seules (sans sous-activités), mappez toutes les colonnes sur une seule feuille. " +
-                    "Sinon, mappez les références de jointure sur deux feuilles distinctes.",
-                ]
-                return
-            }
-
-            const sheetName = sheetsWithActivityData[0]!
-            const sheetRows = rowsBySheet.get(sheetName) ?? []
-            if (sheetRows.length === 0) {
-                errors.value = [`La feuille « ${sheetName} » ne contient aucune activité.`]
-                return
-            }
-
-            const merged = sheetRows.map(row => ({ ...row }))
-
-            const visibleFields: string[] = []
-            const seenF = new Set<string>()
-            for (const m of mapped) {
-                if (m.sheet !== sheetName) continue
-                if (m.field.startsWith('_')) continue
-                if (seenF.has(m.field)) continue
-                seenF.add(m.field)
-                visibleFields.push(m.field)
-            }
-
-            result.value = merged
-            resultFields.value = visibleFields
-            currentStep.value = 4
-            return
-        }
-
-        const roles = findSheetRoles(mapped)
-        if (!roles.activitesSheet) {
-            errors.value = ["Aucune feuille ne porte la colonne « Référence (activité) ». Mappez cette clé de jointure sur la feuille des activités."]
-            return
-        }
-        if (!roles.sousActivitesSheet) {
-            errors.value = ["Aucune feuille ne porte la colonne « Référence (sous-activité) ». Mappez cette clé de jointure sur la feuille des sous-activités."]
-            return
-        }
-        if (roles.activitesSheet === roles.sousActivitesSheet) {
-            errors.value = ["Les colonnes « Référence (activité) » et « Référence (sous-activité) » doivent être mappées sur DEUX feuilles différentes."]
-            return
-        }
-
-        const activitesRows = rowsBySheet.get(roles.activitesSheet) ?? []
-        const sousActivitesRows = rowsBySheet.get(roles.sousActivitesSheet) ?? []
-        if (activitesRows.length === 0) { errors.value = [`La feuille « ${roles.activitesSheet} » ne contient aucune activité.`]; return }
-        if (sousActivitesRows.length === 0) { errors.value = [`La feuille « ${roles.sousActivitesSheet} » ne contient aucune sous-activité.`]; return }
-
-        let lastRef = ''
-        const sousActivitesByRef = new Map<string, Record<string, any>[]>()
-        for (const row of sousActivitesRows) {
-            const raw = row['_referenceSousActivite']
-            if (!isFillPlaceholder(raw)) lastRef = String(raw).trim()
-            if (!lastRef) continue
-            const sa = buildSousActiviteFromRow(row)
-            if (!sousActivitesByRef.has(lastRef)) sousActivitesByRef.set(lastRef, [])
-            sousActivitesByRef.get(lastRef)!.push(sa)
-        }
-
-        const activityRefs = new Set(
-            activitesRows.map(a => String(a['_referenceActivite'] ?? '').trim()).filter(Boolean)
-        )
-        const orphans = [...sousActivitesByRef.keys()].filter(ref => !activityRefs.has(ref))
-        if (orphans.length > 0) {
-            errors.value = [`Sous-activités orphelines : les références suivantes n'existent dans aucune activité — ` + orphans.join(', ')]
-            return
-        }
-
-        const merged = activitesRows.map((a): Record<string, any> => {
-            const ref = String(a['_referenceActivite'] ?? '').trim()
-            const sas = sousActivitesByRef.get(ref) ?? []
-            return { ...a, sousActivites: sas }
-        })
-        merged.forEach(r => {
-            const sas = (r['sousActivites'] as Record<string, any>[]) ?? []
-            r['_sousActivitesSummary'] = sas.length === 0 ? '—' : sas.map(sa => sa.designation || '?').join(', ')
-        })
-
-        const visibleFields: string[] = []
-        const seenF = new Set<string>()
+        const fields: string[] = []
+        const seen = new Set<string>()
         for (const m of mapped) {
-            if (m.sheet !== roles.activitesSheet) continue
-            if (m.field === '_referenceSousActivite') continue
-            if (seenF.has(m.field)) continue
-            seenF.add(m.field)
-            visibleFields.push(m.field)
+            if (m.field.startsWith('_')) continue
+            const p = parseField(m.field)
+            if (p.level1 === 'sousActivites') continue
+            if (p.level1 === 'resultatsIntermediaires') continue
+            if (p.level1 === 'indicateurs') continue
+            if (p.level1 === 'origines') continue
+            if (seen.has(m.field)) continue
+            seen.add(m.field)
+            fields.push(m.field)
         }
-        visibleFields.push('_sousActivitesSummary')
-
-        result.value = merged
-        resultFields.value = visibleFields
-        currentStep.value = 4
+        fields.push('_sousActivitesSummary')
+        result.value = rows
+        resultFields.value = fields
         return
     }
 
-    const allowedLevel1: Record<string, string> = {
+    // Non-ACTIVITES : aplatir les collections de l'arbre en lignes d'aperçu
+    const collKey = ({
         SOUS_ACTIVITES: 'sousActivites',
         RESULTATS_INTERMEDIAIRES: 'resultatsIntermediaires',
         INDICATEURS: 'indicateurs',
         ORIGINES: 'origines',
-    }
-    const expectedLevel1 = allowedLevel1[config.value.cible]
+    } as const)[config.value.cible as Exclude<ImportCible, 'ACTIVITES'>]
 
-    const wrongFields = mapped.filter(m => {
-        if (m.field.startsWith('_')) return false
-        return parseField(m.field).level1 !== expectedLevel1
-    })
-    if (wrongFields.length) {
-        errors.value = wrongFields.map(m =>
-            `Le champ « ${fieldLabel(m.field)} » n'appartient pas à la cible « ${CIBLE_LABELS[config.value.cible]} ».`
-        )
-        return
+    const previewRows: Record<string, any>[] = []
+    for (const a of tree.activites) {
+        const items = (a[collKey] as any[]) ?? []
+        for (const item of items) {
+            previewRows.push({ _referenceActivite: a._referenceActivite, ...item })
+        }
     }
 
-    const hasRef = mapped.some(m => m.field === '_referenceActivite')
-    if (!hasRef) {
-        errors.value = [
-            `La colonne « Référence (activité) » doit être mappée pour rattacher chaque ligne à son activité.`,
-        ]
-        return
+    if (previewRows.length === 0) {
+        // Fallback : lignes brutes de la première feuille
+        const sheetName = [...rowsBySheet.keys()][0]
+        result.value = sheetName ? (rowsBySheet.get(sheetName) ?? []) : []
+    } else {
+        result.value = previewRows
     }
-
-    const sheetNames = [...rowsBySheet.keys()]
-    if (sheetNames.length !== 1) {
-        errors.value = ['Pour cette cible, mappez les colonnes sur une seule feuille.']
-        return
-    }
-    const sheetName = sheetNames[0]!
-    const sheetRows = rowsBySheet.get(sheetName) ?? []
-    if (sheetRows.length === 0) {
-        errors.value = [`La feuille « ${sheetName} » ne contient aucune donnée exploitable.`]
-        return
-    }
-
-    const firstWithoutRef = sheetRows.findIndex(
-        r => !String(r['_referenceActivite'] ?? '').trim()
-    )
-    if (firstWithoutRef >= 0) {
-        errors.value = [
-            `La référence de l'activité est vide pour la ligne ${firstWithoutRef + 1} de la feuille « ${sheetName} ».`,
-        ]
-        return
-    }
-
-    result.value = sheetRows
     resultFields.value = [...new Set(mapped.map(m => m.field))]
-    currentStep.value = 4
 }
 
 /* ============================================================
@@ -1624,6 +1405,11 @@ async function goToImportStep(): Promise<void> {
     errors.value = errs
     if (errs.length) return
 
+    if (!treeResult.value) {
+        errors.value = ["L'arbre d'import est introuvable — revenez à l'étape Correspondance."]
+        return
+    }
+
     validatingImport.value = true
     validationReport.value = null
     importResult.value = null
@@ -1639,7 +1425,13 @@ async function goToImportStep(): Promise<void> {
     }
 }
 
+/* ============================================================
+   CONSTRUCTION DU JSON FINAL — depuis l'arbre fusionné
+   ============================================================ */
 function buildFinalJSON(): any {
+    const tree = treeResult.value
+    if (!tree) throw new Error("Aucun arbre d'import — relancez la validation.")
+
     switch (config.value.cible) {
         case 'ACTIVITES':
             return {
@@ -1649,28 +1441,56 @@ function buildFinalJSON(): any {
                 annee: config.value.annee,
                 typeImport: config.value.typeImport,
                 activitesDejaValidees: config.value.activitesDejaValidees,
-                activites: result.value.map(buildActivityFromRow),
+                activites: tree.activites.map(a => {
+                    const out: Record<string, any> = {}
+                    for (const [k, v] of Object.entries(a)) {
+                        if (k === '_referenceActivite') continue
+                        if (k === '_sousActivitesSummary') continue
+                        out[k] = v
+                    }
+                    return out
+                }),
             }
         case 'SOUS_ACTIVITES':
             return {
                 version: config.value.version.trim(),
                 annee: config.value.annee,
-                activites: groupByReference(result.value, 'sousActivites'),
+                activites: tree.activites
+                    .filter(a => a._referenceActivite && (a.sousActivites?.length ?? 0) > 0)
+                    .map(a => ({
+                        reference: a._referenceActivite,
+                        sousActivites: a.sousActivites,
+                    })),
             }
         case 'RESULTATS_INTERMEDIAIRES':
             return {
                 version: config.value.version.trim(),
-                activites: groupByReference(result.value, 'resultatsIntermediaires'),
+                activites: tree.activites
+                    .filter(a => a._referenceActivite && (a.resultatsIntermediaires?.length ?? 0) > 0)
+                    .map(a => ({
+                        reference: a._referenceActivite,
+                        resultatsIntermediaires: a.resultatsIntermediaires,
+                    })),
             }
         case 'INDICATEURS':
             return {
                 version: config.value.version.trim(),
-                activites: groupByReference(result.value, 'indicateurs'),
+                activites: tree.activites
+                    .filter(a => a._referenceActivite && (a.indicateurs?.length ?? 0) > 0)
+                    .map(a => ({
+                        reference: a._referenceActivite,
+                        indicateurs: a.indicateurs,
+                    })),
             }
         case 'ORIGINES':
             return {
                 version: config.value.version.trim(),
-                activites: groupByReference(result.value, 'origines'),
+                activites: tree.activites
+                    .filter(a => a._referenceActivite && (a.origines?.length ?? 0) > 0)
+                    .map(a => ({
+                        reference: a._referenceActivite,
+                        origines: a.origines,
+                    })),
             }
     }
 }
@@ -1719,6 +1539,8 @@ function resetAll(): void {
     result.value = []
     resultFields.value = []
     errors.value = []
+    warnings.value = []
+    treeResult.value = null
     rangeInput.value = ''
     rangeInputError.value = ''
     columnsInput.value = ''
@@ -1753,7 +1575,6 @@ onBeforeUnmount(() => {
     document.removeEventListener('keydown', onGlobalKeyDown)
 })
 </script>
-
 <template>
     <div class="import-page">
         <header class="welcome-row">
@@ -1765,7 +1586,8 @@ onBeforeUnmount(() => {
                 <h1>Import — {{ cibleLabel }}</h1>
                 <span class="title-divider" aria-hidden="true"></span>
                 <p class="subheading">
-                    Importez vos {{ cibleLabel.toLowerCase() }} depuis un fichier Excel (.xlsx, .xls, .csv)
+                    Importez vos {{ cibleLabel.toLowerCase() }} depuis un fichier Excel (.xlsx,
+                    .xls, .csv)
                 </p>
             </div>
             <div class="welcome-row__right">
@@ -1798,6 +1620,13 @@ onBeforeUnmount(() => {
             </div>
         </div>
 
+        <div v-if="hasWarnings && currentStep !== 5" class="alert alert--warning" role="status">
+            <i class="bi bi-info-circle-fill"></i>
+            <div>
+                <div v-for="(w, i) in warnings" :key="i">{{ w }}</div>
+            </div>
+        </div>
+
         <!-- ============================ ÉTAPE 1 ============================ -->
         <section v-if="currentStep === 1" class="card">
             <header class="card__head">
@@ -1814,8 +1643,8 @@ onBeforeUnmount(() => {
                         <i class="bi bi-bullseye"></i>
                         <div>
                             <strong>Que souhaitez-vous importer ?</strong>
-                            <small>Ce choix conditionne les feuilles à sélectionner et les champs disponibles au
-                                mapping.</small>
+                            <small>Ce choix conditionne les feuilles à sélectionner et les champs
+                                disponibles au mapping.</small>
                         </div>
                     </div>
                     <div class="config-radio-group import-target__options" role="radiogroup">
@@ -1845,8 +1674,11 @@ onBeforeUnmount(() => {
                     @dragover.prevent="isDragover = true" @dragleave.prevent="isDragover = false"
                     @drop.prevent="onDrop">
                     <div class="dropzone__icon"><i class="bi bi-cloud-arrow-up"></i></div>
-                    <p class="dropzone__title"><strong>Glissez-déposez</strong> un fichier Excel ou CSV</p>
-                    <p class="dropzone__hint">Formats acceptés : .xlsx, .xls, .csv · Tout reste dans votre navigateur.
+                    <p class="dropzone__title">
+                        <strong>Glissez-déposez</strong> un fichier Excel ou CSV
+                    </p>
+                    <p class="dropzone__hint">
+                        Formats acceptés : .xlsx, .xls, .csv · Tout reste dans votre navigateur.
                     </p>
                     <label class="btn btn--primary">
                         <i class="bi bi-folder2-open"></i>
@@ -1903,20 +1735,23 @@ onBeforeUnmount(() => {
                                 <thead>
                                     <tr>
                                         <th class="grid-corner"></th>
-                                        <th v-for="c in currentMaxCol" :key="c" class="grid-col-head">{{ colName(c - 1)
-                                            }}</th>
+                                        <th v-for="c in currentMaxCol" :key="c" class="grid-col-head">
+                                            {{ colName(c - 1) }}
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-for="r in currentMaxRow" :key="r">
-                                        <th class="grid-row-head grid-row-head--clickable"
-                                            :class="{ 'grid-row-head--header': (r - 1) === (headerRow[activeSheetName] ?? -1) }"
-                                            :title="'Définir la ligne ' + r + ' comme en-tête'"
+                                        <th class="grid-row-head grid-row-head--clickable" :class="{
+                                            'grid-row-head--header':
+                                                r - 1 === (headerRow[activeSheetName] ?? -1),
+                                        }" :title="'Définir la ligne ' + r + ' comme en-tête'"
                                             @click="setHeaderRow(r - 1)">
                                             {{ r }}
                                         </th>
-                                        <td v-for="c in currentMaxCol" :key="c" class="grid-cell"
-                                            :class="{ 'grid-cell--header': (r - 1) === (headerRow[activeSheetName] ?? -1) }">
+                                        <td v-for="c in currentMaxCol" :key="c" class="grid-cell" :class="{
+                                            'grid-cell--header': r - 1 === (headerRow[activeSheetName] ?? -1),
+                                        }">
                                             {{ cellValue(r - 1, c - 1) }}
                                         </td>
                                     </tr>
@@ -1928,7 +1763,9 @@ onBeforeUnmount(() => {
                     <div class="status-bar">
                         <span class="status-bar__item">{{ currentMaxRow }} ligne(s) × {{ currentMaxCol }}
                             colonne(s)</span>
-                        <span class="status-bar__item status-bar__item--muted">{{ activeSheetName }}</span>
+                        <span class="status-bar__item status-bar__item--muted">{{
+                            activeSheetName
+                        }}</span>
                         <span class="status-bar__spacer"></span>
                         <BaseButton variant="primary" @click="goToStep(2)">
                             Suivant : sélection des données
@@ -1960,19 +1797,19 @@ onBeforeUnmount(() => {
                 <div class="info-banner">
                     <i class="bi bi-info-circle"></i>
                     <span>
-                        <strong>Glisser</strong> pour sélectionner ·
-                        <strong>Shift+clic</strong> pour étendre ·
-                        <strong>Ctrl/Cmd+clic</strong> pour ajouter une plage ·
+                        <strong>Glisser</strong> pour sélectionner · <strong>Shift+clic</strong> pour
+                        étendre · <strong>Ctrl/Cmd+clic</strong> pour ajouter une plage ·
                         <strong>Ctrl/Cmd+A</strong> tout sélectionner ·
-                        <strong>Ctrl/Cmd+Z</strong> annuler la dernière sélection ·
-                        Saisir une plage / colonnes / lignes ci-dessous
+                        <strong>Ctrl/Cmd+Z</strong> annuler la dernière sélection · Saisir une plage /
+                        colonnes / lignes ci-dessous
                     </span>
                 </div>
 
                 <div class="sheet-tabs">
                     <button v-for="(name, i) in sheets" :key="name" type="button" class="sheet-tab" :class="{
                         'sheet-tab--active': activeSheet === i,
-                        'sheet-tab--has-sel': (selectedRanges[name]?.length ?? 0) > 0 && activeSheet !== i,
+                        'sheet-tab--has-sel':
+                            (selectedRanges[name]?.length ?? 0) > 0 && activeSheet !== i,
                     }" @click="activeSheet = i">
                         {{ name }}
                     </button>
@@ -1990,7 +1827,9 @@ onBeforeUnmount(() => {
                         <BaseButton size="sm" variant="secondary" @click="applyRangeInput(false)">Remplacer</BaseButton>
                         <BaseButton size="sm" variant="primary" @click="applyRangeInput(true)">Ajouter</BaseButton>
                     </div>
-                    <div v-if="rangeInputError" class="range-input-error">{{ rangeInputError }}</div>
+                    <div v-if="rangeInputError" class="range-input-error">
+                        {{ rangeInputError }}
+                    </div>
 
                     <div class="range-input-group">
                         <label class="range-input-label">
@@ -2004,7 +1843,9 @@ onBeforeUnmount(() => {
                         </BaseButton>
                         <BaseButton size="sm" variant="primary" @click="applyColumnsInput(true)">Ajouter</BaseButton>
                     </div>
-                    <div v-if="columnsInputError" class="range-input-error">{{ columnsInputError }}</div>
+                    <div v-if="columnsInputError" class="range-input-error">
+                        {{ columnsInputError }}
+                    </div>
 
                     <div class="range-input-group">
                         <label class="range-input-label">
@@ -2017,7 +1858,9 @@ onBeforeUnmount(() => {
                         <BaseButton size="sm" variant="secondary" @click="applyLinesInput(false)">Remplacer</BaseButton>
                         <BaseButton size="sm" variant="primary" @click="applyLinesInput(true)">Ajouter</BaseButton>
                     </div>
-                    <div v-if="linesInputError" class="range-input-error">{{ linesInputError }}</div>
+                    <div v-if="linesInputError" class="range-input-error">
+                        {{ linesInputError }}
+                    </div>
                 </div>
 
                 <div class="preview-info">
@@ -2028,7 +1871,12 @@ onBeforeUnmount(() => {
                     <span class="preview-info__hint">{{ selectionInfoDetail }}</span>
                     <span v-if="isDragging" class="drag-mode-badge" :class="{ 'drag-mode-badge--add': dragAdd }">
                         <i class="bi" :class="dragAdd ? 'bi-plus-circle' : 'bi-arrow-repeat'"></i>
-                        {{ dragMode === 'shift' ? 'Extension' : dragAdd ? 'Ajout à la sélection' : 'Nouvelle sélection'
+                        {{
+                            dragMode === "shift"
+                                ? "Extension"
+                                : dragAdd
+                                    ? "Ajout à la sélection"
+                                    : "Nouvelle sélection"
                         }}
                     </span>
                 </div>
@@ -2050,14 +1898,19 @@ onBeforeUnmount(() => {
                             <tbody>
                                 <tr v-for="r in currentMaxRow" :key="r">
                                     <th class="grid-row-head grid-row-head--selectable" :class="{
-                                        'grid-row-head--header': (r - 1) === (headerRow[activeSheetName] ?? -1),
-                                        'grid-row-head--selected': highlightedRows.has(r - 1) && (r - 1) !== (headerRow[activeSheetName] ?? -1),
+                                        'grid-row-head--header':
+                                            r - 1 === (headerRow[activeSheetName] ?? -1),
+                                        'grid-row-head--selected':
+                                            highlightedRows.has(r - 1) &&
+                                            r - 1 !== (headerRow[activeSheetName] ?? -1),
                                     }" :data-row="r - 1" :data-col="0">
                                         {{ r }}
                                     </th>
                                     <td v-for="c in currentMaxCol" :key="c" :class="[
                                         cellClass(r - 1, c - 1),
-                                        { 'grid-cell--header': (r - 1) === (headerRow[activeSheetName] ?? -1) },
+                                        {
+                                            'grid-cell--header': r - 1 === (headerRow[activeSheetName] ?? -1),
+                                        },
                                     ]" :style="cellSelectionStyle(r - 1, c - 1)" :data-row="r - 1" :data-col="c - 1">
                                         {{ cellValue(r - 1, c - 1) }}
                                     </td>
@@ -2082,10 +1935,11 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div class="status-bar">
-                    <span class="status-bar__item">{{ currentSelectedRangeCount }} plage(s) · {{ currentSelectedRowCount
-                        }}
-                        ligne(s)</span>
-                    <span class="status-bar__item status-bar__item--muted">{{ activeSheetName }}</span>
+                    <span class="status-bar__item">{{ currentSelectedRangeCount }} plage(s) ·
+                        {{ currentSelectedRowCount }} ligne(s)</span>
+                    <span class="status-bar__item status-bar__item--muted">{{
+                        activeSheetName
+                    }}</span>
                     <span class="status-bar__spacer"></span>
                     <BaseButton variant="secondary" size="sm" @click="clearActiveSheetSelection">
                         Effacer cette feuille
@@ -2115,18 +1969,39 @@ onBeforeUnmount(() => {
                 <div class="info-banner">
                     <i class="bi bi-info-circle"></i>
                     <span v-if="config.cible === 'ACTIVITES'">
-                        <strong>Sans sous-activités</strong> : mappez les colonnes des activités sur <strong>une seule
-                            feuille</strong>
-                        (aucune clé de jointure requise).<br>
-                        <strong>Avec sous-activités</strong> : mappez <strong>« Référence (activité) »</strong>
-                        et <strong>« Référence (sous-activité) »</strong> sur <strong>deux feuilles distinctes</strong>
+                        <strong>Sans sous-activités</strong> : mappez les colonnes des activités sur
+                        <strong>une seule feuille</strong> (aucune clé de jointure requise).<br />
+                        <strong>Avec sous-activités</strong> : mappez
+                        <strong>« Référence (activité) »</strong> et
+                        <strong>« Référence (sous-activité) »</strong> sur
+                        <strong>deux feuilles distinctes</strong>
                         pour joindre les activités à leurs sous-activités.
                     </span>
                     <span v-else>
-                        <strong>Une seule feuille</strong> — mappez les colonnes des {{ cibleLabel.toLowerCase() }}
-                        ET la <strong>« Référence (activité) »</strong> pour rattacher chaque ligne à son activité.
-                        Les lignes sont automatiquement regroupées par référence avant l'envoi.
+                        <strong>Une seule feuille</strong> — mappez les colonnes des
+                        {{ cibleLabel.toLowerCase() }} ET la
+                        <strong>« Référence (activité) »</strong> pour rattacher chaque ligne à son
+                        activité. Les lignes sont automatiquement regroupées par référence avant
+                        l'envoi.
                     </span>
+                </div>
+
+                <div class="sheet-roles">
+                    <div v-for="[sheet, analysis] in sheetAnalysis" :key="sheet" class="sheet-roles__item">
+                        <span class="sheet-roles__sheet">
+                            <i class="bi bi-file-earmark-spreadsheet"></i>
+                            {{ sheet }}
+                        </span>
+                        <span v-for="role in [...analysis.roles]" :key="role" class="sheet-roles__badge">
+                            {{ ROLE_LABELS[role] }}
+                        </span>
+                        <span v-if="analysis.hasActiviteRef" class="sheet-roles__badge sheet-roles__badge--ref">
+                            <i class="bi bi-link-45deg"></i> Réf. activité
+                        </span>
+                        <span v-if="analysis.hasSousActiviteRef" class="sheet-roles__badge sheet-roles__badge--ref">
+                            <i class="bi bi-link-45deg"></i> Réf. SA
+                        </span>
+                    </div>
                 </div>
 
                 <div class="mapping-wrap">
@@ -2143,7 +2018,9 @@ onBeforeUnmount(() => {
                         </thead>
                         <tbody>
                             <tr v-for="(item, index) in mapping" :key="index" :class="[
-                                item.field ? `mapping-row mapping-row--${categoryClass(item.field)}` : 'mapping-row',
+                                item.field
+                                    ? `mapping-row mapping-row--${categoryClass(item.field)}`
+                                    : 'mapping-row',
                                 { 'mapping-row--empty': !item.field },
                             ]">
                                 <td class="mapping-sheet">{{ item.sheet }}</td>
@@ -2157,7 +2034,7 @@ onBeforeUnmount(() => {
                                         <optgroup v-for="g in groupedOptions(index)" :key="g.category"
                                             :label="g.category">
                                             <option v-for="f in g.fields" :key="f.name" :value="f.name">
-                                                {{ f.label }}{{ f.mandatory ? ' *' : '' }}{{ f.fill ? ' ↕' : '' }}
+                                                {{ f.label }}{{ f.mandatory ? " *" : "" }}{{ f.fill ? " ↕" : "" }}
                                             </option>
                                         </optgroup>
                                     </select>
@@ -2237,8 +2114,9 @@ onBeforeUnmount(() => {
                                 <select v-model="config.service" class="config-input" :disabled="loadingServices">
                                     <option :value="null">— Sélectionner —</option>
                                     <option v-for="s in services" :key="s.id" :value="s.id">
-                                        {{ s.nom }}<template v-if="s.departement?.nom"> · {{ s.departement.nom
-                                            }}</template>
+                                        {{ s.nom
+                                        }}<template v-if="s.departement?.nom">
+                                            · {{ s.departement.nom }}</template>
                                     </option>
                                 </select>
                                 <p class="config-hint">
@@ -2258,7 +2136,9 @@ onBeforeUnmount(() => {
                                 <label class="config-label">Année <span class="config-required">*</span></label>
                                 <input v-model.number="config.annee" class="config-input" type="number"
                                     placeholder="2026" min="1900" max="2100" />
-                                <p class="config-hint">Exercice d'import — sert aux objectifs absents et aux codes.</p>
+                                <p class="config-hint">
+                                    Exercice d'import — sert aux objectifs absents et aux codes.
+                                </p>
                             </div>
 
                             <div class="config-field config-field--full">
@@ -2304,7 +2184,8 @@ onBeforeUnmount(() => {
                                 <input v-model.number="config.annee" class="config-input" type="number"
                                     placeholder="2026" min="1900" max="2100" />
                                 <p class="config-hint">
-                                    Utilisée pour générer les codes de sous-activités (<code>SA-AAAA-RANG-SEQ</code>).
+                                    Utilisée pour générer les codes de sous-activités
+                                    (<code>SA-AAAA-RANG-SEQ</code>).
                                 </p>
                             </div>
                         </template>
@@ -2314,7 +2195,9 @@ onBeforeUnmount(() => {
                 <div class="config-summary">
                     <div class="config-summary__item">
                         <span class="config-summary__label">Cible</span>
-                        <strong class="config-summary__value config-summary__value--sm">{{ cibleLabel }}</strong>
+                        <strong class="config-summary__value config-summary__value--sm">{{
+                            cibleLabel
+                        }}</strong>
                     </div>
                     <div class="config-summary__item">
                         <span class="config-summary__label">Lignes à importer</span>
@@ -2326,10 +2209,10 @@ onBeforeUnmount(() => {
                     </div>
                     <div class="config-summary__item">
                         <span class="config-summary__label">
-                            {{ config.cible === 'ACTIVITES' ? 'Service cible' : 'Activités cibles' }}
+                            {{ config.cible === "ACTIVITES" ? "Service cible" : "Activités cibles" }}
                         </span>
                         <strong class="config-summary__value config-summary__value--sm">
-                            {{ config.cible === 'ACTIVITES' ? serviceLabel : uniqueReferenceCount }}
+                            {{ config.cible === "ACTIVITES" ? serviceLabel : uniqueReferenceCount }}
                         </strong>
                     </div>
                 </div>
@@ -2367,10 +2250,14 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div v-if="validationReport" class="validation-report">
-                    <div class="validation-report__summary"
-                        :class="validationReport.valide ? 'validation-report__summary--valid' : 'validation-report__summary--invalid'">
-                        <i class="bi"
-                            :class="validationReport.valide ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'"></i>
+                    <div class="validation-report__summary" :class="validationReport.valide
+                        ? 'validation-report__summary--valid'
+                        : 'validation-report__summary--invalid'
+                        ">
+                        <i class="bi" :class="validationReport.valide
+                            ? 'bi-check-circle-fill'
+                            : 'bi-exclamation-triangle-fill'
+                            "></i>
                         <div>
                             <strong>{{ validationReport.message }}</strong>
                             <span>
@@ -2416,10 +2303,12 @@ onBeforeUnmount(() => {
                             {{ importResult.nombreLivrablesImportes }} livrable(s) importé(s).
                         </span>
                         <span v-else-if="config.cible === 'SOUS_ACTIVITES'">
-                            {{ importResult.nombreSousActivitesImportees }} sous-activité(s) importée(s).
+                            {{ importResult.nombreSousActivitesImportees }} sous-activité(s)
+                            importée(s).
                         </span>
                         <span v-else-if="config.cible === 'RESULTATS_INTERMEDIAIRES'">
-                            {{ importResult.nombreResultatsIntermediairesImportes }} résultat(s) importé(s).
+                            {{ importResult.nombreResultatsIntermediairesImportes }} résultat(s)
+                            importé(s).
                         </span>
                         <span v-else-if="config.cible === 'INDICATEURS'">
                             {{ importResult.indicateursCrees?.length ?? 0 }} indicateur(s) importé(s).
@@ -2433,16 +2322,16 @@ onBeforeUnmount(() => {
 
                 <div class="config-recap">
                     <span class="config-recap__item"><i class="bi bi-bullseye"></i><strong>Cible</strong> {{ cibleLabel
-                        }}</span>
+                    }}</span>
                     <span class="config-recap__item"><i class="bi bi-gear"></i><strong>Service</strong> {{ serviceLabel
-                        }}</span>
-                    <span class="config-recap__item"><i class="bi bi-calendar3"></i><strong>Année</strong> {{
-                        config.annee
-                        }}</span>
+                    }}</span>
+                    <span class="config-recap__item"><i class="bi bi-calendar3"></i><strong>Année</strong>
+                        {{ config.annee }}</span>
                     <span class="config-recap__item"><i class="bi bi-tag"></i><strong>Type</strong> {{ config.typeImport
-                        }}</span>
+                    }}</span>
                     <span class="config-recap__item"><i class="bi bi-list-ol"></i><strong>Procédure</strong> #{{
-                        config.procedure }}</span>
+                        config.procedure
+                    }}</span>
                 </div>
 
                 <div v-if="result.length === 0 && errors.length === 0" class="empty-state">
@@ -2454,12 +2343,14 @@ onBeforeUnmount(() => {
                     <table class="result-table">
                         <thead>
                             <tr>
-                                <th v-for="field in resultFields" :key="field">{{ fieldLabel(field) }}</th>
+                                <th v-for="field in resultFields" :key="field">
+                                    {{ fieldLabel(field) }}
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-for="(row, i) in result" :key="i">
-                                <td v-for="field in resultFields" :key="field">{{ row[field] || '' }}</td>
+                                <td v-for="field in resultFields" :key="field">{{ row[field] || "" }}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -2475,9 +2366,11 @@ onBeforeUnmount(() => {
                         Modifier les correspondances
                     </BaseButton>
                     <span class="status-bar__spacer"></span>
-                    <BaseButton variant="primary"
-                        :disabled="result.length === 0 || errors.length > 0 || !validationReport?.valide || !!importResult"
-                        @click="openImportModal">
+                    <BaseButton variant="primary" :disabled="result.length === 0 ||
+                        errors.length > 0 ||
+                        !validationReport?.valide ||
+                        !!importResult
+                        " @click="openImportModal">
                         <i class="bi bi-upload"></i>
                         Importer
                     </BaseButton>
@@ -2493,12 +2386,16 @@ onBeforeUnmount(() => {
                 <p class="import-modal__text">
                     <strong>{{ result.length }}</strong> ligne(s) de
                     <strong>{{ cibleLabel.toLowerCase() }}</strong>
-                    seront importées dans le service <strong>{{ serviceLabel }}</strong>
-                    pour l'année <strong>{{ config.annee }}</strong>.
+                    seront importées dans le service <strong>{{ serviceLabel }}</strong> pour
+                    l'année <strong>{{ config.annee }}</strong>.
                 </p>
                 <div class="import-modal__recap">
-                    <div class="import-modal__recap-row"><span>Cible</span><strong>{{ cibleLabel }}</strong></div>
-                    <div class="import-modal__recap-row"><span>Version</span><strong>{{ config.version }}</strong></div>
+                    <div class="import-modal__recap-row">
+                        <span>Cible</span><strong>{{ cibleLabel }}</strong>
+                    </div>
+                    <div class="import-modal__recap-row">
+                        <span>Version</span><strong>{{ config.version }}</strong>
+                    </div>
                     <div v-if="config.cible === 'ACTIVITES'" class="import-modal__recap-row">
                         <span>Type d'import</span><strong>{{ config.typeImport }}</strong>
                     </div>
@@ -2507,7 +2404,9 @@ onBeforeUnmount(() => {
                     </div>
                     <div v-if="config.cible === 'ACTIVITES'" class="import-modal__recap-row">
                         <span>Statut initial</span>
-                        <strong>{{ config.activitesDejaValidees ? 'NON_COMMENCEE' : 'BROUILLON' }}</strong>
+                        <strong>{{
+                            config.activitesDejaValidees ? "NON_COMMENCEE" : "BROUILLON"
+                        }}</strong>
                     </div>
                     <div v-if="config.cible !== 'ACTIVITES'" class="import-modal__recap-row">
                         <span>Activité(s) cible(s)</span><strong>{{ uniqueReferenceCount }}</strong>
@@ -2562,18 +2461,21 @@ onBeforeUnmount(() => {
                     <thead>
                         <tr>
                             <th class="grid-corner"></th>
-                            <th v-for="c in currentMaxCol" :key="c" class="grid-col-head">{{ colName(c - 1) }}</th>
+                            <th v-for="c in currentMaxCol" :key="c" class="grid-col-head">
+                                {{ colName(c - 1) }}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr v-for="r in currentMaxRow" :key="r">
-                            <th class="grid-row-head grid-row-head--clickable"
-                                :class="{ 'grid-row-head--header': (r - 1) === (headerRow[activeSheetName] ?? -1) }"
-                                :title="'Définir la ligne ' + r + ' comme en-tête'" @click="setHeaderRow(r - 1)">
+                            <th class="grid-row-head grid-row-head--clickable" :class="{
+                                'grid-row-head--header': r - 1 === (headerRow[activeSheetName] ?? -1),
+                            }" :title="'Définir la ligne ' + r + ' comme en-tête'" @click="setHeaderRow(r - 1)">
                                 {{ r }}
                             </th>
-                            <td v-for="c in currentMaxCol" :key="c" class="grid-cell"
-                                :class="{ 'grid-cell--header': (r - 1) === (headerRow[activeSheetName] ?? -1) }">
+                            <td v-for="c in currentMaxCol" :key="c" class="grid-cell" :class="{
+                                'grid-cell--header': r - 1 === (headerRow[activeSheetName] ?? -1),
+                            }">
                                 {{ cellValue(r - 1, c - 1) }}
                             </td>
                         </tr>
@@ -2637,14 +2539,16 @@ onBeforeUnmount(() => {
                     <tbody>
                         <tr v-for="r in currentMaxRow" :key="r">
                             <th class="grid-row-head grid-row-head--selectable" :class="{
-                                'grid-row-head--header': (r - 1) === (headerRow[activeSheetName] ?? -1),
-                                'grid-row-head--selected': highlightedRows.has(r - 1) && (r - 1) !== (headerRow[activeSheetName] ?? -1),
+                                'grid-row-head--header': r - 1 === (headerRow[activeSheetName] ?? -1),
+                                'grid-row-head--selected':
+                                    highlightedRows.has(r - 1) &&
+                                    r - 1 !== (headerRow[activeSheetName] ?? -1),
                             }" :data-row="r - 1" :data-col="0">
                                 {{ r }}
                             </th>
                             <td v-for="c in currentMaxCol" :key="c" :class="[
                                 cellClass(r - 1, c - 1),
-                                { 'grid-cell--header': (r - 1) === (headerRow[activeSheetName] ?? -1) },
+                                { 'grid-cell--header': r - 1 === (headerRow[activeSheetName] ?? -1) },
                             ]" :style="cellSelectionStyle(r - 1, c - 1)" :data-row="r - 1" :data-col="c - 1">
                                 {{ cellValue(r - 1, c - 1) }}
                             </td>
@@ -2657,12 +2561,19 @@ onBeforeUnmount(() => {
                 <div class="preview-fs__footer-info">
                     <span class="preview-fs__footer-label">
                         <i class="bi bi-bounding-box"></i>
-                        {{ currentSelectedRangeCount }} plage(s) · {{ currentSelectedRowCount }} ligne(s)
+                        {{ currentSelectedRangeCount }} plage(s) ·
+                        {{ currentSelectedRowCount }} ligne(s)
                     </span>
                     <span class="preview-fs__footer-muted">{{ activeSheetName }}</span>
                     <span v-if="isDragging" class="drag-mode-badge" :class="{ 'drag-mode-badge--add': dragAdd }">
                         <i class="bi" :class="dragAdd ? 'bi-plus-circle' : 'bi-arrow-repeat'"></i>
-                        {{ dragMode === 'shift' ? 'Extension' : dragAdd ? 'Ajout' : 'Nouvelle sélection' }}
+                        {{
+                            dragMode === "shift"
+                                ? "Extension"
+                                : dragAdd
+                                    ? "Ajout"
+                                    : "Nouvelle sélection"
+                        }}
                     </span>
                 </div>
                 <div class="preview-fs__footer-actions">
@@ -2684,9 +2595,11 @@ onBeforeUnmount(() => {
             </footer>
 
             <div class="preview-fs__tabs">
-                <button v-for="(name, i) in sheets" :key="name" type="button" class="preview-fs__tab"
-                    :class="{ 'preview-fs__tab--active': activeSheet === i, 'preview-fs__tab--has-sel': (selectedRanges[name]?.length ?? 0) > 0 && activeSheet !== i }"
-                    @click="activeSheet = i">
+                <button v-for="(name, i) in sheets" :key="name" type="button" class="preview-fs__tab" :class="{
+                    'preview-fs__tab--active': activeSheet === i,
+                    'preview-fs__tab--has-sel':
+                        (selectedRanges[name]?.length ?? 0) > 0 && activeSheet !== i,
+                }" @click="activeSheet = i">
                     <i class="bi bi-grid-3x3-gap-fill"></i>
                     {{ name }}
                 </button>
@@ -2714,7 +2627,9 @@ onBeforeUnmount(() => {
                             <input v-model="rangeInput" type="text" class="config-input" placeholder="A1:E10"
                                 :class="{ 'range-input--error': rangeInputError }"
                                 @keydown.enter.prevent="applyRangeInput(true)" />
-                            <div v-if="rangeInputError" class="range-input-error">{{ rangeInputError }}</div>
+                            <div v-if="rangeInputError" class="range-input-error">
+                                {{ rangeInputError }}
+                            </div>
                             <div class="range-quick-modal__actions">
                                 <BaseButton size="sm" variant="secondary" @click="applyRangeInput(false)">
                                     Remplacer
@@ -2733,7 +2648,9 @@ onBeforeUnmount(() => {
                             <input v-model="columnsInput" type="text" class="config-input" placeholder="A,B,C ou A-D"
                                 :class="{ 'range-input--error': columnsInputError }"
                                 @keydown.enter.prevent="applyColumnsInput(true)" />
-                            <div v-if="columnsInputError" class="range-input-error">{{ columnsInputError }}</div>
+                            <div v-if="columnsInputError" class="range-input-error">
+                                {{ columnsInputError }}
+                            </div>
                             <div class="range-quick-modal__actions">
                                 <BaseButton size="sm" variant="secondary" @click="applyColumnsInput(false)">
                                     Remplacer
@@ -2752,7 +2669,9 @@ onBeforeUnmount(() => {
                             <input v-model="linesInput" type="text" class="config-input" placeholder="1-10 ou 1,3,5"
                                 :class="{ 'range-input--error': linesInputError }"
                                 @keydown.enter.prevent="applyLinesInput(true)" />
-                            <div v-if="linesInputError" class="range-input-error">{{ linesInputError }}</div>
+                            <div v-if="linesInputError" class="range-input-error">
+                                {{ linesInputError }}
+                            </div>
                             <div class="range-quick-modal__actions">
                                 <BaseButton size="sm" variant="secondary" @click="applyLinesInput(false)">
                                     Remplacer
@@ -2797,7 +2716,7 @@ onBeforeUnmount(() => {
     --green-soft: #e6f4ea;
     --radius: 16px;
     --radius-sm: 12px;
-    --shadow-card: 0 1px 2px rgba(26, 42, 108, .04), 0 8px 24px rgba(26, 42, 108, .06);
+    --shadow-card: 0 1px 2px rgba(26, 42, 108, 0.04), 0 8px 24px rgba(26, 42, 108, 0.06);
 
     min-height: calc(100vh - 68px);
     padding: 34px 38px 24px;
@@ -2806,9 +2725,10 @@ onBeforeUnmount(() => {
     gap: 1.15rem;
     color: var(--ink);
     font-family: "DM Sans", "Segoe UI", sans-serif;
-    background:
-        radial-gradient(circle at 12% 8%, rgba(26, 42, 108, .055) 0, transparent 38%),
-        radial-gradient(circle at 92% 94%, rgba(212, 175, 55, .065) 0, transparent 36%),
+    background: radial-gradient(circle at 12% 8%,
+            rgba(26, 42, 108, 0.055) 0,
+            transparent 38%),
+        radial-gradient(circle at 92% 94%, rgba(212, 175, 55, 0.065) 0, transparent 36%),
         var(--bg);
 }
 
@@ -2842,14 +2762,14 @@ onBeforeUnmount(() => {
     flex: 1;
     justify-content: center;
     cursor: default;
-    transition: background .15s, color .15s, transform .12s;
+    transition: background 0.15s, color 0.15s, transform 0.12s;
     font-family: inherit;
 }
 
 .import-stepper__item--active {
     background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
     color: #fff;
-    box-shadow: 0 4px 12px rgba(26, 42, 108, .18);
+    box-shadow: 0 4px 12px rgba(26, 42, 108, 0.18);
 }
 
 .import-stepper__item--done {
@@ -2881,7 +2801,7 @@ onBeforeUnmount(() => {
 }
 
 .import-stepper__item--active .import-stepper__num {
-    background: rgba(255, 255, 255, .22);
+    background: rgba(255, 255, 255, 0.22);
 }
 
 .import-stepper__item--done .import-stepper__num {
@@ -2933,7 +2853,7 @@ onBeforeUnmount(() => {
     height: 7px;
     border-radius: 50%;
     background: var(--green);
-    box-shadow: 0 0 0 3px rgba(30, 126, 52, .18);
+    box-shadow: 0 0 0 3px rgba(30, 126, 52, 0.18);
     animation: livePulse 2s ease-in-out infinite;
 }
 
@@ -2941,11 +2861,11 @@ onBeforeUnmount(() => {
 
     0%,
     100% {
-        box-shadow: 0 0 0 3px rgba(30, 126, 52, .18);
+        box-shadow: 0 0 0 3px rgba(30, 126, 52, 0.18);
     }
 
     50% {
-        box-shadow: 0 0 0 6px rgba(30, 126, 52, .06);
+        box-shadow: 0 0 0 6px rgba(30, 126, 52, 0.06);
     }
 }
 
@@ -3096,7 +3016,7 @@ onBeforeUnmount(() => {
     border-radius: var(--radius-sm);
     background: #f8fbff;
     text-align: center;
-    transition: background .15s, border-color .15s;
+    transition: background 0.15s, border-color 0.15s;
 }
 
 .dropzone--dragover {
@@ -3113,7 +3033,7 @@ onBeforeUnmount(() => {
     background: #fff;
     color: var(--blue);
     font-size: 1.85rem;
-    box-shadow: 0 4px 12px rgba(26, 42, 108, .08);
+    box-shadow: 0 4px 12px rgba(26, 42, 108, 0.08);
     margin-bottom: 0.5rem;
 }
 
@@ -3145,19 +3065,19 @@ onBeforeUnmount(() => {
     font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background .15s, color .15s, border-color .15s, transform .15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
     white-space: nowrap;
 }
 
 .btn--primary {
     background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
     color: #fff;
-    box-shadow: 0 4px 12px rgba(26, 42, 108, .22);
+    box-shadow: 0 4px 12px rgba(26, 42, 108, 0.22);
 }
 
 .btn--primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 8px 20px rgba(26, 42, 108, .28);
+    box-shadow: 0 8px 20px rgba(26, 42, 108, 0.28);
 }
 
 .btn--secondary {
@@ -3308,7 +3228,7 @@ onBeforeUnmount(() => {
     }
 
     50% {
-        opacity: .7;
+        opacity: 0.7;
     }
 }
 
@@ -3383,18 +3303,18 @@ onBeforeUnmount(() => {
     font-family: ui-monospace, Menlo, monospace;
     font-size: 0.82rem;
     color: var(--ink);
-    transition: border-color .15s, box-shadow .15s;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .range-input:focus {
     outline: none;
     border-color: var(--blue);
-    box-shadow: 0 0 0 3px rgba(74, 108, 247, .14);
+    box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.14);
 }
 
 .range-input--error {
     border-color: var(--red);
-    box-shadow: 0 0 0 3px rgba(166, 27, 22, .1);
+    box-shadow: 0 0 0 3px rgba(166, 27, 22, 0.1);
 }
 
 .range-input-error {
@@ -3427,7 +3347,7 @@ onBeforeUnmount(() => {
     font-weight: 600;
     white-space: nowrap;
     cursor: pointer;
-    transition: background .15s, color .15s, border-color .15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .sheet-tab:hover:not(.sheet-tab--active) {
@@ -3439,7 +3359,7 @@ onBeforeUnmount(() => {
 .sheet-tab--active {
     background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
     color: #fff;
-    box-shadow: 0 2px 8px rgba(26, 42, 108, .15);
+    box-shadow: 0 2px 8px rgba(26, 42, 108, 0.15);
 }
 
 .sheet-tab--has-sel:not(.sheet-tab--active)::after {
@@ -3497,7 +3417,7 @@ onBeforeUnmount(() => {
     text-align: center;
     font-weight: 700;
     font-size: 11px;
-    transition: background .12s, color .12s;
+    transition: background 0.12s, color 0.12s;
 }
 
 .grid-col-head--selectable {
@@ -3539,7 +3459,7 @@ onBeforeUnmount(() => {
     font-weight: 600;
     background: #f1f5f9 !important;
     color: #64748b;
-    transition: background .12s, color .12s;
+    transition: background 0.12s, color 0.12s;
 }
 
 .grid-row-head--clickable {
@@ -3574,7 +3494,7 @@ onBeforeUnmount(() => {
 }
 
 .grid-cell {
-    transition: background-color .1s ease;
+    transition: background-color 0.1s ease;
     background: #fff;
 }
 
@@ -3643,11 +3563,11 @@ onBeforeUnmount(() => {
     color: #1d4ed8;
     font-size: 0.9rem;
     cursor: pointer;
-    transition: background .15s;
+    transition: background 0.15s;
 }
 
 .selection-chip__remove:hover {
-    background: rgba(29, 78, 216, .14);
+    background: rgba(29, 78, 216, 0.14);
 }
 
 /* ============================================================
@@ -3724,7 +3644,7 @@ onBeforeUnmount(() => {
 
 .mapping-row td:first-child {
     box-shadow: none;
-    transition: box-shadow .15s;
+    transition: box-shadow 0.15s;
 }
 
 .mapping-row--activite td:first-child {
@@ -3803,7 +3723,7 @@ onBeforeUnmount(() => {
     color: var(--ink);
     font-family: inherit;
     cursor: pointer;
-    transition: border-color .15s, background .15s;
+    transition: border-color 0.15s, background 0.15s;
 }
 
 .mapping-select:hover {
@@ -3884,7 +3804,7 @@ onBeforeUnmount(() => {
     color: var(--ink-2);
     font-size: 0.72rem;
     cursor: pointer;
-    transition: background .15s, border-color .15s, color .15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .order-controls button:hover:not(:disabled) {
@@ -3974,7 +3894,7 @@ onBeforeUnmount(() => {
     font-family: inherit;
     font-size: 0.88rem;
     color: var(--ink);
-    transition: border-color .15s, box-shadow .15s;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .config-input:hover:not(:disabled) {
@@ -3984,7 +3904,7 @@ onBeforeUnmount(() => {
 .config-input:focus {
     outline: none;
     border-color: var(--blue);
-    box-shadow: 0 0 0 3px rgba(74, 108, 247, .14);
+    box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.14);
 }
 
 .config-input:disabled {
@@ -4025,7 +3945,7 @@ select.config-input {
     border-radius: 12px;
     background: #fff;
     cursor: pointer;
-    transition: border-color .15s, background .15s, box-shadow .15s;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
 .config-radio:hover {
@@ -4036,7 +3956,7 @@ select.config-input {
 .config-radio--active {
     border-color: var(--blue);
     background: var(--blue-soft);
-    box-shadow: 0 0 0 3px rgba(74, 108, 247, .12);
+    box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.12);
 }
 
 .config-radio input[type="radio"] {
@@ -4054,7 +3974,7 @@ select.config-input {
     background: #fff;
     margin-top: 2px;
     position: relative;
-    transition: border-color .15s;
+    transition: border-color 0.15s;
 }
 
 .config-radio__dot::after {
@@ -4064,7 +3984,7 @@ select.config-input {
     border-radius: 50%;
     background: var(--blue);
     transform: scale(0);
-    transition: transform .15s;
+    transition: transform 0.15s;
 }
 
 .config-radio--active .config-radio__dot {
@@ -4103,7 +4023,7 @@ select.config-input {
     border-radius: 12px;
     background: #fff;
     cursor: pointer;
-    transition: border-color .15s, background .15s;
+    transition: border-color 0.15s, background 0.15s;
 }
 
 .config-switch:hover {
@@ -4124,7 +4044,7 @@ select.config-input {
     height: 22px;
     border-radius: 20px;
     background: #cbd5e1;
-    transition: background .2s;
+    transition: background 0.2s;
     margin-top: 2px;
 }
 
@@ -4136,8 +4056,8 @@ select.config-input {
     height: 16px;
     border-radius: 50%;
     background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
-    transition: transform .2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s;
 }
 
 .config-switch input:checked~.config-switch__track {
@@ -4532,7 +4452,7 @@ select.config-input {
     padding: 0.75rem 1.15rem;
     background: #fff;
     border-bottom: 1px solid var(--line);
-    box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .preview-fs__file {
@@ -4596,7 +4516,7 @@ select.config-input {
     font-size: 0.72rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background .15s;
+    transition: background 0.15s;
 }
 
 .preview-fs__info-clear:hover {
@@ -4617,7 +4537,7 @@ select.config-input {
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background .15s, color .15s, border-color .15s, transform .15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
 }
 
 .preview-fs__btn:hover {
@@ -4629,12 +4549,12 @@ select.config-input {
     background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
     border-color: transparent;
     color: #fff;
-    box-shadow: 0 4px 12px rgba(26, 42, 108, .22);
+    box-shadow: 0 4px 12px rgba(26, 42, 108, 0.22);
 }
 
 .preview-fs__btn--primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 8px 20px rgba(26, 42, 108, .28);
+    box-shadow: 0 8px 20px rgba(26, 42, 108, 0.28);
     color: #fff;
 }
 
@@ -4651,7 +4571,7 @@ select.config-input {
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background .15s, color .15s, border-color .15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .preview-fs__close:hover {
@@ -4695,7 +4615,7 @@ select.config-input {
     padding: 0.75rem 1.15rem;
     background: #fff;
     border-top: 1px solid var(--line);
-    box-shadow: 0 -1px 3px rgba(15, 23, 42, .05);
+    box-shadow: 0 -1px 3px rgba(15, 23, 42, 0.05);
 }
 
 .preview-fs__footer-info {
@@ -4756,7 +4676,7 @@ select.config-input {
     font-weight: 600;
     white-space: nowrap;
     cursor: pointer;
-    transition: background .15s, color .15s, border-color .15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .preview-fs__tab i {
@@ -4772,7 +4692,7 @@ select.config-input {
 .preview-fs__tab--active {
     background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
     color: #fff;
-    box-shadow: 0 2px 8px rgba(26, 42, 108, .15);
+    box-shadow: 0 2px 8px rgba(26, 42, 108, 0.15);
 }
 
 .preview-fs__tab--has-sel:not(.preview-fs__tab--active)::after {
@@ -4789,13 +4709,13 @@ select.config-input {
     position: fixed;
     inset: 0;
     z-index: 10000;
-    background: rgba(15, 23, 42, .55);
+    background: rgba(15, 23, 42, 0.55);
     backdrop-filter: blur(2px);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 1.5rem;
-    animation: rangeQuickFadeIn .15s ease-out;
+    animation: rangeQuickFadeIn 0.15s ease-out;
 }
 
 @keyframes rangeQuickFadeIn {
@@ -4816,14 +4736,14 @@ select.config-input {
     flex-direction: column;
     background: #fff;
     border-radius: var(--radius);
-    box-shadow: 0 20px 60px rgba(15, 23, 42, .35);
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35);
     overflow: hidden;
-    animation: rangeQuickScaleIn .18s ease-out;
+    animation: rangeQuickScaleIn 0.18s ease-out;
 }
 
 @keyframes rangeQuickScaleIn {
     from {
-        transform: scale(.96);
+        transform: scale(0.96);
         opacity: 0;
     }
 

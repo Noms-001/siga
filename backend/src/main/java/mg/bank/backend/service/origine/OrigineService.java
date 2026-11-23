@@ -12,10 +12,12 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.backoffice.OrigineFiltresResponse;
 import mg.bank.backend.dto.backoffice.OrigineRequest;
 import mg.bank.backend.dto.backoffice.OrigineResponse;
+import mg.bank.backend.dto.common.PerimetreUtilisateur;
 import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.mapper.origine.OrigineMapper;
 import mg.bank.backend.model.origine.Origine;
 import mg.bank.backend.repository.origine.OrigineRepository;
+import mg.bank.backend.service.common.PorteeService;
 import mg.bank.backend.service.utilisateur.CurrentUserService;
 
 @Service
@@ -24,6 +26,7 @@ public class OrigineService {
 
     private final OrigineRepository origineRepository;
     private final CurrentUserService currentUserService;
+    private final PorteeService porteeService;
     private static final int LONGUEUR_SEQUENCE = 3;
 
     /* -------------------- lecture -------------------- */
@@ -39,15 +42,19 @@ public class OrigineService {
     public List<OrigineResponse> lister(String typesCsv, String search,
             Boolean avecPlan, Integer annee) {
         String types = (typesCsv == null || typesCsv.isBlank()) ? null : typesCsv.trim();
+        PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
         return origineRepository.rechercher(types, motifRecherche(search), avecPlan, annee)
                 .stream()
+                .filter(origine -> accessible(origine, perimetre))
                 .map(OrigineMapper::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public OrigineResponse getById(Integer id) {
-        return OrigineMapper.toResponse(getEntity(id));
+        Origine origine = getEntity(id);
+        exigerAccessible(origine);
+        return OrigineMapper.toResponse(origine);
     }
 
     @Transactional(readOnly = true)
@@ -84,6 +91,7 @@ public class OrigineService {
 
         // Liaison aux activités sélectionnées (facultatif)
         if (request.getActiviteIds() != null && !request.getActiviteIds().isEmpty()) {
+            request.getActiviteIds().forEach(porteeService::exigerActivite);
             origineRepository.lierOrigineAActivites(
                     saved.getIdOrigine(),
                     request.getActiviteIds());
@@ -102,6 +110,27 @@ public class OrigineService {
                         HttpStatus.NOT_FOUND));
     }
 
+    private void exigerAccessible(Origine origine) {
+        if (!accessible(origine, currentUserService.getPerimetre())) {
+            throw new ApiException("Signalement introuvable", HttpStatus.NOT_FOUND);
+        }
+    }
+
+    private boolean accessible(Origine origine, PerimetreUtilisateur perimetre) {
+        boolean porteeActive = perimetre.estPorteeTous()
+                || perimetre.getIdUtilisateurPortee() != null
+                || perimetre.getFiltreService() != null
+                || perimetre.getFiltreDepartement() != null;
+        if (!porteeActive || perimetre.estPorteeTous()) {
+            return true;
+        }
+        if (porteeService.utilisateurAccessible(origine.getUtilisateur(), perimetre)) {
+            return true;
+        }
+        return origineRepository.findActiviteIdsByOrigine(origine.getIdOrigine()).stream()
+                .anyMatch(id -> porteeService.activiteAccessible(id, perimetre));
+    }
+
     private String videSiBlanc(String v) {
         return (v == null || v.isBlank()) ? null : v.trim();
     }
@@ -114,8 +143,14 @@ public class OrigineService {
     @Transactional(readOnly = true)
     public mg.bank.backend.dto.backoffice.SignalementDetailResponse getDetail(Integer id) {
         Origine origine = getEntity(id);
+        PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
+        if (!accessible(origine, perimetre)) {
+            throw new ApiException("Signalement introuvable", HttpStatus.NOT_FOUND);
+        }
         List<mg.bank.backend.repository.projection.planaction.PlanActionOrigineRow> plans = origineRepository
-                .findPlansActionByOrigine(id);
+                .findPlansActionByOrigine(id).stream()
+                .filter(plan -> porteeService.planActionAccessible(plan.getId(), perimetre))
+                .toList();
         return mg.bank.backend.mapper.origine.OrigineMapper.toDetail(origine, plans);
     }
 

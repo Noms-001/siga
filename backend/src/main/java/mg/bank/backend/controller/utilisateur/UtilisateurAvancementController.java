@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.dto.utilisateur.UtilisateurAvancementDTO;
 import mg.bank.backend.service.utilisateur.UtilisateurAvancementService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/utilisateurs")
@@ -25,6 +28,8 @@ public class UtilisateurAvancementController {
      *
      * L'annee est facultative : par defaut, l'annee en cours.
      */
+    @RequirePermission(ressource = PermissionResource.MEMBRE_SUIVI, action = PermissionAction.CONSULTER)
+    @RequirePermission(ressource = PermissionResource.UTILISATEUR, action = PermissionAction.CONSULTER)
     @GetMapping("/{id}/avancement-annee")
     public ResponseEntity<ApiResponse<UtilisateurAvancementDTO>> avancementAnnee(
             @PathVariable Integer id,

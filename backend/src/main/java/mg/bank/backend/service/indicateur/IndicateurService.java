@@ -10,17 +10,19 @@ import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.backoffice.IndicateurFiltresResponse;
 import mg.bank.backend.dto.backoffice.IndicateurRequest;
 import mg.bank.backend.dto.backoffice.IndicateurResponse;
+import mg.bank.backend.dto.common.PerimetreUtilisateur;
 import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.mapper.indicateur.IndicateurMapper;
 import mg.bank.backend.model.indicateur.Indicateur;
 import mg.bank.backend.repository.indicateur.IndicateurRepository;
-import mg.bank.backend.repository.indicateur.ValeurIndicateurRepository;
+import mg.bank.backend.service.common.PorteeService;
 
 @Service
 @RequiredArgsConstructor
 public class IndicateurService {
 
     private final IndicateurRepository indicateurRepository;
+    private final PorteeService porteeService;
 
     /* -------------------- lecture -------------------- */
 
@@ -35,8 +37,16 @@ public class IndicateurService {
     public List<IndicateurResponse> lister(Boolean actif, String type, String search) {
         String typeFiltre = videSiBlanc(type);
         String motif = motifRecherche(search);
+        PerimetreUtilisateur perimetre = porteeService.perimetreCourant();
 
-        return indicateurRepository.rechercher(actif, typeFiltre, motif).stream()
+        return indicateurRepository.rechercherDansPerimetre(
+                        actif,
+                        typeFiltre,
+                        motif,
+                        perimetre.getFiltreService(),
+                        perimetre.getFiltreDepartement(),
+                        perimetre.getIdUtilisateurPortee())
+                .stream()
                 .map(IndicateurMapper::toResponse)
                 .toList();
     }
@@ -57,6 +67,7 @@ public class IndicateurService {
 
     @Transactional
     public IndicateurResponse creer(IndicateurRequest request) {
+        exigerPorteeTotale();
         String code = request.getCode().trim();
 
         if (indicateurRepository.existsByCode(code)) {
@@ -86,6 +97,7 @@ public class IndicateurService {
 
     @Transactional
     public IndicateurResponse modifier(Integer id, IndicateurRequest request) {
+        exigerPorteeTotale();
         Indicateur entity = getEntity(id);
 
         if (Boolean.FALSE.equals(entity.getActif())) {
@@ -122,6 +134,7 @@ public class IndicateurService {
 
     @Transactional
     public IndicateurResponse desactiver(Integer id) {
+        exigerPorteeTotale();
         Indicateur entity = getEntity(id);
 
         if (Boolean.FALSE.equals(entity.getActif())) {
@@ -136,6 +149,7 @@ public class IndicateurService {
 
     @Transactional
     public IndicateurResponse activer(Integer id) {
+        exigerPorteeTotale();
         Indicateur entity = getEntity(id);
 
         if (Boolean.TRUE.equals(entity.getActif())) {
@@ -150,9 +164,22 @@ public class IndicateurService {
 
     /* -------------------- helpers -------------------- */
 
+    private void exigerPorteeTotale() {
+        if (!porteeService.porteeTous()) {
+            throw new ApiException(
+                    "La gestion des indicateurs nécessite une portée totale",
+                    HttpStatus.FORBIDDEN);
+        }
+    }
+
     @Transactional(readOnly = true)
     public Indicateur getEntity(Integer id) {
-        return indicateurRepository.findById(id)
+        PerimetreUtilisateur perimetre = porteeService.perimetreCourant();
+        return indicateurRepository.findByIdDansPerimetre(
+                        id,
+                        perimetre.getFiltreService(),
+                        perimetre.getFiltreDepartement(),
+                        perimetre.getIdUtilisateurPortee())
                 .orElseThrow(() -> new ApiException(
                         "Indicateur introuvable",
                         HttpStatus.NOT_FOUND));

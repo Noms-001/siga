@@ -64,18 +64,6 @@
                     </router-link>
                 </li>
 
-                <!-- SUPERVISION
-                <li v-if="supervisionItems.length" class="back-sidebar__item">
-                    <span class="back-sidebar__label">Supervision</span>
-                </li>
-                <li v-for="item in supervisionItems" :key="item.path" class="back-sidebar__item">
-                    <router-link class="back-sidebar__link" :to="item.path" :class="{ active: isActive(item.path) }"
-                        :title="isCollapsed ? item.label : ''">
-                        <i :class="item.icon"></i>
-                        <span class="back-sidebar__link-text">{{ item.label }}</span>
-                    </router-link>
-                </li> -->
-
             </ul>
         </nav>
     </aside>
@@ -87,13 +75,19 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import {
+    PermissionAction as A,
+    PermissionResource as R,
+    permission,
+    type PermissionRequirement,
+} from '@/utils/authorization'
 
 // --- Types ---
 interface MenuItem {
     path: string
     label: string
     icon: string
-    permission: string
+    permissions: PermissionRequirement[]
 }
 
 // --- Props ---
@@ -115,36 +109,51 @@ const authStore = useAuthStore()
    PRINCIPAL
    ============================================================ */
 const principalMenu: MenuItem[] = [
-    { path: '/backoffice/dashboard', label: 'Tableau de bord', icon: 'bi bi-grid-1x2', permission: 'dashboard:READ' },
+    {
+        path: '/backoffice/dashboard',
+        label: 'Tableau de bord',
+        icon: 'bi bi-grid-1x2',
+        permissions: [permission(R.DASHBOARD, A.CONSULTER)],
+    },
 ]
 
 /* ============================================================
    GESTION
    ============================================================ */
 const gestionMenu: MenuItem[] = [
-    { path: '/backoffice/utilisateurs', label: 'Utilisateurs', icon: 'bi bi-people', permission: 'utilisateur:READ' },
+    {
+        path: '/backoffice/utilisateurs',
+        label: 'Utilisateurs',
+        icon: 'bi bi-people',
+        permissions: [permission(R.UTILISATEUR, A.CONSULTER)],
+    },
 ]
 
 /* ============================================================
    RÉFÉRENTIELS
    ============================================================ */
 const referentielsMenu: MenuItem[] = [
-    { path: '/backoffice/departements', label: 'Départements', icon: 'bi bi-building', permission: 'departement:READ' },
-    { path: '/backoffice/services', label: 'Services', icon: 'bi bi-diagram-3', permission: 'service:READ' },
-    { path: '/backoffice/postes', label: 'Postes', icon: 'bi bi-briefcase', permission: 'poste:READ' },
-    { path: '/backoffice/roles', label: 'Rôles', icon: 'bi bi-person-badge', permission: 'role:READ' },
-    { path: '/backoffice/types-activite', label: "Types d'activité", icon: 'bi bi-tags', permission: 'type_activite:READ' },
-    { path: '/backoffice/sites', label: 'Sites', icon: 'bi bi-geo-alt', permission: 'site:READ' },
-    { path: '/backoffice/indicateurs', label: 'Indicateurs', icon: 'bi bi-graph-up-arrow', permission: 'indicateur:READ' },
-    { path: '/backoffice/priorites', label: 'Priorités', icon: 'bi bi-flag', permission: 'priorite:READ' },
-    { path: '/backoffice/statuts', label: 'Statuts', icon: 'bi bi-circle-half', permission: 'statut:READ' },
+    { path: '/backoffice/departements', label: 'Départements', icon: 'bi bi-building', permissions: [permission(R.DEPARTEMENT, A.CONSULTER)] },
+    { path: '/backoffice/services', label: 'Services', icon: 'bi bi-diagram-3', permissions: [permission(R.SERVICE, A.CONSULTER)] },
+    { path: '/backoffice/postes', label: 'Postes', icon: 'bi bi-briefcase', permissions: [permission(R.POSTE, A.CONSULTER)] },
+    { path: '/backoffice/roles', label: 'Rôles', icon: 'bi bi-person-badge', permissions: [permission(R.ROLE, A.CONSULTER)] },
+    { path: '/backoffice/types-activite', label: "Types d'activité", icon: 'bi bi-tags', permissions: [permission(R.TYPE_ACTIVITE, A.CONSULTER)] },
+    { path: '/backoffice/sites', label: 'Sites', icon: 'bi bi-geo-alt', permissions: [permission(R.SITE, A.CONSULTER)] },
+    { path: '/backoffice/indicateurs', label: 'Indicateurs', icon: 'bi bi-graph-up-arrow', permissions: [permission(R.INDICATEUR, A.CONSULTER)] },
+    { path: '/backoffice/priorites', label: 'Priorités', icon: 'bi bi-flag', permissions: [permission(R.PRIORITE, A.CONSULTER)] },
+    { path: '/backoffice/statuts', label: 'Statuts', icon: 'bi bi-circle-half', permissions: [permission(R.STATUT, A.CONSULTER)] },
 ]
 
 /* ============================================================
    AUTORISATIONS
    ============================================================ */
 const autorisationsMenu: MenuItem[] = [
-    { path: '/backoffice/permissions', label: 'Permissions', icon: 'bi bi-shield-check', permission: 'permission:READ' },
+    {
+        path: '/backoffice/permissions',
+        label: 'Permissions',
+        icon: 'bi bi-shield-check',
+        permissions: [permission(R.PERMISSION, A.CONSULTER)],
+    },
 ]
 
 /* ============================================================
@@ -152,31 +161,28 @@ const autorisationsMenu: MenuItem[] = [
    ============================================================ */
 const configurationMenu: MenuItem[] = [
     // ⚠️ Pages à créer (hors périmètre phases 1 à 5)
-    { path: '/backoffice/procedures', label: 'Procédures de validation', icon: 'bi bi-file-earmark-text', permission: 'procedure:READ' },
-    { path: '/backoffice/parametres', label: 'Paramètres', icon: 'bi bi-sliders', permission: 'parametre:READ' },
+    {
+        path: '/backoffice/procedures',
+        label: 'Procédures de validation',
+        icon: 'bi bi-file-earmark-text',
+        permissions: [permission(R.PROCEDURE, A.CONSULTER)],
+    },
+    {
+        path: '/backoffice/parametres',
+        label: 'Paramètres',
+        icon: 'bi bi-sliders',
+        permissions: [permission(R.PARAMETRE, A.CONSULTER)],
+    },
 ]
 
-/* ============================================================
-   SUPERVISION
-   ============================================================ */
-const supervisionMenu: MenuItem[] = [
-    // ⚠️ Pages à créer (hors périmètre phases 1 à 5)
-    { path: '/backoffice/activites', label: 'Activités', icon: 'bi bi-clipboard-check', permission: 'activite:READ' },
-    { path: '/backoffice/plans-action', label: "Plans d'action", icon: 'bi bi-list-check', permission: 'plan_action:READ' },
-    { path: '/backoffice/indicateurs', label: 'Indicateurs', icon: 'bi bi-bar-chart-line', permission: 'indicateur:READ' },
-]
-
-const visibleItems = (items: MenuItem[]) => items.filter((item) => {
-    const [resource, action] = item.permission.split(':')
-    return resource !== undefined && action !== undefined
-        && authStore.hasPermission(resource, action)
-})
+const visibleItems = (items: MenuItem[]) => items.filter((item) =>
+    authStore.hasAnyPermission(item.permissions)
+)
 const principalItems = computed(() => visibleItems(principalMenu))
 const gestionItems = computed(() => visibleItems(gestionMenu))
 const referentielsItems = computed(() => visibleItems(referentielsMenu))
 const autorisationsItems = computed(() => visibleItems(autorisationsMenu))
 const configurationItems = computed(() => visibleItems(configurationMenu))
-const supervisionItems = computed(() => visibleItems(supervisionMenu))
 
 // --- Computed ---
 const isActive = (path: string): boolean => {

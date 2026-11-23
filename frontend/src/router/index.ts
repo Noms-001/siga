@@ -4,7 +4,6 @@ import { useAuthStore } from '@/stores/auth'
 import { frontofficeRoutes } from './frontoffice'
 import { backofficeRoutes } from './backoffice'
 import { getPageTitle } from '@/utils/navigation'
-import { permissionForRoute } from '@/utils/authorization'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -87,13 +86,11 @@ router.beforeEach(async (to) => {
         }
     }
 
-    const requiredPermission = to.meta.requiresBackoffice
-        ? permissionForRoute(to.path)
-        : null
-    if (requiredPermission && !authStore.hasPermission(
-        requiredPermission.resource,
-        requiredPermission.action,
-    )) {
+    // ==============================
+    // PERMISSIONS APPLICATIVES
+    // ==============================
+
+    if (!authStore.hasAnyPermission(to.meta.permissions)) {
         return {
             name: 'access-denied',
             query: { requested: to.fullPath },

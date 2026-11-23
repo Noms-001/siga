@@ -15,6 +15,9 @@ import mg.bank.backend.dto.backoffice.PermissionFiltresResponse;
 import mg.bank.backend.dto.backoffice.PermissionResponse;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.utilisateur.PermissionService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/backoffice/permissions")
@@ -23,6 +26,7 @@ public class PermissionController {
 
     private final PermissionService permissionService;
 
+    @RequirePermission(ressource = PermissionResource.PERMISSION, action = PermissionAction.CONSULTER)
     @GetMapping
     public ResponseEntity<ApiResponse<List<PermissionResponse>>> lister(
             @RequestParam(name = "actif", required = false) Boolean actif,
@@ -33,12 +37,14 @@ public class PermissionController {
                         permissionService.lister(actif, ressource, action)));
     }
 
+    @RequirePermission(ressource = PermissionResource.PERMISSION, action = PermissionAction.CONSULTER)
     @GetMapping("/filtres")
     public ResponseEntity<ApiResponse<PermissionFiltresResponse>> getFiltres() {
         return ResponseEntity.ok(
                 ApiResponse.success(permissionService.getFiltres()));
     }
 
+    @RequirePermission(ressource = PermissionResource.PERMISSION, action = PermissionAction.CONSULTER)
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<PermissionDetailResponse>> getById(
             @PathVariable Integer id) {

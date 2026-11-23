@@ -14,6 +14,9 @@ import mg.bank.backend.dto.importactivite.ResultatImportDTO;
 import mg.bank.backend.dto.importactivite.ResultatIntermediaireImportRequest;
 import mg.bank.backend.service.imports.ResultatIntermediaireImportService;
 import mg.bank.backend.service.imports.ResultatIntermediaireImportValidator;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/activites/import/resultats")
@@ -23,12 +26,16 @@ public class ResultatIntermediaireImportController {
     private final ResultatIntermediaireImportValidator validator;
     private final ResultatIntermediaireImportService service;
 
+    @RequirePermission(ressource = PermissionResource.RESULTAT_INTERMEDIAIRE, action = PermissionAction.IMPORTER)
+    @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.IMPORTER)
     @PostMapping("/valider")
     public ResponseEntity<ApiResponse<RapportValidationDTO>> valider(
             @RequestBody ResultatIntermediaireImportRequest request) {
         return ResponseEntity.ok(ApiResponse.success(validator.valider(request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.RESULTAT_INTERMEDIAIRE, action = PermissionAction.IMPORTER)
+    @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.IMPORTER)
     @PostMapping("/confirmer")
     public ResponseEntity<ApiResponse<ResultatImportDTO>> confirmer(
             @RequestBody ResultatIntermediaireImportRequest request) {

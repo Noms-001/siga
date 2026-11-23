@@ -21,6 +21,9 @@ import mg.bank.backend.dto.backoffice.IndicateurRequest;
 import mg.bank.backend.dto.backoffice.IndicateurResponse;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.indicateur.IndicateurService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/backoffice/indicateurs")
@@ -41,6 +44,7 @@ public class IndicateurController {
      * Route `/filtres` déclarée AVANT `/{id}` pour qu'elle ne soit pas
      * capturée comme un identifiant.
      */
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
     @GetMapping
     public ResponseEntity<ApiResponse<List<IndicateurResponse>>> lister(
             @RequestParam(name = "actif", required = false) Boolean actif,
@@ -50,12 +54,14 @@ public class IndicateurController {
                 ApiResponse.success(indicateurService.lister(actif, type, search)));
     }
 
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
     @GetMapping("/filtres")
     public ResponseEntity<ApiResponse<IndicateurFiltresResponse>> getFiltres() {
         return ResponseEntity.ok(
                 ApiResponse.success(indicateurService.getFiltres()));
     }
 
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<IndicateurResponse>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(
@@ -64,6 +70,7 @@ public class IndicateurController {
 
     /* -------------------- écriture -------------------- */
 
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CREER)
     @PostMapping
     public ResponseEntity<ApiResponse<IndicateurResponse>> creer(
             @Valid @RequestBody IndicateurRequest request) {
@@ -71,6 +78,7 @@ public class IndicateurController {
                 .body(ApiResponse.success(indicateurService.creer(request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.MODIFIER)
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<IndicateurResponse>> modifier(
             @PathVariable Integer id,
@@ -81,12 +89,14 @@ public class IndicateurController {
 
     /* -------------------- bascule -------------------- */
 
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.DESACTIVER)
     @PatchMapping("/{id}/desactiver")
     public ResponseEntity<ApiResponse<IndicateurResponse>> desactiver(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ApiResponse.success(indicateurService.desactiver(id)));
     }
 
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.ACTIVER)
     @PatchMapping("/{id}/activer")
     public ResponseEntity<ApiResponse<IndicateurResponse>> activer(@PathVariable Integer id) {
         return ResponseEntity.ok(

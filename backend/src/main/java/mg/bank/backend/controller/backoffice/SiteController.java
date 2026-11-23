@@ -20,6 +20,9 @@ import mg.bank.backend.dto.backoffice.SiteRequest;
 import mg.bank.backend.dto.backoffice.SiteResponse;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.referentiel.SiteService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/backoffice/sites")
@@ -28,6 +31,7 @@ public class SiteController {
 
     private final SiteService siteService;
 
+    @RequirePermission(ressource = PermissionResource.SITE, action = PermissionAction.CONSULTER)
     @GetMapping
     public ResponseEntity<ApiResponse<List<SiteResponse>>> lister(
             @RequestParam(name = "inclureInactifs", defaultValue = "false") boolean inclureInactifs) {
@@ -35,12 +39,14 @@ public class SiteController {
                 ApiResponse.success(siteService.lister(inclureInactifs)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SITE, action = PermissionAction.CONSULTER)
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<SiteResponse>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ApiResponse.success(siteService.getById(id)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SITE, action = PermissionAction.CREER)
     @PostMapping
     public ResponseEntity<ApiResponse<SiteResponse>> creer(
             @Valid @RequestBody SiteRequest request) {
@@ -48,6 +54,7 @@ public class SiteController {
                 .body(ApiResponse.success(siteService.creer(request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SITE, action = PermissionAction.MODIFIER)
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<SiteResponse>> modifier(
             @PathVariable Integer id,
@@ -56,12 +63,14 @@ public class SiteController {
                 ApiResponse.success(siteService.modifier(id, request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SITE, action = PermissionAction.DESACTIVER)
     @PatchMapping("/{id}/desactiver")
     public ResponseEntity<ApiResponse<SiteResponse>> desactiver(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ApiResponse.success(siteService.desactiver(id)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SITE, action = PermissionAction.ACTIVER)
     @PatchMapping("/{id}/activer")
     public ResponseEntity<ApiResponse<SiteResponse>> activer(@PathVariable Integer id) {
         return ResponseEntity.ok(

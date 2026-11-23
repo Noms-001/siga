@@ -13,6 +13,9 @@ import mg.bank.backend.dto.activite.AvancementRequest;
 import mg.bank.backend.dto.activite.AvancementResponse;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.activite.SousActiviteService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/sous-activites")
@@ -30,6 +33,9 @@ public class SousActiviteController {
      *
      * 201 CREATED : une ligne est insérée.
      */
+    @RequirePermission(ressource = PermissionResource.AVANCEMENT_SOUS_ACTIVITE, action = PermissionAction.CREER)
+    @RequirePermission(ressource = PermissionResource.SOUS_ACTIVITE, action = PermissionAction.MODIFIER)
+    @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.MODIFIER)
     @PostMapping("/{id}/avancement")
     public ResponseEntity<ApiResponse<AvancementResponse>> enregistrerAvancement(
             @PathVariable("id") Integer idSousActivite,

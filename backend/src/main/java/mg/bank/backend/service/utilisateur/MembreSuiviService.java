@@ -173,23 +173,29 @@ public class MembreSuiviService {
     }
 
     private void verifierPerimetre(PerimetreUtilisateur perimetre) {
+        if (perimetre.estPorteeTous() || perimetre.getIdUtilisateurPortee() != null) {
+            return;
+        }
         if (perimetre.estSansPerimetre() || (!perimetre.estNiveauDepartement() && !perimetre.estRattacheService())) {
             throw new ApiException("Un rattachement à un service ou département est requis", HttpStatus.FORBIDDEN);
         }
     }
 
     private Integer resoudreService(PerimetreUtilisateur perimetre, Integer demande) {
+        if (perimetre.estPorteeTous() || perimetre.getIdUtilisateurPortee() != null) {
+            return demande;
+        }
         if (perimetre.estRattacheService()) {
-            if (demande != null && !demande.equals(perimetre.getIdService())) {
+            if (demande != null && !demande.equals(perimetre.getFiltreService())) {
                 throw new ApiException("Accès interdit à ce service", HttpStatus.FORBIDDEN);
             }
-            return perimetre.getIdService();
+            return perimetre.getFiltreService();
         }
         if (demande != null) {
             mg.bank.backend.model.referentiel.Service service = serviceRepository.findById(demande)
                     .orElseThrow(() -> new ApiException("Service introuvable", HttpStatus.NOT_FOUND));
             if (service.getDepartement() == null
-                    || !perimetre.getIdDepartement().equals(service.getDepartement().getIdDepartement())) {
+                    || !perimetre.getFiltreDepartement().equals(service.getDepartement().getIdDepartement())) {
                 throw new ApiException("Accès interdit à ce service", HttpStatus.FORBIDDEN);
             }
         }
@@ -216,8 +222,9 @@ public class MembreSuiviService {
         return new MapSqlParameterSource()
                 .addValue("dateDebut", periode.debut())
                 .addValue("dateFin", periode.fin())
-                .addValue("idDepartement", perimetre.getIdDepartement())
+                .addValue("idDepartement", perimetre.getFiltreDepartement())
                 .addValue("idService", idService)
+                .addValue("idUtilisateurPortee", perimetre.getIdUtilisateurPortee())
                 .addValue("categorie", categorie);
     }
 

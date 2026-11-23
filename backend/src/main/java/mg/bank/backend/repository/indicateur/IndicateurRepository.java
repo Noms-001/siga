@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import mg.bank.backend.model.indicateur.Indicateur;
+import mg.bank.backend.repository.SqlFragments;
 
 public interface IndicateurRepository extends JpaRepository<Indicateur, Integer> {
 
@@ -29,19 +30,35 @@ public interface IndicateurRepository extends JpaRepository<Indicateur, Integer>
          * comparaison IS NULL : c'est l'appel à une fonction typée qui exige que
          * Hibernate connaisse le type, pas le test d'absence de valeur.
          */
-        @Query("""
-                        SELECT i FROM Indicateur i
-                        WHERE (CAST(:actif AS Boolean) IS NULL OR i.actif = :actif)
-                          AND (CAST(:type AS String) IS NULL OR i.typeIndicateur = :type)
-                          AND (CAST(:motif AS String) IS NULL
-                               OR LOWER(i.code) LIKE LOWER(CAST(:motif AS String))
-                               OR LOWER(i.designation) LIKE LOWER(CAST(:motif AS String)))
+        @Query(value = """
+                        SELECT DISTINCT i.*
+                        FROM indicateur i
+                        WHERE (CAST(:actif AS boolean) IS NULL OR i.actif = CAST(:actif AS boolean))
+                          AND (CAST(:type AS varchar) IS NULL OR i.type_indicateur = CAST(:type AS varchar))
+                          AND (CAST(:motif AS varchar) IS NULL
+                               OR LOWER(i.code) LIKE LOWER(CAST(:motif AS varchar))
+                               OR LOWER(i.designation) LIKE LOWER(CAST(:motif AS varchar)))
+                        """ + SqlFragments.INDICATEUR_DANS_PERIMETRE + """
                         ORDER BY i.code
-                        """)
-        List<Indicateur> rechercher(
+                        """, nativeQuery = true)
+        List<Indicateur> rechercherDansPerimetre(
                         @Param("actif") Boolean actif,
                         @Param("type") String type,
-                        @Param("motif") String motif);
+                        @Param("motif") String motif,
+                        @Param("servicePerimetre") Integer servicePerimetre,
+                        @Param("departementPerimetre") Integer departementPerimetre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
+
+        @Query(value = """
+                        SELECT i.*
+                        FROM indicateur i
+                        WHERE i.id_indicateur = :idIndicateur
+                        """ + SqlFragments.INDICATEUR_DANS_PERIMETRE, nativeQuery = true)
+        Optional<Indicateur> findByIdDansPerimetre(
+                        @Param("idIndicateur") Integer idIndicateur,
+                        @Param("servicePerimetre") Integer servicePerimetre,
+                        @Param("departementPerimetre") Integer departementPerimetre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
         /**
          * Valeurs distinctes de type_indicateur, pour le filtre.
@@ -71,14 +88,15 @@ public interface IndicateurRepository extends JpaRepository<Indicateur, Integer>
                         FROM activite_indicateur ai
                         JOIN activite act ON act.id_activite = ai.id_activite
                         JOIN service srv ON srv.id_service = act.id_service
-                        WHERE ai.id_indicateur = :idIndicateur
-                          AND (:servicePerimetre IS NULL OR act.id_service = :servicePerimetre)
-                          AND (:departementPerimetre IS NULL OR srv.id_departement = :departementPerimetre)
-                        """, nativeQuery = true)
+                         WHERE ai.id_indicateur = :idIndicateur
+                           AND (:servicePerimetre IS NULL OR act.id_service = :servicePerimetre)
+                           AND (:departementPerimetre IS NULL OR srv.id_departement = :departementPerimetre)
+                         """ + SqlFragments.PORTEE_UTILISATEUR, nativeQuery = true)
         long compterDansPerimetre(
                         @Param("idIndicateur") Integer idIndicateur,
                         @Param("servicePerimetre") Integer servicePerimetre,
-                        @Param("departementPerimetre") Integer departementPerimetre);
+                        @Param("departementPerimetre") Integer departementPerimetre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
         /**
          * Indicateurs actifs, avec frequence_verification renseignee, visibles
@@ -92,13 +110,15 @@ public interface IndicateurRepository extends JpaRepository<Indicateur, Integer>
                         JOIN service srv ON srv.id_service = act.id_service
                         WHERE i.actif = TRUE
                           AND i.frequence_verification IS NOT NULL
-                          AND (:servicePerimetre IS NULL OR act.id_service = :servicePerimetre)
-                          AND (:departementPerimetre IS NULL OR srv.id_departement = :departementPerimetre)
-                        ORDER BY i.code
-                        """, nativeQuery = true)
+                           AND (:servicePerimetre IS NULL OR act.id_service = :servicePerimetre)
+                           AND (:departementPerimetre IS NULL OR srv.id_departement = :departementPerimetre)
+                         """ + SqlFragments.PORTEE_UTILISATEUR + """
+                         ORDER BY i.code
+                         """, nativeQuery = true)
         List<Indicateur> findActifsAvecFrequenceDansPerimetre(
                         @Param("servicePerimetre") Integer servicePerimetre,
-                        @Param("departementPerimetre") Integer departementPerimetre);
+                        @Param("departementPerimetre") Integer departementPerimetre,
+                        @Param("idUtilisateurPortee") Integer idUtilisateurPortee);
 
         /**
          * Indicateurs actifs non encore liés à une activité, pour la modale

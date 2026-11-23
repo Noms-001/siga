@@ -20,6 +20,9 @@ import mg.bank.backend.dto.backoffice.ServiceRequest;
 import mg.bank.backend.dto.backoffice.ServiceResponse;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.referentiel.ServiceService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/backoffice/services")
@@ -35,6 +38,7 @@ public class ServiceController {
      *                        true → tous les services.
      * @param idDepartement   filtre optionnel par département.
      */
+    @RequirePermission(ressource = PermissionResource.SERVICE, action = PermissionAction.CONSULTER)
     @GetMapping
     public ResponseEntity<ApiResponse<List<ServiceResponse>>> lister(
             @RequestParam(name = "inclureInactifs", defaultValue = "true") boolean inclureInactifs,
@@ -44,6 +48,7 @@ public class ServiceController {
                         serviceService.lister(inclureInactifs, idDepartement)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SERVICE, action = PermissionAction.CONSULTER)
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ServiceResponse>> getById(
             @PathVariable Integer id) {
@@ -51,6 +56,7 @@ public class ServiceController {
                 ApiResponse.success(serviceService.getById(id)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SERVICE, action = PermissionAction.CREER)
     @PostMapping
     public ResponseEntity<ApiResponse<ServiceResponse>> creer(
             @Valid @RequestBody ServiceRequest request) {
@@ -58,6 +64,7 @@ public class ServiceController {
                 .body(ApiResponse.success(serviceService.creer(request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SERVICE, action = PermissionAction.MODIFIER)
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ServiceResponse>> modifier(
             @PathVariable Integer id,
@@ -66,6 +73,7 @@ public class ServiceController {
                 ApiResponse.success(serviceService.modifier(id, request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SERVICE, action = PermissionAction.DESACTIVER)
     @PatchMapping("/{id}/desactiver")
     public ResponseEntity<ApiResponse<ServiceResponse>> desactiver(
             @PathVariable Integer id) {
@@ -73,6 +81,7 @@ public class ServiceController {
                 ApiResponse.success(serviceService.desactiver(id)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SERVICE, action = PermissionAction.ACTIVER)
     @PatchMapping("/{id}/activer")
     public ResponseEntity<ApiResponse<ServiceResponse>> activer(
             @PathVariable Integer id) {

@@ -20,6 +20,9 @@ import mg.bank.backend.dto.backoffice.PostePermissionRequest;
 import mg.bank.backend.dto.backoffice.PostePermissionUpdateRequest;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.utilisateur.PostePermissionService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/backoffice/postes/{idPoste}/permissions")
@@ -28,6 +31,7 @@ public class PostePermissionController {
 
     private final PostePermissionService postePermissionService;
 
+    @RequirePermission(ressource = PermissionResource.POSTE_PERMISSION, action = PermissionAction.CONSULTER)
     @GetMapping
     public ResponseEntity<ApiResponse<List<PermissionPourPosteResponse>>> lister(
             @PathVariable Integer idPoste) {
@@ -35,6 +39,7 @@ public class PostePermissionController {
                 ApiResponse.success(postePermissionService.lister(idPoste)));
     }
 
+    @RequirePermission(ressource = PermissionResource.POSTE_PERMISSION, action = PermissionAction.AFFECTER)
     @PostMapping
     public ResponseEntity<ApiResponse<PermissionPourPosteResponse>> affecter(
             @PathVariable Integer idPoste,
@@ -44,6 +49,7 @@ public class PostePermissionController {
                         postePermissionService.affecter(idPoste, request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.POSTE_PERMISSION, action = PermissionAction.MODIFIER)
     @PutMapping("/{idPermission}")
     public ResponseEntity<ApiResponse<PermissionPourPosteResponse>> modifierPortee(
             @PathVariable Integer idPoste,
@@ -54,6 +60,7 @@ public class PostePermissionController {
                         postePermissionService.modifierPortee(idPoste, idPermission, request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.POSTE_PERMISSION, action = PermissionAction.AFFECTER)
     @DeleteMapping("/{idPermission}")
     public ResponseEntity<ApiResponse<Void>> retirer(
             @PathVariable Integer idPoste,

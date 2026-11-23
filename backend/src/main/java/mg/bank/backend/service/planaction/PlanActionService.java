@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.affectation.AffectationPlanActionDTO;
 import mg.bank.backend.dto.common.PageResponse;
+import mg.bank.backend.dto.common.PerimetreUtilisateur;
 import mg.bank.backend.dto.common.ReferenceDTO;
 import mg.bank.backend.dto.planaction.AvancementPlanActionDTO;
 import mg.bank.backend.dto.planaction.AvancementPlanActionDetailDTO;
@@ -49,6 +50,7 @@ import mg.bank.backend.repository.referentiel.StatutRepository;
 import mg.bank.backend.repository.utilisateur.RoleRepository;
 import mg.bank.backend.repository.utilisateur.UtilisateurRepository;
 import mg.bank.backend.service.activite.ActiviteService;
+import mg.bank.backend.service.common.PorteeService;
 import mg.bank.backend.utils.ReferenceMapper;
 
 /**
@@ -81,6 +83,7 @@ public class PlanActionService {
         private final UtilisateurRepository utilisateurRepository;
 
         private final ActiviteService activiteService;
+        private final PorteeService porteeService;
 
         // ------------------------------------------------------------------
         // Liste
@@ -114,6 +117,7 @@ public class PlanActionService {
                 String statutsParDefaut = (statutFiltre == null)
                                 ? String.join(",", STATUTS_ACTIFS)
                                 : null;
+                PerimetreUtilisateur perimetre = activiteService.getPerimetre();
 
                 Page<PlanActionListItemDTO> resultat = planActionRepository.findPlans(
                                 statutFiltre,
@@ -125,6 +129,9 @@ public class PlanActionService {
                                 origineId,
                                 typeOrigine,
                                 responsableId,
+                                perimetre.getFiltreService(),
+                                perimetre.getFiltreDepartement(),
+                                perimetre.getIdUtilisateurPortee(),
                                 pageable)
                                 .map(this::versListItem);
 
@@ -145,9 +152,7 @@ public class PlanActionService {
 
         @Transactional
         public PlanActionDetailDTO soumettre(Integer idPlanAction, String commentaire) {
-                PlanActionListRow row = planActionRepository.findByIdWithDetails(idPlanAction)
-                                .orElseThrow(() -> new ApiException(
-                                                "Plan d'action introuvable.", HttpStatus.NOT_FOUND));
+                PlanActionListRow row = chargerPlanDansPerimetre(idPlanAction);
 
                 if (!"BROUILLON".equals(row.getStatutCode())) {
                         throw new ApiException(
@@ -182,9 +187,7 @@ public class PlanActionService {
 
         @Transactional
         public PlanActionDetailDTO valider(Integer idPlanAction, boolean rejeter, String commentaire) {
-                PlanActionListRow row = planActionRepository.findByIdWithDetails(idPlanAction)
-                                .orElseThrow(() -> new ApiException(
-                                                "Plan d'action introuvable.", HttpStatus.NOT_FOUND));
+                PlanActionListRow row = chargerPlanDansPerimetre(idPlanAction);
 
                 if (!"EN_ATTENTE_VALIDATION".equals(row.getStatutCode())) {
                         throw new ApiException(
@@ -235,11 +238,20 @@ public class PlanActionService {
                 return PageResponse.from(resultat);
         }
 
-        @Transactional(readOnly = true)
-        public PlanActionDetailDTO detail(Integer id) {
-                PlanActionListRow row = planActionRepository.findByIdWithDetails(id)
+        private PlanActionListRow chargerPlanDansPerimetre(Integer id) {
+                PerimetreUtilisateur perimetre = activiteService.getPerimetre();
+                return planActionRepository.findByIdWithDetails(
+                                id,
+                                perimetre.getFiltreService(),
+                                perimetre.getFiltreDepartement(),
+                                perimetre.getIdUtilisateurPortee())
                                 .orElseThrow(() -> new ApiException(
                                                 "Plan d'action introuvable.", HttpStatus.NOT_FOUND));
+        }
+
+        @Transactional(readOnly = true)
+        public PlanActionDetailDTO detail(Integer id) {
+                PlanActionListRow row = chargerPlanDansPerimetre(id);
 
                 PlanActionListItemDTO base = versListItem(row);
 
@@ -303,6 +315,7 @@ public class PlanActionService {
                 if (!Boolean.TRUE.equals(responsable.getActif())) {
                         throw new ApiException("L'utilisateur n'est pas actif.", HttpStatus.BAD_REQUEST);
                 }
+                porteeService.exigerUtilisateur(responsable);
 
                 Role roleResponsable = roleRepository.findByCodeIgnoreCase(ROLE_RESPONSABLE)
                                 .orElseThrow(() -> new ApiException(
@@ -322,6 +335,11 @@ public class PlanActionService {
                         throw new ApiException(
                                         "Au moins une origine est obligatoire.",
                                         HttpStatus.BAD_REQUEST);
+                }
+                if (origines.stream().anyMatch(this::origineHorsPerimetre)) {
+                        throw new ApiException(
+                                        "Vous n'êtes pas autorisé à utiliser ces signalements.",
+                                        HttpStatus.FORBIDDEN);
                 }
 
                 // Statuts
@@ -373,6 +391,17 @@ public class PlanActionService {
                                 .designation(plan.getDesignation())
                                 .statutInitial(STATUT_BROUILLON)
                                 .build();
+        }
+
+        private boolean origineHorsPerimetre(Origine origine) {
+                if (porteeService.porteeTous()) {
+                        return false;
+                }
+                if (porteeService.utilisateurAccessible(origine.getUtilisateur())) {
+                        return false;
+                }
+                return origineRepository.findActiviteIdsByOrigine(origine.getIdOrigine()).stream()
+                                .noneMatch(porteeService::activiteAccessible);
         }
 
         private PlanActionListItemDTO versListItem(PlanActionListRow row) {
@@ -461,6 +490,7 @@ public class PlanActionService {
 
         @Transactional(readOnly = true)
         public List<AvancementPlanActionDetailDTO> listerAvancements(Integer idPlanAction) {
+                porteeService.exigerPlanAction(idPlanAction);
                 PlanAction plan = planActionRepository.findById(idPlanAction)
                                 .orElseThrow(() -> new ApiException(
                                                 "Plan d'action introuvable.", HttpStatus.NOT_FOUND));
@@ -480,6 +510,7 @@ public class PlanActionService {
          */
         @Transactional(readOnly = true)
         public AvancementPlanActionDetailDTO avancementCourant(Integer idPlanAction) {
+                porteeService.exigerPlanAction(idPlanAction);
                 planActionRepository.findById(idPlanAction)
                                 .orElseThrow(() -> new ApiException(
                                                 "Plan d'action introuvable.", HttpStatus.NOT_FOUND));
@@ -497,6 +528,7 @@ public class PlanActionService {
         public AvancementPlanActionDetailDTO saisirAvancement(
                         Integer idPlanAction, AvancementSaisieRequest request) {
 
+                porteeService.exigerPlanAction(idPlanAction);
                 PlanAction plan = planActionRepository.findById(idPlanAction)
                                 .orElseThrow(() -> new ApiException(
                                                 "Plan d'action introuvable.", HttpStatus.NOT_FOUND));

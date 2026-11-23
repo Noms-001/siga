@@ -22,6 +22,9 @@ import mg.bank.backend.model.parametre.Parametre;
 import mg.bank.backend.repository.parametre.ParametreRepository;
 import mg.bank.backend.service.notification.NotificationService;
 import mg.bank.backend.service.utilisateur.CurrentUserService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -39,6 +42,7 @@ public class NotificationController {
         // Liste paginée
         // ------------------------------------------------------------------
 
+        @RequirePermission(ressource = PermissionResource.NOTIFICATION, action = PermissionAction.CONSULTER)
         @GetMapping
         public ResponseEntity<ApiResponse<List<NotificationDTO>>> lister() {
                 Integer idUtilisateur = currentUserService.getId();
@@ -46,6 +50,7 @@ public class NotificationController {
                                 notificationService.lister(idUtilisateur)));
         }
 
+        @RequirePermission(ressource = PermissionResource.NOTIFICATION, action = PermissionAction.CONSULTER)
         @GetMapping("/page")
         public ResponseEntity<ApiResponse<Page<NotificationDTO>>> page(
                         @RequestParam(defaultValue = "0") int page,
@@ -73,6 +78,7 @@ public class NotificationController {
         // Détail enrichi
         // ------------------------------------------------------------------
 
+        @RequirePermission(ressource = PermissionResource.NOTIFICATION, action = PermissionAction.CONSULTER)
         @GetMapping("/{id}")
         public ResponseEntity<ApiResponse<NotificationDetailDTO>> detail(@PathVariable Integer id) {
                 Integer idUtilisateur = currentUserService.getId();
@@ -84,6 +90,7 @@ public class NotificationController {
         // Compteur non lues
         // ------------------------------------------------------------------
 
+        @RequirePermission(ressource = PermissionResource.NOTIFICATION, action = PermissionAction.CONSULTER)
         @GetMapping("/non-lues/count")
         public ResponseEntity<ApiResponse<Long>> nonLues() {
                 Integer idUtilisateur = currentUserService.getId();
@@ -95,6 +102,7 @@ public class NotificationController {
         // Marquer lue(s)
         // ------------------------------------------------------------------
 
+        @RequirePermission(ressource = PermissionResource.NOTIFICATION, action = PermissionAction.MODIFIER)
         @PutMapping("/{id}/lue")
         public ResponseEntity<ApiResponse<Boolean>> marquerLue(@PathVariable Integer id) {
                 Integer idUtilisateur = currentUserService.getId();
@@ -102,6 +110,7 @@ public class NotificationController {
                                 notificationService.marquerLue(idUtilisateur, id)));
         }
 
+        @RequirePermission(ressource = PermissionResource.NOTIFICATION, action = PermissionAction.MODIFIER)
         @PutMapping("/lues")
         public ResponseEntity<ApiResponse<Integer>> marquerToutesLues() {
                 Integer idUtilisateur = currentUserService.getId();

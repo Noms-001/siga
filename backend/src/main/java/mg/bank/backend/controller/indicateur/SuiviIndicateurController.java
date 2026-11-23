@@ -28,6 +28,9 @@ import mg.bank.backend.dto.indicateur.ValeurSuiviDTO;
 import mg.bank.backend.dto.indicateur.ValeurIndicateurRequest;
 import mg.bank.backend.enums.MethodeAgregation;
 import mg.bank.backend.service.indicateur.SuiviIndicateurService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/indicateurs")
@@ -36,6 +39,8 @@ public class SuiviIndicateurController {
 
         private final SuiviIndicateurService suiviIndicateurService;
 
+        @RequirePermission(ressource = PermissionResource.VALEUR_INDICATEUR, action = PermissionAction.CONSULTER)
+        @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
         @GetMapping("/{id}/valeurs")
         public ResponseEntity<ApiResponse<Page<ValeurSuiviDTO>>> historique(
                         @PathVariable Integer id,
@@ -45,6 +50,8 @@ public class SuiviIndicateurController {
                                 ApiResponse.success(suiviIndicateurService.historique(id, page, size)));
         }
 
+        @RequirePermission(ressource = PermissionResource.VALEUR_INDICATEUR, action = PermissionAction.CREER)
+        @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.MODIFIER)
         @PostMapping("/{id}/valeurs")
         public ResponseEntity<ApiResponse<ValeurSuiviDTO>> saisir(
                         @PathVariable Integer id,
@@ -53,6 +60,8 @@ public class SuiviIndicateurController {
                                 .body(ApiResponse.success(suiviIndicateurService.saisir(id, request)));
         }
 
+        @RequirePermission(ressource = PermissionResource.VALEUR_INDICATEUR, action = PermissionAction.CONSULTER)
+        @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
         @GetMapping("/{id}/valeur-courante")
         public ResponseEntity<ApiResponse<ValeurSuiviDTO>> valeurCourante(
                         @PathVariable Integer id) {
@@ -60,6 +69,7 @@ public class SuiviIndicateurController {
                                 ApiResponse.success(suiviIndicateurService.valeurCourante(id)));
         }
 
+        @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
         @GetMapping("/{id}/atteinte")
         public ResponseEntity<ApiResponse<AtteinteIndicateurDTO>> atteinte(
                         @PathVariable Integer id) {
@@ -67,6 +77,8 @@ public class SuiviIndicateurController {
                                 ApiResponse.success(suiviIndicateurService.atteinte(id)));
         }
 
+        @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
+        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.CONSULTER)
         @GetMapping("/activites/{idActivite}/suivi")
         public ResponseEntity<ApiResponse<SuiviIndicateurDTO>> suiviActivite(
                         @PathVariable Integer idActivite) {
@@ -74,6 +86,7 @@ public class SuiviIndicateurController {
                                 ApiResponse.success(suiviIndicateurService.suiviActivite(idActivite)));
         }
 
+        @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
         @GetMapping("/{id}/agregation")
         public ResponseEntity<ApiResponse<AgregationIndicateurDTO>> agregation(
                         @PathVariable Integer id,
@@ -84,6 +97,7 @@ public class SuiviIndicateurController {
                                 suiviIndicateurService.agreger(id, debut, fin, methode)));
         }
 
+        @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
         @GetMapping("/en-retard")
         public ResponseEntity<ApiResponse<List<IndicateurEnRetardDTO>>> enRetard(
                         @RequestParam(defaultValue = "false") boolean inclureAJour,
@@ -92,6 +106,7 @@ public class SuiviIndicateurController {
                                 suiviIndicateurService.listerEnRetard(inclureAJour, inclureJamaisSaisi)));
         }
 
+        @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
         @GetMapping("/{id}/calendrier")
         public ResponseEntity<ApiResponse<CalendrierIndicateurDTO>> calendrier(
                         @PathVariable Integer id,
@@ -100,6 +115,8 @@ public class SuiviIndicateurController {
                                 suiviIndicateurService.calendrier(id, annee)));
         }
 
+        @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.CONSULTER)
+        @RequirePermission(ressource = PermissionResource.DASHBOARD, action = PermissionAction.CONSULTER)
         @GetMapping("/dashboard")
         public ResponseEntity<ApiResponse<DashboardIndicateurDTO>> dashboard() {
                 return ResponseEntity.ok(ApiResponse.success(

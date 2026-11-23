@@ -100,7 +100,7 @@ public class LiaisonIndicateurService {
         StatutCourantRow statut = activiteRepository.findStatutCourant(
                         idActivite,
                         perimetre.getFiltreService(),
-                        perimetre.getFiltreDepartement())
+                        perimetre.getFiltreDepartement(), perimetre.getIdUtilisateurPortee())
                 .orElseThrow(() -> activiteService.refusOuAbsence(idActivite));
 
         if (statut.getStatutCode() != null
@@ -120,6 +120,7 @@ public class LiaisonIndicateurService {
 
         if (activiteRepository.findActiviteDetail(
                 idActivite, servicePerimetre, departementPerimetre,
+                perimetre.getIdUtilisateurPortee(),
                 String.join(",", mg.bank.backend.enums.StatutActiviteEnum.codesTerminaux()))
                 .isEmpty()) {
             throw activiteService.refusOuAbsence(idActivite);

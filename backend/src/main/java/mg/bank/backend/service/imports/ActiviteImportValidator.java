@@ -40,6 +40,7 @@ import mg.bank.backend.repository.referentiel.SiteRepository;
 import mg.bank.backend.repository.referentiel.TypeActiviteRepository;
 import mg.bank.backend.repository.validation.ProcedureRepository;
 import mg.bank.backend.service.activite.ActiviteService;
+import mg.bank.backend.service.common.PorteeService;
 
 @org.springframework.stereotype.Service
 @RequiredArgsConstructor
@@ -57,6 +58,7 @@ public class ActiviteImportValidator {
     private static final int LONGUEUR_MAX_DESIGNATION_ORIGINE = 255;
 
     private final ActiviteService activiteService;
+    private final PorteeService porteeService;
     private final ActiviteRepository activiteRepository;
 
     private final ServiceRepository serviceRepository;
@@ -225,6 +227,7 @@ public class ActiviteImportValidator {
 
     private boolean autorise(Service service, PerimetreUtilisateur perimetre) {
         if (perimetre == null) return false;
+        if (!porteeService.serviceAccessible(service)) return false;
         if (perimetre.estRattacheService()) {
             return service.getIdService() != null
                     && service.getIdService().equals(perimetre.getIdService());

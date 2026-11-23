@@ -26,6 +26,7 @@ import mg.bank.backend.repository.notification.NotificationDetailRepository;
 import mg.bank.backend.repository.notification.NotificationRepository;
 import mg.bank.backend.repository.referentiel.PrioriteRepository;
 import mg.bank.backend.repository.utilisateur.UtilisateurRepository;
+import mg.bank.backend.service.common.PorteeService;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +35,7 @@ public class NotificationService {
     private final NotificationDetailRepository notificationDetailRepository;
     private final UtilisateurRepository utilisateurRepository;
     private final PrioriteRepository prioriteRepository;
+    private final PorteeService porteeService;
 
     @Transactional
     public void notifierEtape(Activite activite, EtapeValidation etape, String titre, String message) {
@@ -152,6 +154,10 @@ public class NotificationService {
     }
 
     private void enrichirActivite(NotificationDetailDTO.NotificationDetailDTOBuilder b, Integer id) {
+        if (!porteeService.activiteAccessible(id)) {
+            b.entiteDisponible(false);
+            return;
+        }
         notificationDetailRepository.findActiviteContexte(id).ifPresentOrElse(
                 row -> {
                     Map<String, String> ctx = new LinkedHashMap<>();
@@ -173,6 +179,10 @@ public class NotificationService {
     private void enrichirSousActivite(NotificationDetailDTO.NotificationDetailDTOBuilder b, Integer id) {
         notificationDetailRepository.findSousActiviteContexte(id).ifPresentOrElse(
                 row -> {
+                    if (!porteeService.activiteAccessible(row.getIdActivite())) {
+                        b.entiteDisponible(false);
+                        return;
+                    }
                     Map<String, String> ctx = new LinkedHashMap<>();
                     if (row.getStatutLibelle() != null)
                         ctx.put("Statut", row.getStatutLibelle());
@@ -193,6 +203,10 @@ public class NotificationService {
     }
 
     private void enrichirPlanAction(NotificationDetailDTO.NotificationDetailDTOBuilder b, Integer id) {
+        if (!porteeService.planActionAccessible(id)) {
+            b.entiteDisponible(false);
+            return;
+        }
         notificationDetailRepository.findPlanActionContexte(id).ifPresentOrElse(
                 row -> {
                     Map<String, String> ctx = new LinkedHashMap<>();
@@ -212,6 +226,10 @@ public class NotificationService {
     }
 
     private void enrichirIndicateur(NotificationDetailDTO.NotificationDetailDTOBuilder b, Integer id) {
+        if (!porteeService.indicateurAccessible(id)) {
+            b.entiteDisponible(false);
+            return;
+        }
         notificationDetailRepository.findIndicateurContexte(id).ifPresentOrElse(
                 row -> {
                     Map<String, String> ctx = new LinkedHashMap<>();

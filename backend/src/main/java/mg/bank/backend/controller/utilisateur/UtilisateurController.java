@@ -32,6 +32,9 @@ import mg.bank.backend.service.utilisateur.CustomUserDetailsService;
 import mg.bank.backend.service.utilisateur.JwtService;
 import mg.bank.backend.service.utilisateur.PermissionService;
 import mg.bank.backend.service.utilisateur.UtilisateurService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api")
@@ -105,6 +108,7 @@ public class UtilisateurController {
                 ApiResponse.success(null));
     }
 
+    @RequirePermission(ressource = PermissionResource.UTILISATEUR, action = PermissionAction.CONSULTER)
     @GetMapping("/backoffice/utilisateurs")
     public ResponseEntity<ApiResponse<List<UtilisateurResponse>>> lister(
             @RequestParam(name = "actif", required = false) Boolean actif,
@@ -115,6 +119,7 @@ public class UtilisateurController {
                         utilisateurService.lister(actif, idDepartement, idService)));
     }
 
+    @RequirePermission(ressource = PermissionResource.UTILISATEUR, action = PermissionAction.CONSULTER)
     @GetMapping("/backoffice/utilisateurs/{id}")
     public ResponseEntity<ApiResponse<UtilisateurResponse>> getById(@PathVariable Integer id) {
         return ResponseEntity.ok(
@@ -133,6 +138,7 @@ public class UtilisateurController {
      * Retourne 201 avec la vue backoffice de l'utilisateur créé. Aucun mot
      * de passe, aucun token n'est renvoyé.
      */
+    @RequirePermission(ressource = PermissionResource.UTILISATEUR, action = PermissionAction.CREER)
     @PostMapping("/backoffice/utilisateurs")
     public ResponseEntity<ApiResponse<UtilisateurResponse>> creer(
             @Valid @RequestBody UtilisateurRequest request) {
@@ -143,12 +149,14 @@ public class UtilisateurController {
 
     /* -------------------- bascule -------------------- */
 
+    @RequirePermission(ressource = PermissionResource.UTILISATEUR, action = PermissionAction.DESACTIVER)
     @PatchMapping("/backoffice/utilisateurs/{id}/desactiver")
     public ResponseEntity<ApiResponse<UtilisateurResponse>> desactiver(@PathVariable Integer id) {
         return ResponseEntity.ok(
                 ApiResponse.success(utilisateurService.desactiverUtilisateur(id)));
     }
 
+    @RequirePermission(ressource = PermissionResource.UTILISATEUR, action = PermissionAction.ACTIVER)
     @PatchMapping("/backoffice/utilisateurs/{id}/activer")
     public ResponseEntity<ApiResponse<UtilisateurResponse>> activer(@PathVariable Integer id) {
         return ResponseEntity.ok(

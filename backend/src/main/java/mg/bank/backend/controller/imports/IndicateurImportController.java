@@ -14,6 +14,9 @@ import mg.bank.backend.dto.importactivite.RapportValidationDTO;
 import mg.bank.backend.dto.importactivite.ResultatImportDTO;
 import mg.bank.backend.service.imports.IndicateurImportService;
 import mg.bank.backend.service.imports.IndicateurImportValidator;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/activites/import/indicateurs")
@@ -23,12 +26,14 @@ public class IndicateurImportController {
     private final IndicateurImportValidator validator;
     private final IndicateurImportService service;
 
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.IMPORTER)
     @PostMapping("/valider")
     public ResponseEntity<ApiResponse<RapportValidationDTO>> valider(
             @RequestBody IndicateurImportRequest request) {
         return ResponseEntity.ok(ApiResponse.success(validator.valider(request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.INDICATEUR, action = PermissionAction.IMPORTER)
     @PostMapping("/confirmer")
     public ResponseEntity<ApiResponse<ResultatImportDTO>> confirmer(
             @RequestBody IndicateurImportRequest request) {

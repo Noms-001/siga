@@ -14,6 +14,9 @@ import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.dto.utilisateur.MembreSuiviGlobalDTO;
 import mg.bank.backend.dto.utilisateur.MembreSuiviMembresDTO;
 import mg.bank.backend.service.utilisateur.MembreSuiviService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/utilisateurs/suivi")
@@ -22,6 +25,7 @@ public class MembreSuiviController {
 
     private final MembreSuiviService membreSuiviService;
 
+    @RequirePermission(ressource = PermissionResource.MEMBRE_SUIVI, action = PermissionAction.CONSULTER)
     @GetMapping("/membres")
     public ResponseEntity<ApiResponse<MembreSuiviMembresDTO>> membres(
             @RequestParam(required = false) LocalDate dateDebut,
@@ -34,6 +38,7 @@ public class MembreSuiviController {
                 dateDebut, dateFin, annee, trimestre, idService, recherche)));
     }
 
+    @RequirePermission(ressource = PermissionResource.MEMBRE_SUIVI, action = PermissionAction.CONSULTER)
     @GetMapping("/global")
     public ResponseEntity<ApiResponse<MembreSuiviGlobalDTO>> global(
             @RequestParam(required = false) LocalDate dateDebut,
@@ -46,6 +51,7 @@ public class MembreSuiviController {
                 dateDebut, dateFin, annee, trimestre, idService, categorie)));
     }
 
+    @RequirePermission(ressource = PermissionResource.MEMBRE_SUIVI, action = PermissionAction.CONSULTER)
     @GetMapping("/elements")
     public ResponseEntity<ApiResponse<List<MembreSuiviGlobalDTO.ElementDTO>>> elements(
             @RequestParam(required = false) LocalDate dateDebut,

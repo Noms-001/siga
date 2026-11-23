@@ -10,11 +10,13 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import mg.bank.backend.dto.backoffice.ServiceRequest;
 import mg.bank.backend.dto.backoffice.ServiceResponse;
+import mg.bank.backend.dto.common.PerimetreUtilisateur;
 import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.mapper.referentiel.ServiceMapper;
 import mg.bank.backend.model.referentiel.Departement;
 import mg.bank.backend.repository.referentiel.DepartementRepository;
 import mg.bank.backend.repository.referentiel.ServiceRepository;
+import mg.bank.backend.service.common.PorteeService;
 
 @Service
 @RequiredArgsConstructor
@@ -22,20 +24,27 @@ public class ServiceService {
 
     private final ServiceRepository serviceRepository;
     private final DepartementRepository departementRepository;
+    private final PorteeService porteeService;
 
     @Transactional(readOnly = true)
     public List<ServiceResponse> lister(boolean inclureInactifs, Integer idDepartement) {
+        Integer idDepartementEffectif = porteeService.restreindreDepartement(idDepartement);
+        PerimetreUtilisateur perimetre = porteeService.perimetreCourant();
+
         List<mg.bank.backend.model.referentiel.Service> services;
-        if (idDepartement != null) {
+        if (idDepartementEffectif != null) {
             services = inclureInactifs
-                    ? serviceRepository.findByDepartementIdDepartement(idDepartement)
-                    : serviceRepository.findByDepartementIdDepartementAndActifTrue(idDepartement);
+                    ? serviceRepository.findByDepartementIdDepartement(idDepartementEffectif)
+                    : serviceRepository.findByDepartementIdDepartementAndActifTrue(idDepartementEffectif);
         } else {
             services = inclureInactifs
                     ? serviceRepository.findAll()
                     : serviceRepository.findByActifTrue();
         }
-        return services.stream().map(ServiceMapper::toResponse).toList();
+        return services.stream()
+                .filter(s -> porteeService.serviceAccessible(s, perimetre))
+                .map(ServiceMapper::toResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -45,7 +54,9 @@ public class ServiceService {
 
     @Transactional
     public ServiceResponse creer(ServiceRequest request) {
+        exigerEcritureService();
         Departement departement = getDepartement(request.getIdDepartement());
+        porteeService.exigerDepartement(departement.getIdDepartement());
 
         String nom = request.getNom().trim();
         if (serviceRepository.existsByNomAndDepartementIdDepartement(nom, departement.getIdDepartement())) {
@@ -67,8 +78,10 @@ public class ServiceService {
 
     @Transactional
     public ServiceResponse modifier(Integer id, ServiceRequest request) {
+        exigerEcritureService();
         mg.bank.backend.model.referentiel.Service entity = getEntity(id);
         Departement departement = getDepartement(request.getIdDepartement());
+        porteeService.exigerDepartement(departement.getIdDepartement());
 
         String nom = request.getNom().trim();
 
@@ -94,6 +107,7 @@ public class ServiceService {
 
     @Transactional
     public ServiceResponse desactiver(Integer id) {
+        exigerEcritureService();
         mg.bank.backend.model.referentiel.Service entity = getEntity(id);
 
         if (Boolean.FALSE.equals(entity.getActif())) {
@@ -110,6 +124,7 @@ public class ServiceService {
 
     @Transactional
     public ServiceResponse activer(Integer id) {
+        exigerEcritureService();
         mg.bank.backend.model.referentiel.Service entity = getEntity(id);
 
         if (Boolean.TRUE.equals(entity.getActif())) {
@@ -126,10 +141,20 @@ public class ServiceService {
 
     @Transactional(readOnly = true)
     public mg.bank.backend.model.referentiel.Service getEntity(Integer id) {
-        return serviceRepository.findById(id)
+        mg.bank.backend.model.referentiel.Service service = serviceRepository.findById(id)
                 .orElseThrow(() -> new ApiException(
                         "Service introuvable",
                         HttpStatus.NOT_FOUND));
+        porteeService.exigerService(service);
+        return service;
+    }
+
+    private void exigerEcritureService() {
+        if (!porteeService.porteeServiceOuPlus()) {
+            throw new ApiException(
+                    "La gestion des services nécessite une portée service ou supérieure",
+                    HttpStatus.FORBIDDEN);
+        }
     }
 
     private Departement getDepartement(Integer idDepartement) {

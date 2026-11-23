@@ -11,6 +11,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import mg.bank.backend.dto.common.PerimetreUtilisateur;
 import mg.bank.backend.dto.dashboard.DashboardPlanActionOrigineDTO;
 import mg.bank.backend.repository.dashboard.DashboardRepository;
 import mg.bank.backend.repository.projection.dashboard.DashboardPlanActionOrigineRow;
@@ -61,9 +62,12 @@ class DashboardServicePlanActionOrigineTests {
     void agregeLAvancementParOrigineEtCompleteLesOriginesAbsentes() {
         LocalDate debut = LocalDate.of(2026, 1, 1);
         LocalDate fin = LocalDate.of(2026, 12, 31);
-        when(dashboardRepository.avancementPlansParOrigine(debut, fin, fin)).thenReturn(List.of(
-                ligne("INCIDENT", 4, 75.0),
-                ligne("AUTRE", 1, 0.0)));
+        when(currentUserService.getPerimetre())
+                .thenReturn(PerimetreUtilisateur.builder().build());
+        when(dashboardRepository.avancementPlansParOrigine(debut, fin, fin, null, null, null))
+                .thenReturn(List.of(
+                        ligne("INCIDENT", 4, 75.0),
+                        ligne("AUTRE", 1, 0.0)));
 
         var dto = service.avancementPlansParOrigine(periode(debut, fin));
 
@@ -91,7 +95,9 @@ class DashboardServicePlanActionOrigineTests {
     void retourneLesTroisOriginesQuandAucunPlanNeChevaucheLaPeriode() {
         LocalDate debut = LocalDate.of(2026, 1, 1);
         LocalDate fin = LocalDate.of(2026, 3, 31);
-        when(dashboardRepository.avancementPlansParOrigine(debut, fin, fin))
+        when(currentUserService.getPerimetre())
+                .thenReturn(PerimetreUtilisateur.builder().build());
+        when(dashboardRepository.avancementPlansParOrigine(debut, fin, fin, null, null, null))
                 .thenReturn(List.of());
 
         var dto = service.avancementPlansParOrigine(periode(debut, fin));

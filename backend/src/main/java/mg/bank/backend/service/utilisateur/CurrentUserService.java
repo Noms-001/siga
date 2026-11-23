@@ -11,6 +11,7 @@ import mg.bank.backend.dto.common.PerimetreUtilisateur;
 import mg.bank.backend.exception.ApiException;
 import mg.bank.backend.model.utilisateur.Utilisateur;
 import mg.bank.backend.repository.utilisateur.UtilisateurRepository;
+import mg.bank.backend.security.ContextePortee;
 
 @Service
 @RequiredArgsConstructor
@@ -67,6 +68,7 @@ public class CurrentUserService {
         return PerimetreUtilisateur.builder()
                 .idService(idService)
                 .idDepartement(idDepartement)
+                .porteeAcces(ContextePortee.courant())
                 .build();
     }
 }

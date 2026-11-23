@@ -144,6 +144,7 @@ public interface AffectationActiviteRepository
       @Param("objectifRecherche") String objectifRecherche,
       @Param("servicePerimetre") Integer servicePerimetre,
       @Param("departementPerimetre") Integer departementPerimetre,
+      @Param("idUtilisateurPortee") Integer idUtilisateurPortee,
       @Param("serviceDemande") Integer serviceDemande,
       @Param("prioriteId") Integer prioriteId,
       @Param("typeActiviteId") Integer typeActiviteId,

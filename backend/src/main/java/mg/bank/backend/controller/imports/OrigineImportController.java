@@ -14,6 +14,9 @@ import mg.bank.backend.dto.importactivite.RapportValidationDTO;
 import mg.bank.backend.dto.importactivite.ResultatImportDTO;
 import mg.bank.backend.service.imports.OrigineImportService;
 import mg.bank.backend.service.imports.OrigineImportValidator;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/activites/import/origines")
@@ -23,12 +26,14 @@ public class OrigineImportController {
     private final OrigineImportValidator validator;
     private final OrigineImportService service;
 
+    @RequirePermission(ressource = PermissionResource.SIGNALEMENT, action = PermissionAction.IMPORTER)
     @PostMapping("/valider")
     public ResponseEntity<ApiResponse<RapportValidationDTO>> valider(
             @RequestBody OrigineImportRequest request) {
         return ResponseEntity.ok(ApiResponse.success(validator.valider(request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SIGNALEMENT, action = PermissionAction.IMPORTER)
     @PostMapping("/confirmer")
     public ResponseEntity<ApiResponse<ResultatImportDTO>> confirmer(
             @RequestBody OrigineImportRequest request) {

@@ -14,6 +14,9 @@ import mg.bank.backend.dto.importactivite.ResultatImportDTO;
 import mg.bank.backend.dto.importactivite.SousActiviteImportRequest;
 import mg.bank.backend.service.imports.SousActiviteImportService;
 import mg.bank.backend.service.imports.SousActiviteImportValidator;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/activites/import/sous-activites")
@@ -23,12 +26,16 @@ public class SousActiviteImportController {
     private final SousActiviteImportValidator validator;
     private final SousActiviteImportService service;
 
+    @RequirePermission(ressource = PermissionResource.SOUS_ACTIVITE, action = PermissionAction.IMPORTER)
+    @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.IMPORTER)
     @PostMapping("/valider")
     public ResponseEntity<ApiResponse<RapportValidationDTO>> valider(
             @RequestBody SousActiviteImportRequest request) {
         return ResponseEntity.ok(ApiResponse.success(validator.valider(request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SOUS_ACTIVITE, action = PermissionAction.IMPORTER)
+    @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.IMPORTER)
     @PostMapping("/confirmer")
     public ResponseEntity<ApiResponse<ResultatImportDTO>> confirmer(
             @RequestBody SousActiviteImportRequest request) {

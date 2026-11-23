@@ -62,7 +62,14 @@ public interface OrigineRepository extends JpaRepository<Origine, Integer> {
                WHERE pao.id_origine = :idOrigine
                ORDER BY pao.est_principale DESC NULLS LAST, pa.code
                """, nativeQuery = true)
-     List<PlanActionOrigineRow> findPlansActionByOrigine(@Param("idOrigine") Integer idOrigine);
+      List<PlanActionOrigineRow> findPlansActionByOrigine(@Param("idOrigine") Integer idOrigine);
+
+      @Query(value = """
+                SELECT ao.id_activite
+                FROM activite_origine ao
+                WHERE ao.id_origine = :idOrigine
+                """, nativeQuery = true)
+      List<Integer> findActiviteIdsByOrigine(@Param("idOrigine") Integer idOrigine);
 
      /**
       * Dernier numéro de séquence utilisé pour un préfixe et une année donnés.

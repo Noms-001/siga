@@ -11,6 +11,13 @@ import type {
 
 import * as authService from '@/services/auth'
 import type { ApiResponse } from '@/services/api-client'
+import {
+    hasAnyPermission as checkAnyPermission,
+    hasPermission as checkPermission,
+    type PermissionAction,
+    type PermissionRequirement,
+    type PermissionResource,
+} from '@/utils/authorization'
 
 export const useAuthStore = defineStore('auth', () => {
 
@@ -34,11 +41,31 @@ export const useAuthStore = defineStore('auth', () => {
         return user.value !== null
     })
 
-    const hasPermission = (resource: string, action: string): boolean => {
-        return user.value?.permissions?.includes(
-            `${resource.toLowerCase()}:${action.toLowerCase()}`
-        ) ?? false
-    }
+    /**
+     * Permissions effectives du poste de l'utilisateur connecte.
+     *
+     * Les routes et la navigation s'appuient sur ces helpers pour rester
+     * alignees sur la logique backend (permissions alternatives).
+     */
+    const grantedPermissions = computed(
+        () => user.value?.permissions ?? [],
+    )
+
+    const hasPermission = (
+        resource: PermissionResource,
+        action: PermissionAction,
+    ): boolean => checkPermission(
+        grantedPermissions.value,
+        resource,
+        action,
+    )
+
+    const hasAnyPermission = (
+        requirements: readonly PermissionRequirement[] | undefined,
+    ): boolean => checkAnyPermission(
+        grantedPermissions.value,
+        requirements,
+    )
 
     /**
      * Connexion
@@ -247,7 +274,9 @@ export const useAuthStore = defineStore('auth', () => {
     return {
         user,
         isBackoffice,
+        grantedPermissions,
         hasPermission,
+        hasAnyPermission,
         isAuthenticated,
         initialized,
         restoreSession,

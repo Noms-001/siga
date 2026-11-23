@@ -55,7 +55,7 @@ public class ActiviteExportService {
                 args.objectifId(),
                 args.objectifRecherche(),
                 args.servicePerimetre(),
-                args.departementPerimetre(),
+                args.departementPerimetre(), args.idUtilisateurPortee(),
                 args.serviceDemande(),
                 args.prioriteId(),
                 args.typeActiviteId(),

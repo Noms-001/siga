@@ -22,6 +22,9 @@ import mg.bank.backend.dto.backoffice.OrigineResponse;
 import mg.bank.backend.dto.backoffice.SignalementDetailResponse;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.service.origine.OrigineService;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 
 /**
  * Signalements côté Frontoffice — incidents, risques, et tout autre type
@@ -39,6 +42,7 @@ public class SignalementFrontController {
 
     private final OrigineService origineService;
 
+    @RequirePermission(ressource = PermissionResource.SIGNALEMENT, action = PermissionAction.CONSULTER)
     @GetMapping
     public ResponseEntity<ApiResponse<List<OrigineResponse>>> lister(
             @RequestParam(name = "types", required = false) String types,
@@ -49,12 +53,14 @@ public class SignalementFrontController {
                 ApiResponse.success(origineService.lister(types, search, avecPlan, annee)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SIGNALEMENT, action = PermissionAction.CONSULTER)
     @GetMapping("/filtres")
     public ResponseEntity<ApiResponse<OrigineFiltresResponse>> getFiltres() {
         return ResponseEntity.ok(
                 ApiResponse.success(origineService.getFiltres()));
     }
 
+    @RequirePermission(ressource = PermissionResource.SIGNALEMENT, action = PermissionAction.CREER)
     @PostMapping
     public ResponseEntity<ApiResponse<OrigineResponse>> creer(
             @Valid @RequestBody OrigineRequest request) {
@@ -62,6 +68,7 @@ public class SignalementFrontController {
                 .body(ApiResponse.success(origineService.creer(request)));
     }
 
+    @RequirePermission(ressource = PermissionResource.SIGNALEMENT, action = PermissionAction.CONSULTER)
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<SignalementDetailResponse>> getById(
             @PathVariable Integer id) {
@@ -82,6 +89,7 @@ public class SignalementFrontController {
      * obtiendrait un aperçu qui ne correspondrait pas au code réellement
      * attribué.
      */
+    @RequirePermission(ressource = PermissionResource.SIGNALEMENT, action = PermissionAction.CONSULTER)
     @GetMapping("/prochain-code")
     public ResponseEntity<ApiResponse<CodeProposeResponse>> prochainCode(
             @RequestParam("type") String type) {

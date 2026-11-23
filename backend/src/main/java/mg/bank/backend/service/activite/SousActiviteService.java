@@ -23,6 +23,7 @@ import mg.bank.backend.repository.activite.AvancementSousActiviteRepository;
 import mg.bank.backend.repository.activite.SousActiviteRepository;
 import mg.bank.backend.repository.affectation.AffectationActiviteRepository;
 import mg.bank.backend.repository.affectation.AffectationSousActiviteRepository;
+import mg.bank.backend.service.common.PorteeService;
 import mg.bank.backend.repository.projection.activite.AvancementSousActiviteRow;
 import mg.bank.backend.repository.projection.common.StatutCourantRow;
 import mg.bank.backend.repository.referentiel.StatutRepository;
@@ -38,6 +39,7 @@ public class SousActiviteService {
         private final AffectationActiviteRepository affectationActiviteRepository;
         private final AffectationSousActiviteRepository affectationSousActiviteRepository;
         private final ActiviteRepository activiteRepository;
+        private final PorteeService porteeService;
 
         @Transactional
         public AvancementResponse enregistrerAvancement(
@@ -50,6 +52,7 @@ public class SousActiviteService {
                                                 HttpStatus.NOT_FOUND));
 
                 Activite activite = sousActivite.getActivite();
+                porteeService.exigerActivite(activite.getIdActivite());
                 Utilisateur utilisateur = activiteService.utilisateurCourant();
 
                 verifierAvancementAutorise(
@@ -117,7 +120,7 @@ public class SousActiviteService {
 
                 // Relecture du statut courant pour le renvoyer au front.
                 String statutActiviteCode = activiteRepository
-                                .findStatutCourant(activite.getIdActivite(), null, null)
+                                .findStatutCourant(activite.getIdActivite(), null, null, null)
                                 .map(StatutCourantRow::getStatutCode)
                                 .orElse(null);
 
@@ -143,11 +146,11 @@ public class SousActiviteService {
 
         @Transactional(readOnly = true)
         public List<AvancementSousActivite> getHistoriqueAvancement(Integer idSousActivite) {
-                if (!sousActiviteRepository.existsById(idSousActivite)) {
-                        throw new ApiException(
-                                        "Sous-activité introuvable",
-                                        HttpStatus.NOT_FOUND);
-                }
+                SousActivite sousActivite = sousActiviteRepository.findById(idSousActivite)
+                                .orElseThrow(() -> new ApiException(
+                                                "Sous-activité introuvable",
+                                                HttpStatus.NOT_FOUND));
+                porteeService.exigerActivite(sousActivite.getActivite().getIdActivite());
                 return avancementRepository.findHistorique(idSousActivite);
         }
 

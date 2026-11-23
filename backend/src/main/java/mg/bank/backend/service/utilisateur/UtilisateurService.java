@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
+import mg.bank.backend.dto.common.PerimetreUtilisateur;
 import mg.bank.backend.dto.utilisateur.ModifierProfilRequest;
 import mg.bank.backend.dto.utilisateur.UtilisateurRequest;
 import mg.bank.backend.exception.ApiException;
@@ -19,6 +20,7 @@ import mg.bank.backend.repository.referentiel.DepartementRepository;
 import mg.bank.backend.repository.referentiel.ServiceRepository;
 import mg.bank.backend.repository.utilisateur.PosteRepository;
 import mg.bank.backend.repository.utilisateur.UtilisateurRepository;
+import mg.bank.backend.service.common.PorteeService;
 import mg.bank.backend.service.notification.EmailService;
 
 @Service
@@ -31,6 +33,7 @@ public class UtilisateurService {
     private final PosteRepository posteRepository;
     private final TokenAuthService tokenAuthService;
     private final EmailService emailService;
+    private final PorteeService porteeService;
 
     public Utilisateur saveUtilisateur(UtilisateurRequest request) {
 
@@ -82,12 +85,14 @@ public class UtilisateurService {
                 .dateDerniereConnexion(null)
                 .build();
 
-        // 5. Enregistrer
+        // 5. Enregistrer dans le périmètre de l'appelant
+        porteeService.exigerUtilisateur(utilisateur);
         return utilisateurRepository.save(utilisateur);
     }
 
     @Transactional
     public Utilisateur createUtilisateur(UtilisateurRequest request) {
+        exigerGestionUtilisateurs();
 
         String email = request.getEmail().trim().toLowerCase();
 
@@ -174,8 +179,13 @@ public class UtilisateurService {
                 Integer idDepartement,
                 Integer idService) {
 
-        return utilisateurRepository.rechercher(actif, idDepartement, idService)
+        Integer departementEffectif = porteeService.restreindreDepartement(idDepartement);
+        Integer serviceEffectif = porteeService.restreindreService(idService);
+        PerimetreUtilisateur perimetre = porteeService.perimetreCourant();
+
+        return utilisateurRepository.rechercher(actif, departementEffectif, serviceEffectif)
                 .stream()
+                .filter(u -> porteeService.utilisateurAccessible(u, perimetre))
                 .map(mg.bank.backend.mapper.utilisateur.UtilisateurMapper::toResponse)
                 .toList();
         }
@@ -186,6 +196,7 @@ public class UtilisateurService {
                 .orElseThrow(() -> new ApiException(
                         "Utilisateur introuvable",
                         HttpStatus.NOT_FOUND));
+        porteeService.exigerUtilisateur(u);
         return mg.bank.backend.mapper.utilisateur.UtilisateurMapper.toResponse(u);
         }
 
@@ -201,10 +212,12 @@ public class UtilisateurService {
          */
         @Transactional
         public mg.bank.backend.dto.backoffice.UtilisateurResponse desactiverUtilisateur(Integer id) {
+        exigerGestionUtilisateurs();
         Utilisateur u = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new ApiException(
                         "Utilisateur introuvable",
                         HttpStatus.NOT_FOUND));
+        porteeService.exigerUtilisateur(u);
 
         if (Boolean.FALSE.equals(u.getActif())) {
                 throw new ApiException(
@@ -222,10 +235,12 @@ public class UtilisateurService {
 
         @Transactional
         public mg.bank.backend.dto.backoffice.UtilisateurResponse activerUtilisateur(Integer id) {
+        exigerGestionUtilisateurs();
         Utilisateur u = utilisateurRepository.findById(id)
                 .orElseThrow(() -> new ApiException(
                         "Utilisateur introuvable",
                         HttpStatus.NOT_FOUND));
+        porteeService.exigerUtilisateur(u);
 
         if (Boolean.TRUE.equals(u.getActif())) {
                 throw new ApiException(
@@ -247,4 +262,12 @@ public class UtilisateurService {
         return mg.bank.backend.mapper.utilisateur.UtilisateurMapper.toResponse(
                 utilisateurRepository.save(u));
         }
+
+    private void exigerGestionUtilisateurs() {
+        if (!porteeService.porteeServiceOuPlus()) {
+            throw new ApiException(
+                    "La gestion des utilisateurs nécessite une portée service ou supérieure",
+                    HttpStatus.FORBIDDEN);
+        }
+    }
 }

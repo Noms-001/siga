@@ -8,10 +8,30 @@
                 Votre poste ne dispose pas des autorisations nécessaires. Si cet accès est requis,
                 contactez l’administrateur de votre application.
             </p>
-            <router-link to="/dashboard" class="access-denied__button">Retour au tableau de bord</router-link>
+            <router-link :to="retour" class="access-denied__button">{{ libelleRetour }}</router-link>
         </section>
     </main>
 </template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+
+import { useAuthStore } from '@/stores/auth'
+import { PermissionAction, PermissionResource } from '@/utils/authorization'
+
+const authStore = useAuthStore()
+
+const peutVoirDashboard = computed(() => authStore.hasPermission(
+    PermissionResource.DASHBOARD,
+    PermissionAction.CONSULTER,
+))
+
+const retour = computed(() => peutVoirDashboard.value ? '/dashboard' : '/profile')
+const libelleRetour = computed(() => peutVoirDashboard.value
+    ? 'Retour au tableau de bord'
+    : 'Retour à mon profil'
+)
+</script>
 
 <style scoped>
 .access-denied {
