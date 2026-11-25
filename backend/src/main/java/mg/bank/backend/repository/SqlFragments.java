@@ -65,7 +65,7 @@ public final class SqlFragments {
             """;
 
     public static final String PORTEE_UTILISATEUR = """
-            AND (:idUtilisateurPortee IS NULL OR EXISTS (
+            AND (CAST(:idUtilisateurPortee AS integer) IS NULL OR EXISTS (
                 SELECT 1
                 FROM historique_activite hpu
                 JOIN statut spu ON spu.id_statut = hpu.id_statut
@@ -111,7 +111,7 @@ public final class SqlFragments {
             """;
 
     public static final String PORTEE_UTILISATEUR_PLAN = """
-            AND (:idUtilisateurPortee IS NULL OR EXISTS (
+            AND (CAST(:idUtilisateurPortee AS integer) IS NULL OR EXISTS (
                 SELECT 1
                 FROM avancement_plan_action apc
                 JOIN statut spc ON spc.id_statut = apc.id_statut

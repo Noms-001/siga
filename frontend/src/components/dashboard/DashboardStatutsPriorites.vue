@@ -61,7 +61,7 @@ function libellePriorite(code: string, libelle: string | null): string {
 }
 
 /* ---------------------------------------------------------------- */
-/*  Regroupement des lignes (statut, priorité) en barres empilées     */
+/*  Regroupement des lignes (statut, priorité) en barres groupées     */
 /* ---------------------------------------------------------------- */
 
 const barres = computed<Barre[]>(() => {
@@ -119,11 +119,15 @@ const legende = computed(() => {
 /* ---------------------------------------------------------------- */
 
 const HEIGHT = 320
-const PAD = { top: 28, right: 24, bottom: 78, left: 56 }
+const PAD = { top: 32, right: 24, bottom: 78, left: 56 }
 const INNER_H = HEIGHT - PAD.top - PAD.bottom
 
+// Largeur d'un groupe de statut (plus large qu'avant pour loger
+// plusieurs barres verticales côte à côte).
+const LARGEUR_GROUPE = 130
+
 const largeurTotale = computed(() =>
-    Math.max(520, barres.value.length * 96 + PAD.left + PAD.right)
+    Math.max(520, barres.value.length * LARGEUR_GROUPE + PAD.left + PAD.right)
 )
 
 const largeurInterne = computed(
@@ -148,34 +152,51 @@ const barresGeo = computed(() => {
         : largeurInterne.value / nombre
 
     return barres.value.map((barre, index) => {
-        const largeur = Math.min(56, slot * 0.55)
-        const centre = PAD.left + slot * (index + 0.5)
-        let cumul = 0
+        // Uniquement les priorités réellement présentes
+        const actifs = barre.segments.filter(s => s.nombre > 0)
+        const nbSegments = actifs.length
 
-        // Empilement vertical ancré sur la ligne de base : la priorité la
-        // plus faible en bas, la critique au sommet. On lit donc la barre
-        // de haut en bas dans l'ordre Critique → Haute → Normale → Faible.
-        const segments = [...barre.segments]
-            .filter(s => s.nombre > 0)
-            .reverse()
-            .map(s => {
-                const hauteur = (INNER_H * s.nombre) / yMax.value
-                const y = PAD.top + INNER_H - cumul - hauteur
-                cumul += hauteur
-                return {
-                    ...s,
-                    x: centre - largeur / 2,
-                    y,
-                    largeur,
-                    hauteur,
-                }
-            })
+        const centre = PAD.left + slot * (index + 0.5)
+
+        // Largeur d'une barre individuelle (cappée pour rester lisible
+        // même avec beaucoup de statuts ou de priorités).
+        const barWidth = nbSegments > 0
+            ? Math.min((slot * 0.65) / nbSegments, 26)
+            : 0
+        const gap = barWidth > 4 ? Math.min(2, barWidth * 0.18) : 0
+        const rectWidth = Math.max(0.5, barWidth - gap)
+        const groupWidth = barWidth * nbSegments
+        const groupLeft = centre - groupWidth / 2
+
+        // Disposition « de droite à gauche » :
+        //   CRITIQUE (i=0)      → position la plus à droite
+        //   SANS_PRIORITE (i=n) → position la plus à gauche
+        const segments = actifs.map((s, i) => {
+            const hauteur = (INNER_H * s.nombre) / yMax.value
+            const y = PAD.top + INNER_H - hauteur
+            const posFromLeft = nbSegments - 1 - i
+            const x = groupLeft + posFromLeft * barWidth + gap / 2
+            return {
+                ...s,
+                x,
+                y,
+                largeur: rectWidth,
+                hauteur,
+                // On affiche la valeur au-dessus de la barre si assez large
+                showLabel: rectWidth >= 12,
+            }
+        })
+
+        const maxHauteur = actifs.reduce(
+            (max, s) => Math.max(max, (INNER_H * s.nombre) / yMax.value),
+            0
+        )
 
         return {
             ...barre,
             centre,
             segments,
-            sommet: PAD.top + INNER_H - cumul,
+            sommet: PAD.top + INNER_H - maxHauteur,
             libelleCourt: tronquer(barre.libelle),
         }
     })
@@ -237,13 +258,23 @@ function py(valeur: number): number {
                             :y2="PAD.top + INNER_H" class="sp__axis-line" />
 
                         <g v-for="b in barresGeo" :key="b.code">
+                            <!-- Barres verticales individuelles, côte à côte -->
                             <rect v-for="s in b.segments" :key="s.code" :x="s.x" :y="s.y"
-                                :width="s.largeur" :height="s.hauteur" :fill="s.couleur" rx="3"
+                                :width="s.largeur" :height="s.hauteur" :fill="s.couleur" rx="1.5"
                                 class="sp__seg">
                                 <title>{{ b.libelle }} — {{ s.libelle }} : {{ s.nombre }}</title>
                             </rect>
 
-                            <text :x="b.centre" :y="b.sommet - 8" text-anchor="middle" class="sp__value">
+                            <!-- Valeur au-dessus de chaque barre -->
+                            <text v-for="s in b.segments" :key="'v-' + s.code"
+                                v-show="s.showLabel"
+                                :x="s.x + s.largeur / 2" :y="s.y - 3"
+                                text-anchor="middle" class="sp__seg-value">
+                                {{ s.nombre }}
+                            </text>
+
+                            <!-- Total au-dessus du groupe -->
+                            <text :x="b.centre" :y="b.sommet - 16" text-anchor="middle" class="sp__value">
                                 {{ b.total }}
                             </text>
                             <text :x="b.centre" :y="PAD.top + INNER_H + 20" text-anchor="middle"
@@ -355,13 +386,17 @@ function py(valeur: number): number {
 }
 
 .sp__seg {
-    stroke: var(--dts-surface);
-    stroke-width: 1;
     transition: opacity .15s ease;
 }
 
 .sp__seg:hover {
     opacity: 0.82;
+}
+
+.sp__seg-value {
+    fill: var(--dts-muted, #6b7280);
+    font-size: 9px;
+    font-weight: 600;
 }
 
 .sp__value {

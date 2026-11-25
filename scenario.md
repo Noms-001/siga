@@ -5,10 +5,10 @@
 
 | Personne | Poste | Email |
 |---|---|---|
-| Andry RAKOTOARISOA | Chef de département TSS | andry.rakotoarisoa@example.mg |
-| Tiana RAKOTONDRABE | Chef de service — Gestion des systèmes de sécurité | tiana.rakotondrabe@example.mg |
+| Andry RAKOTOARISOA | Chef de département TSS | nomenachristian04@gmail.com |
+| Tiana RAKOTONDRABE | Chef de service — Gestion des systèmes de sécurité | myahaintso@gmail.com |
 | Toky ANDRIAMBOLOLONA | Gestionnaire systèmes | toky.andriambololona@example.mg |
-| Haja RANDRIAMAMPIANINA | Superviseur installation | haja.randriamampianina@example.mg |
+| Haja RANDRIAMAMPIANINA | Superviseur installation | randrichris17@gmail.com |
 | Feno RAZANADRAKOTO | Superviseur installation | feno.razanadrakoto@example.mg |
 | Nantenaina RAKOTOMALALA | Technicien systèmes | nantenaina.rakotomalala@example.mg |
 | Solofo ANDRIANJAFY | Technicien systèmes | solofo.andrianjafy@example.mg |

@@ -434,9 +434,9 @@ function valider(): boolean {
     if (form.pta && !form.reference.trim()) erreurs.reference = 'La référence est obligatoire'
     if (!form.designation.trim()) erreurs.designation = 'La désignation est obligatoire'
 
-    if (form.sousActivites.length === 0 || !dateDebutCalculee.value) {
-        erreurs.sousActivites = "Au moins une sous-activité avec des dates prévues est requise pour déterminer la période de l'activité"
-    }
+    // if (form.sousActivites.length === 0 || !dateDebutCalculee.value) {
+    //     erreurs.sousActivites = "Au moins une sous-activité avec des dates prévues est requise pour déterminer la période de l'activité"
+    // }
 
     if (form.pta && form.idObjectifSpecifique === null) {
         erreurs.idObjectifSpecifique = 'Un objectif spécifique est requis pour une activité PTA'

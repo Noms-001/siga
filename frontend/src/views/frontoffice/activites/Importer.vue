@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { useRouter } from 'vue-router'
 import { BaseButton, BaseModal } from '@/components/base'
 import { listerServices } from '@/services/service'
 import { confirmerImport, validerImport } from '@/services/importActivite'
@@ -28,7 +29,6 @@ const CIBLE_LABELS: Record<ImportCible, string> = {
     SOUS_ACTIVITES: 'Sous-activités',
     RESULTATS_INTERMEDIAIRES: 'Résultats intermédiaires',
     INDICATEURS: 'Indicateurs',
-    ORIGINES: 'Origines',
 }
 
 const CIBLE_LIST: ImportCible[] = [
@@ -36,7 +36,6 @@ const CIBLE_LIST: ImportCible[] = [
     'SOUS_ACTIVITES',
     'RESULTATS_INTERMEDIAIRES',
     'INDICATEURS',
-    'ORIGINES',
 ]
 
 interface DestinationField {
@@ -110,9 +109,7 @@ const destinationFields: DestinationField[] = [
     { name: 'indicateurs[].seuilMin', label: 'Seuil minimum', mandatory: false, fill: false, category: 'Indicateur', cibles: ['ACTIVITES', 'INDICATEURS'] },
     { name: 'indicateurs[].seuilMax', label: 'Seuil maximum', mandatory: false, fill: false, category: 'Indicateur', cibles: ['ACTIVITES', 'INDICATEURS'] },
 
-    { name: 'origines[].designation', label: 'Désignation', mandatory: false, fill: false, category: 'Origine', cibles: ['ACTIVITES', 'ORIGINES'] },
-
-    { name: '_referenceActivite', label: 'Référence (activité)', mandatory: false, fill: true, category: 'Clé de jointure', cibles: ['ACTIVITES', 'SOUS_ACTIVITES', 'RESULTATS_INTERMEDIAIRES', 'INDICATEURS', 'ORIGINES'] },
+    { name: '_referenceActivite', label: 'Référence (activité)', mandatory: false, fill: true, category: 'Clé de jointure', cibles: ['ACTIVITES', 'SOUS_ACTIVITES', 'RESULTATS_INTERMEDIAIRES', 'INDICATEURS'] },
     { name: '_referenceSousActivite', label: 'Référence (sous-activité)', mandatory: false, fill: true, category: 'Clé de jointure', cibles: ['ACTIVITES'] },
 ]
 
@@ -125,7 +122,6 @@ const CATEGORY_CLASS: Record<string, string> = {
     'Livrable': 'livrable',
     'Résultat intermédiaire': 'resultat',
     'Indicateur': 'indicateur',
-    'Origine': 'origine',
     'Clé de jointure': 'cle',
 }
 
@@ -135,10 +131,25 @@ const ROLE_LABELS: Record<SheetRole, string> = {
     LIVRABLES: 'Livrables',
     RESULTATS_INTERMEDIAIRES: 'Résultats inter.',
     INDICATEURS: 'Indicateurs',
-    ORIGINES: 'Origines',
 }
 
 const MAX_HISTORY = 50
+const MODELE_IMPORT_URL = `${import.meta.env.BASE_URL}templates/modele_import_activites_v5.xlsx`
+
+const router = useRouter()
+
+function telechargerModele(): void {
+    const lien = document.createElement('a')
+    lien.href = MODELE_IMPORT_URL
+    lien.download = 'modele_import_activites_v5.xlsx'
+    document.body.appendChild(lien)
+    lien.click()
+    lien.remove()
+}
+
+function ouvrirImportModele(): void {
+    router.push({ name: 'activites-importer-modele' })
+}
 
 /* ============================================================
    ÉTAT
@@ -1344,7 +1355,6 @@ function preparePreview(
             if (p.level1 === 'sousActivites') continue
             if (p.level1 === 'resultatsIntermediaires') continue
             if (p.level1 === 'indicateurs') continue
-            if (p.level1 === 'origines') continue
             if (seen.has(m.field)) continue
             seen.add(m.field)
             fields.push(m.field)
@@ -1360,7 +1370,6 @@ function preparePreview(
         SOUS_ACTIVITES: 'sousActivites',
         RESULTATS_INTERMEDIAIRES: 'resultatsIntermediaires',
         INDICATEURS: 'indicateurs',
-        ORIGINES: 'origines',
     } as const)[config.value.cible as Exclude<ImportCible, 'ACTIVITES'>]
 
     const previewRows: Record<string, any>[] = []
@@ -1482,16 +1491,6 @@ function buildFinalJSON(): any {
                         indicateurs: a.indicateurs,
                     })),
             }
-        case 'ORIGINES':
-            return {
-                version: config.value.version.trim(),
-                activites: tree.activites
-                    .filter(a => a._referenceActivite && (a.origines?.length ?? 0) > 0)
-                    .map(a => ({
-                        reference: a._referenceActivite,
-                        origines: a.origines,
-                    })),
-            }
     }
 }
 
@@ -1591,6 +1590,14 @@ onBeforeUnmount(() => {
                 </p>
             </div>
             <div class="welcome-row__right">
+                <BaseButton variant="secondary" @click="telechargerModele">
+                    <i class="bi bi-download"></i>
+                    Télécharger le modèle
+                </BaseButton>
+                <BaseButton variant="secondary" @click="ouvrirImportModele">
+                    <i class="bi bi-file-earmark-excel"></i>
+                    Import depuis le modèle
+                </BaseButton>
                 <BaseButton v-if="fileName" variant="secondary" @click="resetAll">
                     <i class="bi bi-arrow-counterclockwise"></i>
                     Recommencer
@@ -2312,9 +2319,6 @@ onBeforeUnmount(() => {
                         </span>
                         <span v-else-if="config.cible === 'INDICATEURS'">
                             {{ importResult.indicateursCrees?.length ?? 0 }} indicateur(s) importé(s).
-                        </span>
-                        <span v-else-if="config.cible === 'ORIGINES'">
-                            {{ importResult.originesCreees?.length ?? 0 }} origine(s) importée(s).
                         </span>
                         <span v-if="importResult.statutInitial">Statut initial : {{ importResult.statutInitial }}</span>
                     </div>
@@ -3669,10 +3673,6 @@ onBeforeUnmount(() => {
 
 .mapping-row--indicateur td:first-child {
     box-shadow: inset 3px 0 0 0 var(--cyan);
-}
-
-.mapping-row--origine td:first-child {
-    box-shadow: inset 3px 0 0 0 var(--orange);
 }
 
 .mapping-row--cle td:first-child {

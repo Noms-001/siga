@@ -21,7 +21,6 @@ import mg.bank.backend.dto.importactivite.ErreurImportDTO;
 import mg.bank.backend.dto.importactivite.IndicateurImportReferenceDTO;
 import mg.bank.backend.dto.importactivite.LivrableImportDTO;
 import mg.bank.backend.dto.importactivite.ObjectifSpecifiqueImportReferenceDTO;
-import mg.bank.backend.dto.importactivite.OrigineImportReferenceDTO;
 import mg.bank.backend.dto.importactivite.RapportValidationDTO;
 import mg.bank.backend.dto.importactivite.ResultatIntermediaireImportDTO;
 import mg.bank.backend.dto.importactivite.SousActiviteImportDTO;
@@ -32,7 +31,6 @@ import mg.bank.backend.model.referentiel.Service;
 import mg.bank.backend.model.validation.Procedure;
 import mg.bank.backend.repository.activite.ActiviteRepository;
 import mg.bank.backend.repository.indicateur.IndicateurRepository;
-import mg.bank.backend.repository.origine.OrigineRepository;
 import mg.bank.backend.repository.referentiel.ObjectifSpecifiqueRepository;
 import mg.bank.backend.repository.referentiel.PrioriteRepository;
 import mg.bank.backend.repository.referentiel.ServiceRepository;
@@ -55,7 +53,6 @@ public class ActiviteImportValidator {
     private static final int LONGUEUR_MAX_DESIGNATION_SOUS = 255;
     private static final int LONGUEUR_MAX_DESIGNATION_LIVRABLE = 250;
     private static final int LONGUEUR_MAX_DESIGNATION_RESULTAT = 255;
-    private static final int LONGUEUR_MAX_DESIGNATION_ORIGINE = 255;
 
     private final ActiviteService activiteService;
     private final PorteeService porteeService;
@@ -68,7 +65,6 @@ public class ActiviteImportValidator {
     private final SiteRepository siteRepository;
     private final ObjectifSpecifiqueRepository objectifSpecifiqueRepository;
     private final IndicateurRepository indicateurRepository;
-    private final OrigineRepository origineRepository;
 
     @Transactional(readOnly = true)
     public RapportValidationDTO valider(ActiviteImportRequest request) {
@@ -346,9 +342,6 @@ public class ActiviteImportValidator {
 
         // --- Indicateurs ---
         validerIndicateurs(id, a.getIndicateurs(), erreurs, avertissements);
-
-        // --- Origines ---
-        validerOrigines(id, a.getOrigines(), erreurs, avertissements);
     }
 
     /**
@@ -589,7 +582,7 @@ public class ActiviteImportValidator {
     }
 
     /* ------------------------------------------------------------------ */
-    /* Indicateurs et origines                                             */
+    /* Indicateurs                                                         */
     /* ------------------------------------------------------------------ */
 
     private void validerIndicateurs(
@@ -631,55 +624,6 @@ public class ActiviteImportValidator {
                 erreurs.add(erreur(idActivite, "indicateurs[" + i + "].designation",
                         "Plusieurs indicateurs portent la désignation « "
                                 + ind.getDesignation() + " » : impossible de choisir."));
-            }
-        }
-    }
-
-    private void validerOrigines(
-            String idActivite,
-            List<OrigineImportReferenceDTO> origines,
-            List<ErreurImportDTO> erreurs,
-            List<AvertissementImportDTO> avertissements) {
-
-        if (origines == null) {
-            return;
-        }
-
-        Set<String> vus = new HashSet<>();
-        for (int i = 0; i < origines.size(); i++) {
-            OrigineImportReferenceDTO o = origines.get(i);
-            if (o == null) {
-                erreurs.add(erreur(idActivite, "origines[" + i + "]",
-                        "L'origine #" + (i + 1) + " est un objet null."));
-                continue;
-            }
-            if (estVide(o.getDesignation())) {
-                erreurs.add(erreur(idActivite, "origines[" + i + "].designation",
-                        "La désignation de l'origine #" + (i + 1) + " est obligatoire."));
-                continue;
-            }
-            if (o.getDesignation().length() > LONGUEUR_MAX_DESIGNATION_ORIGINE) {
-                erreurs.add(erreur(idActivite, "origines[" + i + "].designation",
-                        "La désignation de l'origine #" + (i + 1) + " dépasse "
-                                + LONGUEUR_MAX_DESIGNATION_ORIGINE + " caractères."));
-                continue;
-            }
-            String cle = o.getDesignation().trim().toLowerCase(Locale.ROOT);
-            if (!vus.add(cle)) {
-                erreurs.add(erreur(idActivite, "origines[" + i + "].designation",
-                        "L'origine « " + o.getDesignation()
-                                + " » est présente plusieurs fois sur la même activité."));
-                continue;
-            }
-            long n = origineRepository.countByDesignationIgnoreCase(o.getDesignation().trim());
-            if (n == 0) {
-                avertissements.add(avertissement(idActivite, "origines[" + i + "].designation",
-                        "L'origine « " + o.getDesignation()
-                                + " » sera créée automatiquement à l'import."));
-            } else if (n > 1) {
-                erreurs.add(erreur(idActivite, "origines[" + i + "].designation",
-                        "Plusieurs origines portent la désignation « "
-                                + o.getDesignation() + " » : impossible de choisir."));
             }
         }
     }

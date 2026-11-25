@@ -14,6 +14,7 @@ const pageBreadcrumbs: Record<string, string[]> = {
     activites: ['Espace de travail', 'Activités'],
     'activites-nouvelle': ['Espace de travail', 'Activités', 'Nouvelle activité'],
     'activites-importer': ['Espace de travail', 'Activités', 'Importer des activités'],
+    'activites-importer-modele': ['Espace de travail', 'Activités', 'Import depuis le modèle'],
     'activites-a-affecter': ['Espace de travail', 'Activités', 'Activités à affecter'],
     'activite-modifier': ['Espace de travail', 'Activités', 'Modifier une activité'],
     'activites-brouillons': ['Espace de travail', 'Activités', 'Activités créées'],

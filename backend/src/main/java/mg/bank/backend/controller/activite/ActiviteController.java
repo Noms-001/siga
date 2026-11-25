@@ -55,6 +55,9 @@ import mg.bank.backend.dto.validation.ValidationActiviteResponse;
 import mg.bank.backend.model.activite.Activite;
 import mg.bank.backend.model.validation.EtapeValidation;
 import mg.bank.backend.model.validation.ValidationActivite;
+import mg.bank.backend.security.PermissionAction;
+import mg.bank.backend.security.PermissionResource;
+import mg.bank.backend.security.RequirePermission;
 import mg.bank.backend.service.activite.ActiviteDetailService;
 import mg.bank.backend.service.activite.ActiviteEcritureService;
 import mg.bank.backend.service.activite.ActiviteExportService;
@@ -64,9 +67,6 @@ import mg.bank.backend.service.activite.LivrableEcritureService;
 import mg.bank.backend.service.validation.EtapeValidationService;
 import mg.bank.backend.service.validation.ValidationActiviteService;
 import mg.bank.backend.utils.FileNames;
-import mg.bank.backend.security.PermissionAction;
-import mg.bank.backend.security.PermissionResource;
-import mg.bank.backend.security.RequirePermission;
 
 @RestController
 @RequestMapping("/api/activites")
@@ -124,7 +124,6 @@ public class ActiviteController {
                 return ResponseEntity.ok(ApiResponse.success(resultat));
         }
 
-        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.EXPORTER)
         @GetMapping("/export")
         public ResponseEntity<ApiResponse<ActiviteExportResponse>> exporter(
                         @RequestParam(required = false) Boolean pta,
@@ -154,7 +153,6 @@ public class ActiviteController {
          * Meme jeu de filtres que la liste, meme perimetre : les cards ne peuvent
          * pas afficher de compteur incoherent avec le tableau.
          */
-        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.CONSULTER)
         @GetMapping("/statistiques")
         public ResponseEntity<ApiResponse<ActiviteStatistiquesDTO>> statistiques(
                         @RequestParam(required = false) Boolean pta,
@@ -180,7 +178,6 @@ public class ActiviteController {
                                 ApiResponse.success(activiteService.statistiques(filtres)));
         }
 
-        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.CONSULTER)
         @GetMapping("/a-demarrer")
         public ResponseEntity<ApiResponse<PageResponse<ActiviteListItemDTO>>> aDemarrer(
                         @RequestParam(required = false) Boolean pta,
@@ -214,7 +211,6 @@ public class ActiviteController {
          * Le tableau de services n'est renvoye qu'a un utilisateur de niveau
          * departement : un utilisateur rattache a un service n'a rien a choisir.
          */
-        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.CONSULTER)
         @GetMapping("/options")
         public ResponseEntity<ApiResponse<ActiviteOptionsDTO>> options() {
                 return ResponseEntity.ok(ApiResponse.success(activiteService.options()));
@@ -224,7 +220,6 @@ public class ActiviteController {
          * Autocomplete activite : code, reference ou designation.
          * Deja restreint au perimetre de l'utilisateur.
          */
-        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.CONSULTER)
         @GetMapping("/autocomplete")
         public ResponseEntity<ApiResponse<List<AutocompleteDTO>>> autocomplete(
                         @RequestParam(required = false) String q,
@@ -233,7 +228,6 @@ public class ActiviteController {
                                 ApiResponse.success(activiteService.autocompleterActivites(q, pta)));
         }
 
-        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.MODIFIER)
         @PostMapping("/{idActivite}/soumettre-validation")
         public ResponseEntity<ApiResponse<ValidationActiviteResponse>> soumettreValidation(
                         @PathVariable Integer idActivite,
@@ -244,8 +238,6 @@ public class ActiviteController {
                                 ApiResponse.success(new ValidationActiviteResponse(validationActivite, null)));
         }
 
-        @RequirePermission(ressource = PermissionResource.VALIDATION_ACTIVITE, action = PermissionAction.VALIDER)
-        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.VALIDER)
         @PostMapping("/{idActivite}/valider")
         public ResponseEntity<ApiResponse<ValidationActiviteResponse>> valider(
                         @PathVariable Integer idActivite,

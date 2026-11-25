@@ -7,7 +7,6 @@ export type ImportCible =
     | 'SOUS_ACTIVITES'
     | 'RESULTATS_INTERMEDIAIRES'
     | 'INDICATEURS'
-    | 'ORIGINES'
 
 /* --- Cible ACTIVITES (inchangée) --------------------------------------- */
 
@@ -33,7 +32,6 @@ export interface ActiviteImport {
     sousActivites?: SousActiviteImport[]
     resultatsIntermediaires?: { designation: string }[]
     indicateurs?: { designation: string }[]
-    origines?: { designation: string }[]
 }
 
 /* --- Cible SOUS_ACTIVITES ---------------------------------------------- */
@@ -91,22 +89,6 @@ export interface IndicateurImport {
     seuilMax?: number | null
 }
 
-/* --- Cible ORIGINES ----------------------------------------------------- */
-
-export interface OrigineImportRequest {
-    version: string
-    activites: ActiviteOriginesGroup[]
-}
-
-export interface ActiviteOriginesGroup {
-    reference: string
-    origines: OrigineImport[]
-}
-
-export interface OrigineImport {
-    designation: string
-}
-
 /* --- Éléments communs -------------------------------------------------- */
 
 export interface SousActiviteImport {
@@ -158,6 +140,5 @@ export interface ImportResult {
     nombreResultatsIntermediairesImportes: number
     codesGeneres: string[]
     indicateursCrees: string[]
-    originesCreees: string[]
     statutInitial: string | null
 }

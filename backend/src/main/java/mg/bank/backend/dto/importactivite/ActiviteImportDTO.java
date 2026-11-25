@@ -39,6 +39,4 @@ public class ActiviteImportDTO {
     private List<ResultatIntermediaireImportDTO> resultatsIntermediaires;
 
     private List<IndicateurImportReferenceDTO> indicateurs;
-
-    private List<OrigineImportReferenceDTO> origines;
 }

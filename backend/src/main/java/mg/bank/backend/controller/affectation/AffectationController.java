@@ -25,10 +25,10 @@ import mg.bank.backend.dto.affectation.UtilisateurAffectableDTO;
 import mg.bank.backend.dto.common.ActiviteFiltreCriteria;
 import mg.bank.backend.dto.common.ApiResponse;
 import mg.bank.backend.dto.common.PageResponse;
-import mg.bank.backend.service.affectation.AffectationService;
 import mg.bank.backend.security.PermissionAction;
 import mg.bank.backend.security.PermissionResource;
 import mg.bank.backend.security.RequirePermission;
+import mg.bank.backend.service.affectation.AffectationService;
 
 @RestController
 @RequestMapping("/api/activites/affectations")
@@ -38,8 +38,6 @@ public class AffectationController {
         private final AffectationService affectationService;
 
         /** F1 — liste des activites NON_COMMENCEE sans affectation active. */
-        @RequirePermission(ressource = PermissionResource.AFFECTATION_ACTIVITE, action = PermissionAction.CONSULTER)
-        @RequirePermission(ressource = PermissionResource.ACTIVITE, action = PermissionAction.CONSULTER)
         @GetMapping("/non-affectees")
         public ResponseEntity<ApiResponse<PageResponse<ActiviteListItemDTO>>> nonAffectees(
                         @RequestParam(required = false) Boolean pta,

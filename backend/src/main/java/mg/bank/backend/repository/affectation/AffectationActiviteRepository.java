@@ -112,9 +112,8 @@ public interface AffectationActiviteRepository
              COALESCE(av.avancement, 0)            AS avancement
       """
       + mg.bank.backend.repository.activite.ActiviteRepository.SELECT_BASE
-      + mg.bank.backend.repository.activite.ActiviteRepository.FILTRES
       + """
-          AND sta.code = 'NON_COMMENCEE'
+          AND (sta.code = 'NON_COMMENCEE' OR sta.code = 'VALIDEE')
           AND NOT EXISTS (
               SELECT 1 FROM affectation_activite aa
               JOIN role r ON r.id_role = aa.id_role
@@ -126,9 +125,8 @@ public interface AffectationActiviteRepository
           SELECT COUNT(*)
           """
           + mg.bank.backend.repository.activite.ActiviteRepository.SELECT_BASE
-          + mg.bank.backend.repository.activite.ActiviteRepository.FILTRES
           + """
-              AND sta.code = 'NON_COMMENCEE'
+              AND (sta.code = 'NON_COMMENCEE' OR sta.code = 'VALIDEE')
               AND NOT EXISTS (
                   SELECT 1 FROM affectation_activite aa
                   JOIN role r ON r.id_role = aa.id_role

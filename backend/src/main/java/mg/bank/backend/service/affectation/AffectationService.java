@@ -2,12 +2,10 @@ package mg.bank.backend.service.affectation;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.Comparator;
-
-import mg.bank.backend.dto.affectation.AffectationBatchRequest;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -40,7 +38,6 @@ import mg.bank.backend.repository.activite.ActiviteRepository;
 import mg.bank.backend.repository.activite.SousActiviteRepository;
 import mg.bank.backend.repository.affectation.AffectationActiviteRepository;
 import mg.bank.backend.repository.affectation.AffectationSousActiviteRepository;
-import mg.bank.backend.repository.projection.activite.ActiviteListRow;
 import mg.bank.backend.repository.projection.affectation.AffectationRow;
 import mg.bank.backend.repository.projection.common.StatutCourantRow;
 import mg.bank.backend.repository.utilisateur.RoleRepository;

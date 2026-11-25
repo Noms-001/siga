@@ -21,7 +21,6 @@ import mg.bank.backend.dto.importactivite.ActiviteImportRequest;
 import mg.bank.backend.dto.importactivite.IndicateurImportReferenceDTO;
 import mg.bank.backend.dto.importactivite.LivrableImportDTO;
 import mg.bank.backend.dto.importactivite.ObjectifSpecifiqueImportReferenceDTO;
-import mg.bank.backend.dto.importactivite.OrigineImportReferenceDTO;
 import mg.bank.backend.dto.importactivite.RapportValidationDTO;
 import mg.bank.backend.dto.importactivite.ResultatImportDTO;
 import mg.bank.backend.dto.importactivite.ResultatIntermediaireImportDTO;
@@ -34,7 +33,6 @@ import mg.bank.backend.model.activite.Livrable;
 import mg.bank.backend.model.activite.ResultatIntermediaire;
 import mg.bank.backend.model.activite.SousActivite;
 import mg.bank.backend.model.indicateur.Indicateur;
-import mg.bank.backend.model.origine.Origine;
 import mg.bank.backend.model.referentiel.ObjectifSpecifique;
 import mg.bank.backend.model.referentiel.Priorite;
 import mg.bank.backend.model.referentiel.Site;
@@ -46,7 +44,6 @@ import mg.bank.backend.repository.activite.LivrableRepository;
 import mg.bank.backend.repository.activite.ResultatIntermediaireRepository;
 import mg.bank.backend.repository.activite.SousActiviteRepository;
 import mg.bank.backend.repository.indicateur.IndicateurRepository;
-import mg.bank.backend.repository.origine.OrigineRepository;
 import mg.bank.backend.repository.referentiel.ObjectifSpecifiqueRepository;
 import mg.bank.backend.repository.referentiel.PrioriteRepository;
 import mg.bank.backend.repository.referentiel.ServiceRepository;
@@ -59,9 +56,6 @@ import mg.bank.backend.service.activite.CodeActiviteService;
 @Service
 @RequiredArgsConstructor
 public class ActiviteImportService {
-
-    /** Type d'origine attribue aux origines creees a l'import. */
-    private static final String TYPE_ORIGINE_IMPORT = "IMPORT";
 
     /** Commentaire de la premiere entree d'historique. */
     private static final String COMMENTAIRE_HISTORIQUE_INITIAL = "Import initial";
@@ -77,7 +71,6 @@ public class ActiviteImportService {
     private final SiteRepository siteRepository;
     private final ObjectifSpecifiqueRepository objectifSpecifiqueRepository;
     private final IndicateurRepository indicateurRepository;
-    private final OrigineRepository origineRepository;
 
     private final ActiviteService activiteService;
     private final CodeActiviteService codeActiviteService;
@@ -124,11 +117,9 @@ public class ActiviteImportService {
         Map<String, ObjectifSpecifique> objectifsCache = new HashMap<>();
         Map<String, TypeActivite> typeActiviteCache = new HashMap<>();
         Map<String, Indicateur> indicateursCache = new HashMap<>();
-        Map<String, Origine> originesCache = new HashMap<>();
 
         List<String> codesGeneres = new ArrayList<>();
         List<String> indicateursCrees = new ArrayList<>();
-        List<String> originesCreees = new ArrayList<>();
 
         int nbActivites = 0;
         int nbSousActivites = 0;
@@ -268,14 +259,6 @@ public class ActiviteImportService {
                 }
             }
 
-            // 4.f - Origines
-            if (dto.getOrigines() != null) {
-                for (OrigineImportReferenceDTO oDto : dto.getOrigines()) {
-                    Origine o = resoudreOuCreerOrigine(
-                            oDto.getDesignation(), utilisateur, originesCreees, originesCache);
-                    activiteRepository.lierOrigine(activite.getIdActivite(), o.getIdOrigine());
-                }
-            }
         }
 
         // 5. Resultat.
@@ -287,7 +270,7 @@ public class ActiviteImportService {
                 .nombreResultatsIntermediairesImportes(nbResultats)
                 .codesGeneres(codesGeneres)
                 .indicateursCrees(indicateursCrees)
-                .originesCreees(originesCreees)
+                .originesCreees(List.of())
                 .statutInitial(codeStatutInitial)
                 .build();
     }
@@ -333,18 +316,6 @@ public class ActiviteImportService {
         while (indicateurRepository.existsByCodeIgnoreCase(code)) {
             n++;
             code = "IND-" + n;
-        }
-        return code;
-    }
-
-    /** Idem pour les origines. */
-    private String genererCodeOrigine(int offset) {
-        long base = origineRepository.count();
-        int n = (int) base + 1 + offset;
-        String code = "ORI-" + n;
-        while (origineRepository.existsByCodeIgnoreCase(code)) {
-            n++;
-            code = "ORI-" + n;
         }
         return code;
     }
@@ -521,7 +492,7 @@ public class ActiviteImportService {
     }
 
     // ------------------------------------------------------------------
-    // Indicateurs et origines : reutilisation ou creation
+    // Indicateurs : reutilisation ou creation
     // ------------------------------------------------------------------
 
     // --- Signature modifiée ---
@@ -579,54 +550,4 @@ public class ActiviteImportService {
         return s == null || s.isBlank() ? null : s.trim();
     }
 
-    /**
-     * Resout une origine par sa designation, en la creant si elle est absente.
-     *
-     * <p>
-     * <b>Cache local</b> : meme raison que pour les indicateurs.
-     * </p>
-     */
-    private Origine resoudreOuCreerOrigine(
-            String designation,
-            Utilisateur utilisateur,
-            List<String> crees,
-            Map<String, Origine> cache) {
-
-        String d = designation.trim();
-        String cleCache = d.toLowerCase(Locale.ROOT);
-
-        // 0. Deja resolu dans CET import ?
-        Origine dejaVu = cache.get(cleCache);
-        if (dejaVu != null) {
-            return dejaVu;
-        }
-
-        // 1. Deja en base ?
-        Optional<Origine> existant = origineRepository.findByDesignationIgnoreCase(d);
-        if (existant.isPresent()) {
-            cache.put(cleCache, existant.get());
-            return existant.get();
-        }
-
-        // 2. Sinon, creation.
-        try {
-            String code = genererCodeOrigine(crees.size());
-            Origine cree = origineRepository.saveAndFlush(Origine.builder()
-                    .code(code)
-                    .designation(d)
-                    .typeOrigine(TYPE_ORIGINE_IMPORT)
-                    .utilisateur(utilisateur)
-                    .build());
-            crees.add(code);
-            cache.put(cleCache, cree);
-            return cree;
-        } catch (DataIntegrityViolationException e) {
-            Origine recupere = origineRepository.findByDesignationIgnoreCase(d)
-                    .orElseThrow(() -> new ApiException(
-                            "Impossible de créer l'origine « " + d + " ».",
-                            HttpStatus.INTERNAL_SERVER_ERROR));
-            cache.put(cleCache, recupere);
-            return recupere;
-        }
-    }
 }

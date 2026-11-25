@@ -198,8 +198,6 @@ WHERE NOT EXISTS (
       AND LOWER(a.code) = LOWER(d.code)
 );
 
--- Recalibre uniquement les dates des activités DEMO déjà présentes lors d'une
--- réexécution. Aucune activité hors préfixe DEMO n'est modifiée.
 UPDATE activite a
 SET date_debut_prevue = d.debut_prevu,
     date_fin_prevue = d.fin_prevue,
@@ -223,7 +221,7 @@ SELECT d.*,
                (SELECT u.id_utilisateur
                 FROM utilisateur u
                 WHERE u.email = CASE d.numero % 4
-                    WHEN 0 THEN 'haja.randriamampianina@example.mg'
+                    WHEN 0 THEN 'randrichris17@gmail.com'
                     WHEN 1 THEN 'toky.andriambololona@example.mg'
                     WHEN 2 THEN 'nantenaina.rakotomalala@example.mg'
                     ELSE 'feno.razanadrakoto@example.mg' END)
@@ -463,7 +461,7 @@ SELECT o.code,
        'Origine fictive créée pour les états de démonstration SAGA.',
        u.id_utilisateur
 FROM demo_origine_seed o
-JOIN utilisateur u ON u.email = 'andry.rakotoarisoa@example.mg'
+JOIN utilisateur u ON u.email = 'nomenachristian04@gmail.com'
 WHERE NOT EXISTS (SELECT 1 FROM origine old WHERE old.code = o.code);
 
 CREATE TEMP TABLE demo_origine ON COMMIT DROP AS

@@ -1,10 +1,6 @@
 /* ============================================================
    src/utils/importTree.ts
    Fusion générique des feuilles Excel en un arbre d'import.
-   Remplace : findSheetRoles, buildActivityFromRow, groupByReference,
-              buildSousActiviteFromRow, buildResultatIntermediaireFromRow,
-              buildIndicateurFromRow, buildOrigineFromRow, parseField,
-              DATE_LEAVES, et toute la logique métier de validateMapping.
    ============================================================ */
 
 import type { ImportCible } from '@/types/importActivite'
@@ -19,7 +15,6 @@ export type SheetRole =
     | 'LIVRABLES'
     | 'RESULTATS_INTERMEDIAIRES'
     | 'INDICATEURS'
-    | 'ORIGINES'
 
 export interface MappedFieldInput {
     sheet: string
@@ -31,6 +26,8 @@ export interface SheetAnalysis {
     roles: Set<SheetRole>
     hasActiviteRef: boolean
     hasSousActiviteRef: boolean
+    /** Vrai si la feuille porte la colonne « sousActivites[].designation » (désignation SA). */
+    hasSousActiviteDesignation: boolean
 }
 
 export interface ParsedField {
@@ -65,14 +62,15 @@ const CIBLE_TO_LEVEL: Record<Exclude<ImportCible, 'ACTIVITES'>, string> = {
     SOUS_ACTIVITES: 'sousActivites',
     RESULTATS_INTERMEDIAIRES: 'resultatsIntermediaires',
     INDICATEURS: 'indicateurs',
-    ORIGINES: 'origines',
 }
 
-const COLLECTION_KEY: Record<Exclude<ImportCible, 'ACTIVITES'>, 'resultatsIntermediaires' | 'indicateurs' | 'origines' | 'sousActivites'> = {
+const COLLECTION_KEY: Record<
+    Exclude<ImportCible, 'ACTIVITES'>,
+    'resultatsIntermediaires' | 'indicateurs' | 'sousActivites'
+> = {
     SOUS_ACTIVITES: 'sousActivites',
     RESULTATS_INTERMEDIAIRES: 'resultatsIntermediaires',
     INDICATEURS: 'indicateurs',
-    ORIGINES: 'origines',
 }
 
 /* ============================================================
@@ -135,7 +133,6 @@ function hasActivityFields(row: Record<string, any>): boolean {
         if (p.level1 === 'sousActivites') continue
         if (p.level1 === 'resultatsIntermediaires') continue
         if (p.level1 === 'indicateurs') continue
-        if (p.level1 === 'origines') continue
         return true
     }
     return false
@@ -145,6 +142,28 @@ function hasSAFields(row: Record<string, any>): boolean {
     for (const [k, v] of Object.entries(row)) {
         if (isEmpty(v)) continue
         if (parseField(k).level1 === 'sousActivites') return true
+    }
+    return false
+}
+
+/** Vrai si la ligne porte au moins un champ SA « direct » (non livrable). */
+function isSARow(row: Record<string, any>): boolean {
+    for (const [k, v] of Object.entries(row)) {
+        if (isEmpty(v)) continue
+        const p = parseField(k)
+        if (p.level1 !== 'sousActivites') continue
+        if (p.isArray2) continue
+        return true
+    }
+    return false
+}
+
+/** Vrai si la ligne porte au moins un champ livrable. */
+function isLivrableRow(row: Record<string, any>): boolean {
+    for (const [k, v] of Object.entries(row)) {
+        if (isEmpty(v)) continue
+        const p = parseField(k)
+        if (p.level1 === 'sousActivites' && p.isArray2 && p.level2 === 'livrables') return true
     }
     return false
 }
@@ -168,7 +187,13 @@ export function analyzeSheets(mapped: MappedFieldInput[]): Map<string, SheetAnal
     const get = (sheet: string): SheetAnalysis => {
         let a = out.get(sheet)
         if (!a) {
-            a = { sheet, roles: new Set(), hasActiviteRef: false, hasSousActiviteRef: false }
+            a = {
+                sheet,
+                roles: new Set(),
+                hasActiviteRef: false,
+                hasSousActiviteRef: false,
+                hasSousActiviteDesignation: false,
+            }
             out.set(sheet, a)
         }
         return a
@@ -182,14 +207,18 @@ export function analyzeSheets(mapped: MappedFieldInput[]): Map<string, SheetAnal
         if (m.field.startsWith('_')) continue
 
         const p = parseField(m.field)
+
+        // Info : feuille porteuse de la désignation SA
+        if (p.level1 === 'sousActivites' && p.level2 === 'designation' && !p.isArray2) {
+            a.hasSousActiviteDesignation = true
+        }
+
         switch (p.level1) {
             case 'sousActivites':
                 a.roles.add(p.level2 === 'livrables' ? 'LIVRABLES' : 'SOUS_ACTIVITES')
                 break
             case 'resultatsIntermediaires': a.roles.add('RESULTATS_INTERMEDIAIRES'); break
             case 'indicateurs': a.roles.add('INDICATEURS'); break
-            case 'origines': a.roles.add('ORIGINES'); break
-            case 'objectifSpecifique': a.roles.add('ACTIVITES'); break
             default:
                 if (p.simple) a.roles.add('ACTIVITES')
         }
@@ -213,7 +242,6 @@ interface WorkingActivity {
     sousActivites: WorkingSA[]
     resultatsIntermediaires: Record<string, any>[]
     indicateurs: Record<string, any>[]
-    origines: Record<string, any>[]
 }
 
 function makeActivity(ref: string): WorkingActivity {
@@ -224,7 +252,6 @@ function makeActivity(ref: string): WorkingActivity {
         sousActivites: [],
         resultatsIntermediaires: [],
         indicateurs: [],
-        origines: [],
     }
 }
 
@@ -242,7 +269,6 @@ function mergeActivityRow(a: WorkingActivity, row: Record<string, any>, errors: 
         if (p.level1 === 'sousActivites') continue
         if (p.level1 === 'resultatsIntermediaires') continue
         if (p.level1 === 'indicateurs') continue
-        if (p.level1 === 'origines') continue
 
         const value = DATE_LEAVES.has(p.leaf) ? safeDate(v, sheet, errors, k) : v
 
@@ -261,6 +287,7 @@ function mergeActivityRow(a: WorkingActivity, row: Record<string, any>, errors: 
 
 /* ============================================================
    MERGE D'UNE LIGNE DANS UNE SOUS-ACTIVITÉ
+   (gère aussi les livrables sur la même ligne)
    ============================================================ */
 function mergeSousActiviteRow(sa: WorkingSA, row: Record<string, any>, errors: string[], sheet: string): void {
     const livrable: Record<string, any> = {}
@@ -288,7 +315,7 @@ function mergeSousActiviteRow(sa: WorkingSA, row: Record<string, any>, errors: s
 }
 
 /* ============================================================
-   COLLECTIONS (résultats, indicateurs, origines)
+   COLLECTIONS (résultats, indicateurs)
    ============================================================ */
 function buildCollectionItemFromRow(
     row: Record<string, any>,
@@ -307,11 +334,15 @@ function buildCollectionItemFromRow(
     return Object.keys(item).length ? item : null
 }
 
-function pushCollectionsFromRow(a: WorkingActivity, row: Record<string, any>, errors: string[], sheet: string): void {
+function pushCollectionsFromRow(
+    a: WorkingActivity,
+    row: Record<string, any>,
+    errors: string[],
+    sheet: string,
+): void {
     const kinds = [
         { level: 'resultatsIntermediaires', key: 'resultatsIntermediaires' as const },
         { level: 'indicateurs', key: 'indicateurs' as const },
-        { level: 'origines', key: 'origines' as const },
     ]
     for (const { level, key } of kinds) {
         if (!rowHasLevel(row, level)) continue
@@ -338,7 +369,6 @@ function resolveParentRef(
         }
         return ref
     }
-    // Pas de ref explicite : fallback si une seule activité
     if (activityMap.size === 1) return [...activityMap.keys()][0]!
     errors.push(
         `Feuille « ${sheet} » : impossible de déterminer l'activité parente pour une sous-activité. Mappez « Référence (activité) » ou n'ayez qu'une seule activité.`
@@ -362,7 +392,6 @@ function serializeActivity(a: WorkingActivity): Record<string, any> {
     }
     if (a.resultatsIntermediaires.length) obj.resultatsIntermediaires = a.resultatsIntermediaires
     if (a.indicateurs.length) obj.indicateurs = a.indicateurs
-    if (a.origines.length) obj.origines = a.origines
     return obj
 }
 
@@ -376,6 +405,8 @@ export function buildImportTree(input: BuildTreeInput): ImportTreeResult {
     const warnings: string[] = []
 
     const activityMap = new Map<string, WorkingActivity>()
+    /** Index des sous-activités construites, clé = _referenceSousActivite (pour rattacher les livrables autonomes). */
+    const saByRef = new Map<string, WorkingSA>()
     let autoSeq = 0
     const nextAutoRef = () => `__auto_${++autoSeq}`
     const ensureActivity = (ref: string): WorkingActivity => {
@@ -415,15 +446,16 @@ export function buildImportTree(input: BuildTreeInput): ImportTreeResult {
         }
     }
 
-    // 1b. Sous-activités
+    // 1b. Sous-activités — feuilles portant le rôle SOUS_ACTIVITES
     for (const [sheet, sa] of analysis.entries()) {
+        if (!sa.roles.has('SOUS_ACTIVITES')) continue
         if (!sa.hasActiviteRef && !sa.hasSousActiviteRef) continue
-        if (!sa.roles.has('SOUS_ACTIVITES') && !sa.roles.has('LIVRABLES')) continue
-        const rows = (rowsBySheet.get(sheet) ?? []).filter(hasSAFields)
+        // On ne garde que les lignes qui portent réellement un champ SA « direct »
+        // (les lignes livrable-only d'une feuille mixte seront traitées en 1b-bis)
+        const rows = (rowsBySheet.get(sheet) ?? []).filter(isSARow)
         if (!rows.length) continue
 
         if (sa.hasSousActiviteRef) {
-            // Group by SA ref, parent determined per-group via refAct
             for (const [saRef, groupRows] of groupByField(rows, '_referenceSousActivite')) {
                 const parentRef = resolveParentRef(groupRows, activityMap, sheet, errors)
                 if (!parentRef) continue
@@ -431,9 +463,9 @@ export function buildImportTree(input: BuildTreeInput): ImportTreeResult {
                 const saNode = makeSA(saRef)
                 for (const row of groupRows) mergeSousActiviteRow(saNode, row, errors, sheet)
                 parent.sousActivites.push(saNode)
+                if (saRef && !saByRef.has(saRef)) saByRef.set(saRef, saNode)
             }
         } else {
-            // Only refAct: each row = 1 SA
             for (const row of rows) {
                 const parentRef = String(row['_referenceActivite'] ?? '').trim()
                 const parent = activityMap.get(parentRef)
@@ -448,16 +480,59 @@ export function buildImportTree(input: BuildTreeInput): ImportTreeResult {
         }
     }
 
-    // 1c. Collections
-    const collectionKinds: { role: SheetRole; key: 'resultatsIntermediaires' | 'indicateurs' | 'origines' }[] = [
+    // 1b-bis. Livrables autonomes (feuille dédiée, jointure par Code SA)
+    // Uniquement les lignes livrable-only (une ligne mixte SA+livrable est déjà
+    // traitée en 1b, il ne faut pas dupliquer le livrable).
+    for (const [sheet, sa] of analysis.entries()) {
+        if (!sa.roles.has('LIVRABLES')) continue
+        const rows = (rowsBySheet.get(sheet) ?? []).filter(r => isLivrableRow(r) && !isSARow(r))
+        if (!rows.length) continue
+
+        if (!sa.hasSousActiviteRef) {
+            errors.push(
+                `Feuille « ${sheet} » : livrables sur lignes séparées sans « Référence (sous-activité) ». Mappez cette colonne pour joindre chaque livrable à sa sous-activité.`
+            )
+            continue
+        }
+
+        for (const row of rows) {
+            const saRef = String(row['_referenceSousActivite'] ?? '').trim()
+            if (!saRef) continue
+            const saNode = saByRef.get(saRef)
+            if (!saNode) {
+                errors.push(`Feuille « ${sheet} » : sous-activité « ${saRef} » introuvable pour ce livrable.`)
+                continue
+            }
+            const livrable: Record<string, any> = {}
+            for (const [k, v] of Object.entries(row)) {
+                if (isEmpty(v) || k.startsWith('_')) continue
+                const p = parseField(k)
+                if (p.level1 === 'sousActivites' && p.isArray2 && p.level2 === 'livrables') {
+                    livrable[p.level3 ?? ''] = DATE_LEAVES.has(p.leaf) ? safeDate(v, sheet, errors, k) : v
+                }
+            }
+            if (Object.keys(livrable).length > 0) saNode.livrables.push(livrable)
+        }
+    }
+
+    // 1c. Collections (résultats, indicateurs)
+    const collectionKinds: { role: SheetRole; key: 'resultatsIntermediaires' | 'indicateurs' }[] = [
         { role: 'RESULTATS_INTERMEDIAIRES', key: 'resultatsIntermediaires' },
         { role: 'INDICATEURS', key: 'indicateurs' },
-        { role: 'ORIGINES', key: 'origines' },
     ]
     for (const { role, key } of collectionKinds) {
         for (const [sheet, sa] of analysis.entries()) {
             if (!sa.roles.has(role)) continue
-            const rows = (rowsBySheet.get(sheet) ?? []).filter(r => rowHasLevel(r, CIBLE_TO_LEVEL[role as Exclude<ImportCible, 'ACTIVITES'>]))
+
+            // Une feuille unique d'import des activités peut contenir
+            // les activités et leurs collections sur les mêmes lignes.
+            // La PHASE 2 se chargera de construire l'arbre complet.
+            if (cible === 'ACTIVITES' && !sa.hasActiviteRef) {
+                continue
+            }
+            const rows = (rowsBySheet.get(sheet) ?? []).filter(r =>
+                rowHasLevel(r, CIBLE_TO_LEVEL[role as Exclude<ImportCible, 'ACTIVITES'>]),
+            )
             if (!rows.length) continue
 
             if (sa.hasActiviteRef) {
@@ -469,19 +544,14 @@ export function buildImportTree(input: BuildTreeInput): ImportTreeResult {
                         continue
                     }
                     for (const row of groupRows) {
-                        const level = role === 'RESULTATS_INTERMEDIAIRES' ? 'resultatsIntermediaires'
-                            : role === 'INDICATEURS' ? 'indicateurs' : 'origines'
-                        const item = buildCollectionItemFromRow(row, level, errors, sheet)
+                        const item = buildCollectionItemFromRow(row, key, errors, sheet)
                         if (item) (parent[key] as any[]).push(item)
                     }
                 }
             } else if (activityMap.size === 1) {
-                // Fallback single activity
                 const parent = [...activityMap.values()][0]!
                 for (const row of rows) {
-                    const level = role === 'RESULTATS_INTERMEDIAIRES' ? 'resultatsIntermediaires'
-                        : role === 'INDICATEURS' ? 'indicateurs' : 'origines'
-                    const item = buildCollectionItemFromRow(row, level, errors, sheet)
+                    const item = buildCollectionItemFromRow(row, key, errors, sheet)
                     if (item) (parent[key] as any[]).push(item)
                 }
             } else {
@@ -510,7 +580,6 @@ export function buildImportTree(input: BuildTreeInput): ImportTreeResult {
                 }
                 pushCollectionsFromRow(a, row, errors, sheet)
             } else {
-                // Cibles non-ACTIVITES : besoin d'une activité unique existante
                 if (activityMap.size !== 1) {
                     errors.push(
                         `Feuille « ${sheet} » : impossible de rattacher la ligne à une activité (${cible}). Mappez « Référence (activité) ».`

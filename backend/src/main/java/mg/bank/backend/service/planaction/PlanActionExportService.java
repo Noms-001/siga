@@ -54,15 +54,21 @@ public class PlanActionExportService {
         Utilisateur utilisateur = currentUserService.get();
         PerimetreUtilisateur perimetre = currentUserService.getPerimetre();
 
-        if (perimetre.estSansPerimetre()) {
+        boolean porteeTous = perimetre.estPorteeTous();
+        boolean perimetreIndisponible = !porteeTous
+                && !perimetre.estRattacheService()
+                && !perimetre.estNiveauDepartement()
+                && perimetre.getIdUtilisateurPortee() == null;
+
+        if (perimetreIndisponible) {
             throw new ApiException("Périmètre utilisateur indisponible pour l'export", HttpStatus.FORBIDDEN);
         }
 
-        Departement departement = utilisateur.getDepartement();
+        Departement departement = porteeTous ? null : utilisateur.getDepartement();
         Integer serviceDemande = resoudreServiceDemande(
-                filtres == null ? null : filtres.getServiceId(), perimetre, departement);
-        Integer servicePerimetre = perimetre.estRattacheService() ? perimetre.getIdService() : null;
-        Integer departementPerimetre = perimetre.estNiveauDepartement() ? perimetre.getIdDepartement() : null;
+                filtres == null ? null : filtres.getServiceId(), perimetre);
+        Integer servicePerimetre = perimetre.getFiltreService();
+        Integer departementPerimetre = perimetre.getFiltreDepartement();
 
         String statutCode = filtres == null || estVide(filtres.getStatut()) ? null : filtres.getStatut().trim();
         String statutsParDefaut = statutCode == null ? STATUTS_ACTIFS_CSV : null;
@@ -170,7 +176,11 @@ public class PlanActionExportService {
                         .map(mg.bank.backend.model.referentiel.Service::getNom)
                         .orElse(null);
 
-        List<ServiceExportDTO> services = services(serviceDemande, serviceNom, departement, lignes);
+        List<ServiceExportDTO> services = services(
+                serviceDemande,
+                serviceNom,
+                perimetre.estNiveauDepartement() ? departement : null,
+                lignes);
         Integer annee = filtres != null && filtres.getAnnee() != null
                 ? filtres.getAnnee()
                 : LocalDate.now().getYear();
@@ -190,19 +200,20 @@ public class PlanActionExportService {
 
     private Integer resoudreServiceDemande(
             Integer serviceIdDemande,
-            PerimetreUtilisateur perimetre,
-            Departement departement) {
+            PerimetreUtilisateur perimetre) {
 
         if (perimetre.estRattacheService()) {
             return perimetre.getIdService();
         }
 
         if (perimetre.estNiveauDepartement() && serviceIdDemande != null) {
-            boolean appartient = serviceRepository.findById(serviceIdDemande)
-                    .map(service -> service.getDepartement() != null
-                            && service.getDepartement().getIdDepartement() != null
-                            && service.getDepartement().getIdDepartement().equals(departement.getIdDepartement()))
-                    .orElse(false);
+            Integer idDepartement = perimetre.getIdDepartement();
+            boolean appartient = idDepartement != null
+                    && serviceRepository.findById(serviceIdDemande)
+                            .map(service -> service.getDepartement() != null
+                                    && idDepartement.equals(
+                                            service.getDepartement().getIdDepartement()))
+                            .orElse(false);
             if (!appartient) {
                 throw new ApiException("Service hors de votre périmètre", HttpStatus.FORBIDDEN);
             }

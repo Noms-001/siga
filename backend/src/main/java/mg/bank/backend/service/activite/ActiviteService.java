@@ -172,11 +172,15 @@ public class ActiviteService {
                 for (EtapeValidation etape : etapes) {
                         resultat.put(etape, new ArrayList<>());
                 }
+                System.out.println("ID POSTE : " + poste.getIdPoste());
+
+                etapes.forEach(e -> System.out.println(
+                "ETAPE : " + e.getDesignation()
+                + " | ID : " + e.getIdEtapeValidation()
+                ));
                 for (ValidationActivite v : enAttente) {
                         EtapeValidation etape = etapesParId.get(v.getEtapeValidation().getIdEtapeValidation());
-                        if (etape != null && porteeService.activiteAccessible(v.getActivite().getIdActivite())) {
-                                resultat.get(etape).add(v.getActivite());
-                        }
+                        resultat.get(etape).add(v.getActivite());
                 }
                 return resultat;
         }
@@ -267,6 +271,19 @@ public class ActiviteService {
                                                 + " » a été soumise à validation.");
                 notificationService.notifierEtape(activite, prochaineEtape, "Activité en attente de validation",
                                 "L'activité « " + activite.getDesignation() + " » est en attente de votre validation.");
+                
+                System.out.println("test");
+
+                changerStatut(
+                        activite,
+                        statutRepository.findByCode(StatutsActivite.EN_ATTENTE_VALIDATION)
+                        .orElseThrow(() -> new ApiException(
+                                "Statut EN_ATTENTE_VALIDATION introuvable",
+                                HttpStatus.INTERNAL_SERVER_ERROR)),
+                        utilisateur,
+                        commentaire
+                );
+
                 return soumise;
         }
 
@@ -336,6 +353,11 @@ public class ActiviteService {
                                 changerStatut(activite, statutRepository.findByCode(StatutsActivite.VALIDEE)
                                                 .orElseThrow(() -> new ApiException(
                                                                 "Statut VALIDEE introuvable",
+                                                                HttpStatus.INTERNAL_SERVER_ERROR)),
+                                                utilisateur, commentaire);
+                                changerStatut(activite, statutRepository.findByCode(StatutsActivite.NON_COMMENCEE)
+                                                .orElseThrow(() -> new ApiException(
+                                                                "Statut NON_COMMENCEE introuvable",
                                                                 HttpStatus.INTERNAL_SERVER_ERROR)),
                                                 utilisateur, commentaire);
                         } else {
@@ -655,9 +677,7 @@ public class ActiviteService {
                                                 .id(r.getId())
                                                 .code(r.getCode())
                                                 .libelle(r.getLibelle())
-                                                // La requete selectionne deja la designation du type
-                                                // d activite : sans elle, deux activites de meme
-                                                // prefixe de code seraient impossibles a distinguer.
+
                                                 .libelleSecondaire(r.getLibelleSecondaire())
                                                 .build())
                                 .toList();

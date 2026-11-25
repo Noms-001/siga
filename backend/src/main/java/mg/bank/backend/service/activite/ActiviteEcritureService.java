@@ -575,9 +575,13 @@ public class ActiviteEcritureService {
                 }
 
                 if (idServiceRecu == null) {
-                        throw new ApiException(
-                                        "Le service est obligatoire",
-                                        HttpStatus.BAD_REQUEST);
+                        idServiceRecu = currentUserService.get().getService().getIdService();
+                        System.out.println(idServiceRecu);
+                        if (idServiceRecu == null) {
+                                throw new ApiException(
+                                                "Le service est obligatoire",
+                                                HttpStatus.BAD_REQUEST);
+                        }
                 }
 
                 mg.bank.backend.model.referentiel.Service service = serviceRepository.findById(idServiceRecu)

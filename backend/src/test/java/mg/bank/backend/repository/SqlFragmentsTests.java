@@ -14,9 +14,21 @@ class SqlFragmentsTests {
     }
 
     @Test
+    void laPorteeUtilisateurTypeLeParametreUtiliseDansIsNull() {
+        assertTrue(SqlFragments.PORTEE_UTILISATEUR
+                .contains("CAST(:idUtilisateurPortee AS integer) IS NULL"));
+    }
+
+    @Test
     void laPorteeUtilisateurPlanConserveUnLitteralBrouillonValide() {
         assertTrue(SqlFragments.PORTEE_UTILISATEUR_PLAN.contains("spc.code = 'BROUILLON'"));
         assertFalse(SqlFragments.PORTEE_UTILISATEUR_PLAN.contains("BROUILLONAND"));
+    }
+
+    @Test
+    void laPorteeUtilisateurPlanTypeLeParametreUtiliseDansIsNull() {
+        assertTrue(SqlFragments.PORTEE_UTILISATEUR_PLAN
+                .contains("CAST(:idUtilisateurPortee AS integer) IS NULL"));
     }
 
     @Test

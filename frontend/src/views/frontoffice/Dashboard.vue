@@ -11,7 +11,9 @@ import DashboardPlansAction from '@/components/dashboard/DashboardPlansAction.vu
 import DashboardPlansActionOrigine from '@/components/dashboard/DashboardPlansActionOrigine.vue'
 import DashboardTypesActivite from '@/components/dashboard/DashboardTypesActivite.vue'
 import DashboardPeriodeFilter from '@/components/dashboard/DashboardPeriodeFilter.vue'
+import { BaseButton } from '@/components/base'
 import { useDashboardPeriode } from '@/composables/useDashboardPeriode'
+import { useToastMessage } from '@/composables/useToast'
 import {
     getDashboardAvancement,
     getDashboardEcheances,
@@ -38,11 +40,15 @@ import type {
 } from '@/types/dashboard'
 import { getSuiviGlobalPlanAction } from '@/services/planaction'
 import type { SuiviGlobalPlanAction } from '@/types/planaction'
+import type { DonneesExportDashboard } from '@/utils/exportDashboard'
 import { useRouter } from 'vue-router'
 
 /* -------------------- filtre temporel global -------------------- */
 
 const router = useRouter()
+const erreurToast = useToastMessage('error')
+const succesToast = useToastMessage('success')
+const exportEnCours = ref(false)
 
 const dateDuJour = computed(() =>
     new Intl.DateTimeFormat('fr-FR', {
@@ -86,6 +92,35 @@ const servicesPerimetre = computed(() => perimetre.value?.services ?? [])
 const serviceIdParam = computed(() =>
     serviceId.value > 0 ? serviceId.value : undefined
 )
+
+const periodeLibelle = computed(() => {
+    const p = periode.value
+    if (!p) return 'Période invalide'
+    if (mode.value === 'annee') return `Année ${annee.value}`
+    if (mode.value === 'mois') {
+        const libelle = moisOptions.find(option => option.value === mois.value)?.label
+        return `${libelle ?? mois.value} ${annee.value}`
+    }
+    if (mode.value === 'trimestre') {
+        const libelle = trimestres.find(option => option.value === trimestre.value)?.label
+        return `${libelle ?? `T${trimestre.value}`} ${annee.value}`
+    }
+    return `${p.debut} au ${p.fin}`
+})
+
+const serviceLibelle = computed(() => {
+    if (serviceId.value <= 0) return 'Tous les services'
+    const service = servicesPerimetre.value.find(element => element.id === serviceId.value)
+    return service?.libelle ?? perimetre.value?.service ?? `Service ${serviceId.value}`
+})
+
+const perimetreLibelle = computed(() => {
+    const p = perimetre.value
+    if (!p) return '—'
+    if (p.niveau === 'SERVICE') return p.service ?? 'Votre service'
+    if (p.niveau === 'DEPARTEMENT') return serviceLibelle.value
+    return 'Tous les services'
+})
 
 async function chargerPerimetre(): Promise<void> {
     const res = await getDashboardPerimetre()
@@ -137,6 +172,57 @@ const typesActiviteError = ref('')
 const plansOrigine = ref<PlanActionOrigine[]>([])
 const plansOrigineLoading = ref(false)
 const plansOrigineError = ref('')
+
+const chargementEnCours = computed(() => [
+    kpiLoading.value,
+    avancementLoading.value,
+    statutsLoading.value,
+    statutsPrioritesLoading.value,
+    servicesLoading.value,
+    ptaLoading.value,
+    echeancesLoading.value,
+    suiviPlansLoading.value,
+    typesActiviteLoading.value,
+    plansOrigineLoading.value,
+].some(Boolean))
+
+async function exporterExcel(): Promise<void> {
+    if (exportEnCours.value || chargementEnCours.value) return
+    if (!periode.value) {
+        erreurToast.value = 'Corrigez la période avant d’exporter le tableau de bord.'
+        return
+    }
+
+    exportEnCours.value = true
+
+    try {
+        const { exporterExcelDashboard } = await import('@/utils/exportDashboard')
+        const donnees: DonneesExportDashboard = {
+            periode: periode.value,
+            periodeLibelle: periodeLibelle.value,
+            perimetre: perimetre.value,
+            perimetreLibelle: perimetreLibelle.value,
+            serviceLibelle: serviceLibelle.value,
+            kpi: kpi.value,
+            avancement: avancement.value,
+            statuts: statuts.value,
+            statutsPriorites: statutsPriorites.value,
+            services: services.value,
+            comparaisonPta: comparaisonPta.value,
+            echeances: echeances.value,
+            suiviPlans: suiviPlans.value,
+            typesActivite: typesActivite.value,
+            plansOrigine: plansOrigine.value,
+        }
+
+        await exporterExcelDashboard(donnees)
+        succesToast.value = 'Le tableau de bord a été exporté en Excel.'
+    } catch {
+        erreurToast.value = 'Export impossible. Réessayez dans un instant.'
+    } finally {
+        exportEnCours.value = false
+    }
+}
 
 /**
  * Jeton de génération : une réponse arrivée après un changement de
@@ -344,6 +430,14 @@ watch(serviceId, () => {
             </div>
 
             <div class="welcome-row__right">
+                <BaseButton
+                    variant="secondary"
+                    icon="bi bi-file-earmark-excel"
+                    label="Exporter en Excel"
+                    :loading="exportEnCours"
+                    :disabled="!periode || chargementEnCours"
+                    @click="exporterExcel"
+                />
                 <button type="button" class="button primary" @click="nouvelleActivite">
                     <span class="button-plus" aria-hidden="true">＋</span>
                     <span>Nouvelle activité</span>

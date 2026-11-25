@@ -108,6 +108,12 @@ export const frontofficeRoutes: RouteRecordRaw[] = [
                 meta: { permissions: [permission(R.ACTIVITE, A.IMPORTER)] },
             },
             {
+                path: 'activites/importer/modele',
+                name: 'activites-importer-modele',
+                component: () => import('@/views/frontoffice/activites/ImportModelePage.vue'),
+                meta: { permissions: [permission(R.ACTIVITE, A.IMPORTER)] },
+            },
+            {
                 path: 'activites/:id(\\d+)/modifier',
                 name: 'activite-modifier',
                 component: () => import('@/views/frontoffice/activites/Ajout.vue'),

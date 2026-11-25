@@ -337,6 +337,56 @@ VALUES (
         'Validation par le chef de service puis par le chef de département.',
         TRUE
     );
+INSERT INTO etape_validation (
+        designation,
+        description,
+        niveau,
+        obligatoire,
+        actif,
+        date_desactivation,
+        id_procedure,
+        retour
+    )
+SELECT e.designation,
+    e.description,
+    e.niveau,
+    TRUE,
+    TRUE,
+    NULL,
+    p.id_procedure,
+    e.retour
+FROM "procedure" p
+    CROSS JOIN (
+        VALUES (
+                'Technicien',
+                'Vérification initiale de l''activité par le technicien.',
+                1,
+                FALSE
+            ),
+            (
+                'Superviseur',
+                'Vérification de l''activité par le superviseur.',
+                2,
+                FALSE
+            ),
+            (
+                'Chef de service',
+                'Vérification et validation de l''activité par le chef de service.',
+                3,
+                TRUE
+            ),
+            (
+                'Chef de département',
+                'Vérification et validation finale de l''activité par le chef de département.',
+                4,
+                TRUE
+            )
+    ) AS e(designation, description, niveau, retour)
+WHERE p.designation IN (
+        'Procédure de validation des activités PTA TSS',
+        'Procédure de validation des activités courantes TSS',
+        'Procédure de validation des plans d''action TSS'
+    );
 INSERT INTO poste (
         nom,
         effectif_prevu,
@@ -437,6 +487,35 @@ VALUES (
         NULL,
         FALSE
     );
+INSERT INTO etape_validation_decideur (id_etape_validation, id_poste)
+SELECT ev.id_etape_validation,
+    p.id_poste
+FROM etape_validation ev
+    JOIN "procedure" pr ON pr.id_procedure = ev.id_procedure
+    JOIN poste p ON (
+        ev.designation = 'Technicien'
+        AND p.nom = 'Technicien systèmes'
+    )
+    OR (
+        ev.designation = 'Superviseur'
+        AND p.nom = 'Superviseur installation'
+    )
+    OR (
+        ev.designation = 'Chef de service'
+        AND p.nom IN (
+            'Chef de service — Gestion des risques et Procédures',
+            'Chef de service — Gestion des systèmes de sécurité'
+        )
+    )
+    OR (
+        ev.designation = 'Chef de département'
+        AND p.nom = 'Chef de département TSS'
+    )
+WHERE pr.designation IN (
+        'Procédure de validation des activités PTA TSS',
+        'Procédure de validation des activités courantes TSS',
+        'Procédure de validation des plans d''action TSS'
+    ) ON CONFLICT (id_etape_validation, id_poste) DO NOTHING;
 -- =============================================================================
 -- 2. PERMISSIONS
 -- =============================================================================
@@ -452,133 +531,942 @@ INSERT INTO permission (
         actif,
         date_desactivation
     )
-VALUES
-    ('Consulter les activités', 'Consulter les activités.', 'activite', 'CONSULTER', TRUE, NULL),
-    ('Créer les activités', 'Créer les activités.', 'activite', 'CREER', TRUE, NULL),
-    ('Modifier les activités', 'Modifier les activités.', 'activite', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les activités', 'Désactiver les activités.', 'activite', 'DESACTIVER', TRUE, NULL),
-    ('Valider les activités', 'Valider les activités.', 'activite', 'VALIDER', TRUE, NULL),
-    ('Exporter les activités', 'Exporter les activités.', 'activite', 'EXPORTER', TRUE, NULL),
-    ('Importer les activités', 'Importer les activités.', 'activite', 'IMPORTER', TRUE, NULL),
-    ('Affecter les activités', 'Affecter les activités.', 'activite', 'AFFECTER', TRUE, NULL),
-    ('Consulter les sous-activités', 'Consulter les sous-activités.', 'sous_activite', 'CONSULTER', TRUE, NULL),
-    ('Créer les sous-activités', 'Créer les sous-activités.', 'sous_activite', 'CREER', TRUE, NULL),
-    ('Modifier les sous-activités', 'Modifier les sous-activités.', 'sous_activite', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les sous-activités', 'Désactiver les sous-activités.', 'sous_activite', 'DESACTIVER', TRUE, NULL),
-    ('Importer les sous-activités', 'Importer les sous-activités.', 'sous_activite', 'IMPORTER', TRUE, NULL),
-    ('Affecter les sous-activités', 'Affecter les sous-activités.', 'sous_activite', 'AFFECTER', TRUE, NULL),
-    ('Consulter les livrables', 'Consulter les livrables.', 'livrable', 'CONSULTER', TRUE, NULL),
-    ('Créer les livrables', 'Créer les livrables.', 'livrable', 'CREER', TRUE, NULL),
-    ('Modifier les livrables', 'Modifier les livrables.', 'livrable', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les livrables', 'Désactiver les livrables.', 'livrable', 'DESACTIVER', TRUE, NULL),
-    ('Consulter les fichiers', 'Consulter les fichiers.', 'fichier', 'CONSULTER', TRUE, NULL),
-    ('Créer les fichiers', 'Créer les fichiers.', 'fichier', 'CREER', TRUE, NULL),
-    ('Consulter les avancements de sous-activité', 'Consulter les avancements de sous-activité.', 'avancement_sous_activite', 'CONSULTER', TRUE, NULL),
-    ('Créer les avancements de sous-activité', 'Créer les avancements de sous-activité.', 'avancement_sous_activite', 'CREER', TRUE, NULL),
-    ('Modifier les avancements de sous-activité', 'Modifier les avancements de sous-activité.', 'avancement_sous_activite', 'MODIFIER', TRUE, NULL),
-    ('Consulter les objectifs spécifiques', 'Consulter les objectifs spécifiques.', 'objectif_specifique', 'CONSULTER', TRUE, NULL),
-    ('Créer les objectifs spécifiques', 'Créer les objectifs spécifiques.', 'objectif_specifique', 'CREER', TRUE, NULL),
-    ('Modifier les objectifs spécifiques', 'Modifier les objectifs spécifiques.', 'objectif_specifique', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les objectifs spécifiques', 'Désactiver les objectifs spécifiques.', 'objectif_specifique', 'DESACTIVER', TRUE, NULL),
-    ('Consulter les validations d''activité', 'Consulter les validations d''activité.', 'validation_activite', 'CONSULTER', TRUE, NULL),
-    ('Valider les validations d''activité', 'Valider les validations d''activité.', 'validation_activite', 'VALIDER', TRUE, NULL),
-    ('Consulter les validations de plan d''action', 'Consulter les validations de plan d''action.', 'validation_plan_action', 'CONSULTER', TRUE, NULL),
-    ('Valider les validations de plan d''action', 'Valider les validations de plan d''action.', 'validation_plan_action', 'VALIDER', TRUE, NULL),
-    ('Consulter les affectations d''activité', 'Consulter les affectations d''activité.', 'affectation_activite', 'CONSULTER', TRUE, NULL),
-    ('Affecter les affectations d''activité', 'Affecter les affectations d''activité.', 'affectation_activite', 'AFFECTER', TRUE, NULL),
-    ('Consulter les affectations de sous-activité', 'Consulter les affectations de sous-activité.', 'affectation_sous_activite', 'CONSULTER', TRUE, NULL),
-    ('Affecter les affectations de sous-activité', 'Affecter les affectations de sous-activité.', 'affectation_sous_activite', 'AFFECTER', TRUE, NULL),
-    ('Consulter les demandes de reprise', 'Consulter les demandes de reprise.', 'demande_reprise', 'CONSULTER', TRUE, NULL),
-    ('Créer les demandes de reprise', 'Créer les demandes de reprise.', 'demande_reprise', 'CREER', TRUE, NULL),
-    ('Modifier les demandes de reprise', 'Modifier les demandes de reprise.', 'demande_reprise', 'MODIFIER', TRUE, NULL),
-    ('Valider les demandes de reprise', 'Valider les demandes de reprise.', 'demande_reprise', 'VALIDER', TRUE, NULL),
-    ('Consulter les demandes de reprise de plan', 'Consulter les demandes de reprise de plan.', 'demande_reprise_plan', 'CONSULTER', TRUE, NULL),
-    ('Créer les demandes de reprise de plan', 'Créer les demandes de reprise de plan.', 'demande_reprise_plan', 'CREER', TRUE, NULL),
-    ('Modifier les demandes de reprise de plan', 'Modifier les demandes de reprise de plan.', 'demande_reprise_plan', 'MODIFIER', TRUE, NULL),
-    ('Valider les demandes de reprise de plan', 'Valider les demandes de reprise de plan.', 'demande_reprise_plan', 'VALIDER', TRUE, NULL),
-    ('Consulter les plans d''action', 'Consulter les plans d''action.', 'plan_action', 'CONSULTER', TRUE, NULL),
-    ('Créer les plans d''action', 'Créer les plans d''action.', 'plan_action', 'CREER', TRUE, NULL),
-    ('Modifier les plans d''action', 'Modifier les plans d''action.', 'plan_action', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les plans d''action', 'Désactiver les plans d''action.', 'plan_action', 'DESACTIVER', TRUE, NULL),
-    ('Valider les plans d''action', 'Valider les plans d''action.', 'plan_action', 'VALIDER', TRUE, NULL),
-    ('Exporter les plans d''action', 'Exporter les plans d''action.', 'plan_action', 'EXPORTER', TRUE, NULL),
-    ('Consulter les avancements de plan d''action', 'Consulter les avancements de plan d''action.', 'avancement_plan_action', 'CONSULTER', TRUE, NULL),
-    ('Créer les avancements de plan d''action', 'Créer les avancements de plan d''action.', 'avancement_plan_action', 'CREER', TRUE, NULL),
-    ('Modifier les avancements de plan d''action', 'Modifier les avancements de plan d''action.', 'avancement_plan_action', 'MODIFIER', TRUE, NULL),
-    ('Consulter les indicateurs', 'Consulter les indicateurs.', 'indicateur', 'CONSULTER', TRUE, NULL),
-    ('Créer les indicateurs', 'Créer les indicateurs.', 'indicateur', 'CREER', TRUE, NULL),
-    ('Modifier les indicateurs', 'Modifier les indicateurs.', 'indicateur', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les indicateurs', 'Désactiver les indicateurs.', 'indicateur', 'DESACTIVER', TRUE, NULL),
-    ('Activer les indicateurs', 'Activer les indicateurs.', 'indicateur', 'ACTIVER', TRUE, NULL),
-    ('Importer les indicateurs', 'Importer les indicateurs.', 'indicateur', 'IMPORTER', TRUE, NULL),
-    ('Affecter les indicateurs', 'Affecter les indicateurs.', 'indicateur', 'AFFECTER', TRUE, NULL),
-    ('Consulter les valeurs d''indicateur', 'Consulter les valeurs d''indicateur.', 'valeur_indicateur', 'CONSULTER', TRUE, NULL),
-    ('Créer les valeurs d''indicateur', 'Créer les valeurs d''indicateur.', 'valeur_indicateur', 'CREER', TRUE, NULL),
-    ('Modifier les valeurs d''indicateur', 'Modifier les valeurs d''indicateur.', 'valeur_indicateur', 'MODIFIER', TRUE, NULL),
-    ('Consulter les signalements', 'Consulter les signalements.', 'signalement', 'CONSULTER', TRUE, NULL),
-    ('Créer les signalements', 'Créer les signalements.', 'signalement', 'CREER', TRUE, NULL),
-    ('Modifier les signalements', 'Modifier les signalements.', 'signalement', 'MODIFIER', TRUE, NULL),
-    ('Importer les signalements', 'Importer les signalements.', 'signalement', 'IMPORTER', TRUE, NULL),
-    ('Consulter les notifications', 'Consulter les notifications.', 'notification', 'CONSULTER', TRUE, NULL),
-    ('Modifier les notifications', 'Modifier les notifications.', 'notification', 'MODIFIER', TRUE, NULL),
-    ('Consulter le tableau de bord', 'Consulter le tableau de bord.', 'dashboard', 'CONSULTER', TRUE, NULL),
-    ('Consulter le suivi des membres', 'Consulter le suivi des membres.', 'membre_suivi', 'CONSULTER', TRUE, NULL),
-    ('Consulter les utilisateurs', 'Consulter les utilisateurs.', 'utilisateur', 'CONSULTER', TRUE, NULL),
-    ('Créer les utilisateurs', 'Créer les utilisateurs.', 'utilisateur', 'CREER', TRUE, NULL),
-    ('Modifier les utilisateurs', 'Modifier les utilisateurs.', 'utilisateur', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les utilisateurs', 'Désactiver les utilisateurs.', 'utilisateur', 'DESACTIVER', TRUE, NULL),
-    ('Activer les utilisateurs', 'Activer les utilisateurs.', 'utilisateur', 'ACTIVER', TRUE, NULL),
-    ('Consulter les départements', 'Consulter les départements.', 'departement', 'CONSULTER', TRUE, NULL),
-    ('Créer les départements', 'Créer les départements.', 'departement', 'CREER', TRUE, NULL),
-    ('Modifier les départements', 'Modifier les départements.', 'departement', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les départements', 'Désactiver les départements.', 'departement', 'DESACTIVER', TRUE, NULL),
-    ('Activer les départements', 'Activer les départements.', 'departement', 'ACTIVER', TRUE, NULL),
-    ('Consulter les services', 'Consulter les services.', 'service', 'CONSULTER', TRUE, NULL),
-    ('Créer les services', 'Créer les services.', 'service', 'CREER', TRUE, NULL),
-    ('Modifier les services', 'Modifier les services.', 'service', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les services', 'Désactiver les services.', 'service', 'DESACTIVER', TRUE, NULL),
-    ('Activer les services', 'Activer les services.', 'service', 'ACTIVER', TRUE, NULL),
-    ('Consulter les postes', 'Consulter les postes.', 'poste', 'CONSULTER', TRUE, NULL),
-    ('Créer les postes', 'Créer les postes.', 'poste', 'CREER', TRUE, NULL),
-    ('Modifier les postes', 'Modifier les postes.', 'poste', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les postes', 'Désactiver les postes.', 'poste', 'DESACTIVER', TRUE, NULL),
-    ('Activer les postes', 'Activer les postes.', 'poste', 'ACTIVER', TRUE, NULL),
-    ('Consulter les rôles', 'Consulter les rôles.', 'role', 'CONSULTER', TRUE, NULL),
-    ('Créer les rôles', 'Créer les rôles.', 'role', 'CREER', TRUE, NULL),
-    ('Modifier les rôles', 'Modifier les rôles.', 'role', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les rôles', 'Désactiver les rôles.', 'role', 'DESACTIVER', TRUE, NULL),
-    ('Activer les rôles', 'Activer les rôles.', 'role', 'ACTIVER', TRUE, NULL),
-    ('Consulter les permissions', 'Consulter les permissions.', 'permission', 'CONSULTER', TRUE, NULL),
-    ('Consulter les permissions de poste', 'Consulter les permissions de poste.', 'poste_permission', 'CONSULTER', TRUE, NULL),
-    ('Affecter les permissions de poste', 'Affecter les permissions de poste.', 'poste_permission', 'AFFECTER', TRUE, NULL),
-    ('Modifier les permissions de poste', 'Modifier les permissions de poste.', 'poste_permission', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les permissions de poste', 'Désactiver les permissions de poste.', 'poste_permission', 'DESACTIVER', TRUE, NULL),
-    ('Consulter les types d''activité', 'Consulter les types d''activité.', 'type_activite', 'CONSULTER', TRUE, NULL),
-    ('Créer les types d''activité', 'Créer les types d''activité.', 'type_activite', 'CREER', TRUE, NULL),
-    ('Modifier les types d''activité', 'Modifier les types d''activité.', 'type_activite', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les types d''activité', 'Désactiver les types d''activité.', 'type_activite', 'DESACTIVER', TRUE, NULL),
-    ('Activer les types d''activité', 'Activer les types d''activité.', 'type_activite', 'ACTIVER', TRUE, NULL),
-    ('Consulter les sites', 'Consulter les sites.', 'site', 'CONSULTER', TRUE, NULL),
-    ('Créer les sites', 'Créer les sites.', 'site', 'CREER', TRUE, NULL),
-    ('Modifier les sites', 'Modifier les sites.', 'site', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les sites', 'Désactiver les sites.', 'site', 'DESACTIVER', TRUE, NULL),
-    ('Activer les sites', 'Activer les sites.', 'site', 'ACTIVER', TRUE, NULL),
-    ('Consulter les priorités', 'Consulter les priorités.', 'priorite', 'CONSULTER', TRUE, NULL),
-    ('Consulter les statuts', 'Consulter les statuts.', 'statut', 'CONSULTER', TRUE, NULL),
-    ('Consulter les procédures', 'Consulter les procédures.', 'procedure', 'CONSULTER', TRUE, NULL),
-    ('Créer les procédures', 'Créer les procédures.', 'procedure', 'CREER', TRUE, NULL),
-    ('Modifier les procédures', 'Modifier les procédures.', 'procedure', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les procédures', 'Désactiver les procédures.', 'procedure', 'DESACTIVER', TRUE, NULL),
-    ('Activer les procédures', 'Activer les procédures.', 'procedure', 'ACTIVER', TRUE, NULL),
-    ('Consulter les paramètres', 'Consulter les paramètres.', 'parametre', 'CONSULTER', TRUE, NULL),
-    ('Modifier les paramètres', 'Modifier les paramètres.', 'parametre', 'MODIFIER', TRUE, NULL),
-    ('Désactiver les paramètres', 'Désactiver les paramètres.', 'parametre', 'DESACTIVER', TRUE, NULL),
-    ('Activer les paramètres', 'Activer les paramètres.', 'parametre', 'ACTIVER', TRUE, NULL),
-    ('Consulter les résultats intermédiaires', 'Consulter les résultats intermédiaires.', 'resultat_intermediaire', 'CONSULTER', TRUE, NULL),
-    ('Créer les résultats intermédiaires', 'Créer les résultats intermédiaires.', 'resultat_intermediaire', 'CREER', TRUE, NULL),
-    ('Modifier les résultats intermédiaires', 'Modifier les résultats intermédiaires.', 'resultat_intermediaire', 'MODIFIER', TRUE, NULL),
-    ('Importer les résultats intermédiaires', 'Importer les résultats intermédiaires.', 'resultat_intermediaire', 'IMPORTER', TRUE, NULL);
-
+VALUES (
+        'Consulter les activités',
+        'Consulter les activités.',
+        'activite',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les activités',
+        'Créer les activités.',
+        'activite',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les activités',
+        'Modifier les activités.',
+        'activite',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les activités',
+        'Désactiver les activités.',
+        'activite',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Valider les activités',
+        'Valider les activités.',
+        'activite',
+        'VALIDER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Exporter les activités',
+        'Exporter les activités.',
+        'activite',
+        'EXPORTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Importer les activités',
+        'Importer les activités.',
+        'activite',
+        'IMPORTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Affecter les activités',
+        'Affecter les activités.',
+        'activite',
+        'AFFECTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les sous-activités',
+        'Consulter les sous-activités.',
+        'sous_activite',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les sous-activités',
+        'Créer les sous-activités.',
+        'sous_activite',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les sous-activités',
+        'Modifier les sous-activités.',
+        'sous_activite',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les sous-activités',
+        'Désactiver les sous-activités.',
+        'sous_activite',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Importer les sous-activités',
+        'Importer les sous-activités.',
+        'sous_activite',
+        'IMPORTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Affecter les sous-activités',
+        'Affecter les sous-activités.',
+        'sous_activite',
+        'AFFECTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les livrables',
+        'Consulter les livrables.',
+        'livrable',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les livrables',
+        'Créer les livrables.',
+        'livrable',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les livrables',
+        'Modifier les livrables.',
+        'livrable',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les livrables',
+        'Désactiver les livrables.',
+        'livrable',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les fichiers',
+        'Consulter les fichiers.',
+        'fichier',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les fichiers',
+        'Créer les fichiers.',
+        'fichier',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les avancements de sous-activité',
+        'Consulter les avancements de sous-activité.',
+        'avancement_sous_activite',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les avancements de sous-activité',
+        'Créer les avancements de sous-activité.',
+        'avancement_sous_activite',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les avancements de sous-activité',
+        'Modifier les avancements de sous-activité.',
+        'avancement_sous_activite',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les objectifs spécifiques',
+        'Consulter les objectifs spécifiques.',
+        'objectif_specifique',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les objectifs spécifiques',
+        'Créer les objectifs spécifiques.',
+        'objectif_specifique',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les objectifs spécifiques',
+        'Modifier les objectifs spécifiques.',
+        'objectif_specifique',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les validations d''activité',
+        'Consulter les validations d''activité.',
+        'validation_activite',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les validations de plan d''action',
+        'Consulter les validations de plan d''action.',
+        'validation_plan_action',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les affectations d''activité',
+        'Consulter les affectations d''activité.',
+        'affectation_activite',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les affectations de sous-activité',
+        'Consulter les affectations de sous-activité.',
+        'affectation_sous_activite',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les demandes de reprise',
+        'Consulter les demandes de reprise.',
+        'demande_reprise',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les demandes de reprise',
+        'Créer les demandes de reprise.',
+        'demande_reprise',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les demandes de reprise',
+        'Modifier les demandes de reprise.',
+        'demande_reprise',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Valider les demandes de reprise',
+        'Valider les demandes de reprise.',
+        'demande_reprise',
+        'VALIDER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les demandes de reprise de plan',
+        'Consulter les demandes de reprise de plan.',
+        'demande_reprise_plan',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les demandes de reprise de plan',
+        'Créer les demandes de reprise de plan.',
+        'demande_reprise_plan',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les demandes de reprise de plan',
+        'Modifier les demandes de reprise de plan.',
+        'demande_reprise_plan',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Valider les demandes de reprise de plan',
+        'Valider les demandes de reprise de plan.',
+        'demande_reprise_plan',
+        'VALIDER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les plans d''action',
+        'Consulter les plans d''action.',
+        'plan_action',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les plans d''action',
+        'Créer les plans d''action.',
+        'plan_action',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les plans d''action',
+        'Modifier les plans d''action.',
+        'plan_action',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les plans d''action',
+        'Désactiver les plans d''action.',
+        'plan_action',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Valider les plans d''action',
+        'Valider les plans d''action.',
+        'plan_action',
+        'VALIDER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Exporter les plans d''action',
+        'Exporter les plans d''action.',
+        'plan_action',
+        'EXPORTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les avancements de plan d''action',
+        'Consulter les avancements de plan d''action.',
+        'avancement_plan_action',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les avancements de plan d''action',
+        'Créer les avancements de plan d''action.',
+        'avancement_plan_action',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les avancements de plan d''action',
+        'Modifier les avancements de plan d''action.',
+        'avancement_plan_action',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les indicateurs',
+        'Consulter les indicateurs.',
+        'indicateur',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les indicateurs',
+        'Créer les indicateurs.',
+        'indicateur',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les indicateurs',
+        'Modifier les indicateurs.',
+        'indicateur',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les indicateurs',
+        'Désactiver les indicateurs.',
+        'indicateur',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Activer les indicateurs',
+        'Activer les indicateurs.',
+        'indicateur',
+        'ACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Importer les indicateurs',
+        'Importer les indicateurs.',
+        'indicateur',
+        'IMPORTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Affecter les indicateurs',
+        'Affecter les indicateurs.',
+        'indicateur',
+        'AFFECTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les valeurs d''indicateur',
+        'Consulter les valeurs d''indicateur.',
+        'valeur_indicateur',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les valeurs d''indicateur',
+        'Créer les valeurs d''indicateur.',
+        'valeur_indicateur',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les signalements',
+        'Consulter les signalements.',
+        'signalement',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les signalements',
+        'Créer les signalements.',
+        'signalement',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les signalements',
+        'Modifier les signalements.',
+        'signalement',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les notifications',
+        'Consulter les notifications.',
+        'notification',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter le tableau de bord',
+        'Consulter le tableau de bord.',
+        'dashboard',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter le suivi des membres',
+        'Consulter le suivi des membres.',
+        'membre_suivi',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les utilisateurs',
+        'Consulter les utilisateurs.',
+        'utilisateur',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les utilisateurs',
+        'Créer les utilisateurs.',
+        'utilisateur',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les utilisateurs',
+        'Modifier les utilisateurs.',
+        'utilisateur',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les utilisateurs',
+        'Désactiver les utilisateurs.',
+        'utilisateur',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Activer les utilisateurs',
+        'Activer les utilisateurs.',
+        'utilisateur',
+        'ACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les départements',
+        'Consulter les départements.',
+        'departement',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les départements',
+        'Créer les départements.',
+        'departement',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les départements',
+        'Modifier les départements.',
+        'departement',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les départements',
+        'Désactiver les départements.',
+        'departement',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Activer les départements',
+        'Activer les départements.',
+        'departement',
+        'ACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les services',
+        'Consulter les services.',
+        'service',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les services',
+        'Créer les services.',
+        'service',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les services',
+        'Modifier les services.',
+        'service',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les services',
+        'Désactiver les services.',
+        'service',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Activer les services',
+        'Activer les services.',
+        'service',
+        'ACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les postes',
+        'Consulter les postes.',
+        'poste',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les postes',
+        'Créer les postes.',
+        'poste',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les postes',
+        'Modifier les postes.',
+        'poste',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les postes',
+        'Désactiver les postes.',
+        'poste',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Activer les postes',
+        'Activer les postes.',
+        'poste',
+        'ACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les rôles',
+        'Consulter les rôles.',
+        'role',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les rôles',
+        'Créer les rôles.',
+        'role',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les rôles',
+        'Modifier les rôles.',
+        'role',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les rôles',
+        'Désactiver les rôles.',
+        'role',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Activer les rôles',
+        'Activer les rôles.',
+        'role',
+        'ACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les permissions',
+        'Consulter les permissions.',
+        'permission',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les permissions de poste',
+        'Consulter les permissions de poste.',
+        'poste_permission',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Affecter les permissions de poste',
+        'Affecter les permissions de poste.',
+        'poste_permission',
+        'AFFECTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les permissions de poste',
+        'Modifier les permissions de poste.',
+        'poste_permission',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les permissions de poste',
+        'Désactiver les permissions de poste.',
+        'poste_permission',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les types d''activité',
+        'Consulter les types d''activité.',
+        'type_activite',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les types d''activité',
+        'Créer les types d''activité.',
+        'type_activite',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les types d''activité',
+        'Modifier les types d''activité.',
+        'type_activite',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les types d''activité',
+        'Désactiver les types d''activité.',
+        'type_activite',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Activer les types d''activité',
+        'Activer les types d''activité.',
+        'type_activite',
+        'ACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les sites',
+        'Consulter les sites.',
+        'site',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les sites',
+        'Créer les sites.',
+        'site',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les sites',
+        'Modifier les sites.',
+        'site',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les sites',
+        'Désactiver les sites.',
+        'site',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Activer les sites',
+        'Activer les sites.',
+        'site',
+        'ACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les priorités',
+        'Consulter les priorités.',
+        'priorite',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les statuts',
+        'Consulter les statuts.',
+        'statut',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les procédures',
+        'Consulter les procédures.',
+        'procedure',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les procédures',
+        'Créer les procédures.',
+        'procedure',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les procédures',
+        'Modifier les procédures.',
+        'procedure',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les procédures',
+        'Désactiver les procédures.',
+        'procedure',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Activer les procédures',
+        'Activer les procédures.',
+        'procedure',
+        'ACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les paramètres',
+        'Consulter les paramètres.',
+        'parametre',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les paramètres',
+        'Modifier les paramètres.',
+        'parametre',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Désactiver les paramètres',
+        'Désactiver les paramètres.',
+        'parametre',
+        'DESACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Activer les paramètres',
+        'Activer les paramètres.',
+        'parametre',
+        'ACTIVER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Consulter les résultats intermédiaires',
+        'Consulter les résultats intermédiaires.',
+        'resultat_intermediaire',
+        'CONSULTER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Créer les résultats intermédiaires',
+        'Créer les résultats intermédiaires.',
+        'resultat_intermediaire',
+        'CREER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Modifier les résultats intermédiaires',
+        'Modifier les résultats intermédiaires.',
+        'resultat_intermediaire',
+        'MODIFIER',
+        TRUE,
+        NULL
+    ),
+    (
+        'Importer les résultats intermédiaires',
+        'Importer les résultats intermédiaires.',
+        'resultat_intermediaire',
+        'IMPORTER',
+        TRUE,
+        NULL
+    );
 -- Les permissions sont des données de référence : elles conditionnent l'accès
 -- aux écrans. Chaque poste reçoit l'ensemble des permissions actives, avec une
 -- portée adaptée à son niveau hiérarchique. Ce bloc doit rester dans data.sql
@@ -594,8 +1482,7 @@ SELECT p.id_poste,
     END::portee_permission
 FROM poste p
     CROSS JOIN permission perm
-WHERE perm.actif = TRUE
-ON CONFLICT (id_poste, id_permission) DO NOTHING;
+WHERE perm.actif = TRUE ON CONFLICT (id_poste, id_permission) DO NOTHING;
 -- =============================================================================
 -- 3. UTILISATEURS
 -- =============================================================================
@@ -631,7 +1518,7 @@ FROM (
         VALUES (
                 'RAKOTOARISOA',
                 'Andry',
-                'andry.rakotoarisoa@example.mg',
+                'nomenachristian04@gmail.com',
                 '+261 34 00 000 01',
                 'Chef de département TSS',
                 NULL
@@ -663,7 +1550,7 @@ FROM (
             (
                 'RAKOTONDRABE',
                 'Tiana',
-                'tiana.rakotondrabe@example.mg',
+                'myahaintso@gmail.com',
                 '+261 34 00 000 05',
                 'Chef de service — Gestion des systèmes de sécurité',
                 'Gestion des systèmes de sécurité'
@@ -679,7 +1566,7 @@ FROM (
             (
                 'RANDRIAMAMPIANINA',
                 'Haja',
-                'haja.randriamampianina@example.mg',
+                'randrichris17@gmail.com',
                 '+261 34 00 000 07',
                 'Superviseur installation',
                 'Gestion des systèmes de sécurité'
@@ -725,10 +1612,10 @@ FROM (
                 'Gestion des systèmes de sécurité'
             ),
             (
-                'RANDRICH',
-                'Chris',
-                'randrichris17@gmail.com',
-                NULL,
+                'RANDRIANARISOA',
+                'Christine',
+                'christine.randrianarisoa@example.mg',
+                '+261 34 00 000 13',
                 'Administrateur',
                 NULL
             )
@@ -753,17 +1640,6 @@ WHERE (
         FROM utilisateur e
         WHERE LOWER(e.email) = LOWER(u.email)
     );
-UPDATE utilisateur u
-SET id_poste = p.id_poste,
-    id_departement = d.id_departement,
-    id_service = NULL,
-    actif = TRUE,
-    date_desactivation = NULL
-FROM poste p
-    CROSS JOIN departement d
-WHERE lower(u.email) = lower('randrichris17@gmail.com')
-    AND p.nom = 'Administrateur'
-    AND d.code = 'TSS';
 INSERT INTO type_activite_service (id_service, id_type_activite)
 SELECT s.id_service,
     t.id_type_activite
@@ -1049,38 +1925,77 @@ VALUES (
 -- =============================================================================
 -- Les fixtures de démonstration sont isolées dans demo_etats_analyse.sql.
 INSERT INTO code_sequence (cle, dernier_numero)
-SELECT 'ACT:PTA:' || a.id_service || ':' || code_parts[1] || ':' || a.id_objectif_specifique,
-             MAX(code_parts[3]::INTEGER)
+SELECT 'ACT:PTA:' || a.id_service || ':' || code_parts [1] || ':' || a.id_objectif_specifique,
+    MAX(code_parts [3]::INTEGER)
 FROM activite a
-JOIN objectif_specifique os ON os.id_objectif_specifique = a.id_objectif_specifique
-CROSS JOIN LATERAL regexp_match(a.code, '^A-([0-9]{4})-([0-9]+)-([0-9]+)$') code_parts
-CROSS JOIN LATERAL regexp_match(os.code, '([0-9]+)$') objectif_parts
+    JOIN objectif_specifique os ON os.id_objectif_specifique = a.id_objectif_specifique
+    CROSS JOIN LATERAL regexp_match(a.code, '^A-([0-9]{4})-([0-9]+)-([0-9]+)$') code_parts
+    CROSS JOIN LATERAL regexp_match(os.code, '([0-9]+)$') objectif_parts
 WHERE code_parts IS NOT NULL
     AND objectif_parts IS NOT NULL
-    AND code_parts[2]::INTEGER = objectif_parts[1]::INTEGER
-GROUP BY code_parts[1], a.id_service, a.id_objectif_specifique
-ON CONFLICT (cle) DO UPDATE
-SET dernier_numero = GREATEST(code_sequence.dernier_numero, EXCLUDED.dernier_numero);
-
+    AND code_parts [2]::INTEGER = objectif_parts [1]::INTEGER
+GROUP BY code_parts [1],
+    a.id_service,
+    a.id_objectif_specifique ON CONFLICT (cle) DO
+UPDATE
+SET dernier_numero = GREATEST(
+        code_sequence.dernier_numero,
+        EXCLUDED.dernier_numero
+    );
 INSERT INTO code_sequence (cle, dernier_numero)
-SELECT 'ACT:NON_PTA:' || a.id_service || ':' || code_parts[1], MAX(code_parts[2]::INTEGER)
+SELECT 'ACT:NON_PTA:' || a.id_service || ':' || code_parts [1],
+    MAX(code_parts [2]::INTEGER)
 FROM activite a
-CROSS JOIN LATERAL regexp_match(a.code, '^A-([0-9]{4})-([0-9]+)$') code_parts
+    CROSS JOIN LATERAL regexp_match(a.code, '^A-([0-9]{4})-([0-9]+)$') code_parts
 WHERE a.id_objectif_specifique IS NULL
     AND code_parts IS NOT NULL
-GROUP BY a.id_service, code_parts[1]
-ON CONFLICT (cle) DO UPDATE
-SET dernier_numero = GREATEST(code_sequence.dernier_numero, EXCLUDED.dernier_numero);
-
+GROUP BY a.id_service,
+    code_parts [1] ON CONFLICT (cle) DO
+UPDATE
+SET dernier_numero = GREATEST(
+        code_sequence.dernier_numero,
+        EXCLUDED.dernier_numero
+    );
 INSERT INTO code_sequence (cle, dernier_numero)
 SELECT 'SA:' || parent.id_activite,
-             MAX(substring(sa.code FROM char_length('SA-' || substring(parent.code FROM 3) || '-') + 1)::INTEGER)
+    MAX(
+        substring(
+            sa.code
+            FROM char_length(
+                    'SA-' || substring(
+                        parent.code
+                        FROM 3
+                    ) || '-'
+                ) + 1
+        )::INTEGER
+    )
 FROM sous_activite sa
-JOIN activite parent ON parent.id_activite = sa.id_activite
-WHERE left(sa.code, char_length('SA-' || substring(parent.code FROM 3) || '-'))
-                = 'SA-' || substring(parent.code FROM 3) || '-'
-    AND substring(sa.code FROM char_length('SA-' || substring(parent.code FROM 3) || '-') + 1) ~ '^[0-9]+$'
-GROUP BY parent.id_activite
-ON CONFLICT (cle) DO UPDATE
-SET dernier_numero = GREATEST(code_sequence.dernier_numero, EXCLUDED.dernier_numero);
+    JOIN activite parent ON parent.id_activite = sa.id_activite
+WHERE left(
+        sa.code,
+        char_length(
+            'SA-' || substring(
+                parent.code
+                FROM 3
+            ) || '-'
+        )
+    ) = 'SA-' || substring(
+        parent.code
+        FROM 3
+    ) || '-'
+    AND substring(
+        sa.code
+        FROM char_length(
+                'SA-' || substring(
+                    parent.code
+                    FROM 3
+                ) || '-'
+            ) + 1
+    ) ~ '^[0-9]+$'
+GROUP BY parent.id_activite ON CONFLICT (cle) DO
+UPDATE
+SET dernier_numero = GREATEST(
+        code_sequence.dernier_numero,
+        EXCLUDED.dernier_numero
+    );
 COMMIT;
